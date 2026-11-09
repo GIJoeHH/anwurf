@@ -381,3 +381,11 @@ table.t tr.sel td:first-child { box-shadow: inset 3px 0 var(--act); }
 .cc-seg { align-self: flex-start; }
 .stars { color: var(--warn); letter-spacing: 1px; white-space: nowrap; } .stars .off { color: #33476a; }
 @media (max-width: 900px) { .g2 { grid-template-columns: 1fr; } .fc-grid { grid-template-columns: 1fr 1fr; } }
+
+/* Baustellensymbol hinter Stufenanzeigen (Vereinsstadt, Halle, Ausbaukarten) */
+.build-mark { display: inline-flex; align-items: center; color: #f5b301; margin-left: 5px; vertical-align: -2px; }
+.build-mark svg { filter: drop-shadow(0 0 3px rgba(245,179,1,.55)); }
+.lvl-row { display: inline-flex; align-items: center; gap: 2px; }
+.s3d-row .lvl-row { grid-column: 1 / -1; }
+.s3d-lbl .lvl-row { margin-top: 2px; }
+.s3d-lbl .lvl-row .lvlbar { margin-top: 0; }

@@ -527,11 +527,14 @@
   U.acts.camp = function (d) { var r = S.applyCamp(U.st, U.club(), d.k); if (!r.ok) U.toast(r.why); else U.modal('Trainingslager', '<p>' + esc(r.text) + '</p>', '<button class="primary" data-act="closeModal">OK</button>'); U.render(); };
 
   // ---------- Ausbaukarte (gemeinsam für Abteilungen, Stadion, Stadt) ----------
+  // Baustellensymbol hinter einer Stufenanzeige: „hier wird gerade gebaut“
+  U.buildMark = function (title) { return '<span class="build-mark" title="' + esc(title || 'Im Bau') + '">' + U.lc('construction', 13) + '</span>'; };
+  U.isBuilding = function (c, key) { return !!(c && c.construction && c.construction.some(function (x) { return x.key === key; })); };
   U.facilityCard = function (key, opts) {
     opts = opts || {};
     var st = U.st, c = U.club(), f = D.facilities[key], lvl = c.fac[key] != null ? c.fac[key] : (f.min || 0), cur = f.levels[lvl], max = f.levels.length - 1;
     var pv = E.buildPreview(st, c, key), can = E.canBuild(st, c, key), b = c.construction.filter(function (x) { return x.key === key; })[0];
-    var h = '<div class="panel"><div class="panel-h"><h3>' + f.name + '</h3><span class="tag">Stufe ' + lvl + '/' + max + '</span></div><div><b>' + esc(cur ? cur.n : '—') + '</b>' + (cur && cur.up ? ' <span class="muted small">· Unterhalt ' + money(cur.up) + '/Saison</span>' : '') + '</div>';
+    var h = '<div class="panel"><div class="panel-h"><h3>' + f.name + '</h3><span class="tag">Stufe ' + lvl + '/' + max + (b ? ' ' + U.buildMark('Im Bau: ' + f.levels[b.to].n) : '') + '</span></div><div><b>' + esc(cur ? cur.n : '—') + '</b>' + (cur && cur.up ? ' <span class="muted small">· Unterhalt ' + money(cur.up) + '/Saison</span>' : '') + '</div>';
     if (opts.extra) h += opts.extra;
     if (b) h += '<div class="small warn" style="margin-top:8px">🏗️ Im Bau: ' + esc(f.levels[b.to].n) + ' – noch ' + b.weeks + ' Wochen</div>' + U.bar(b.total - b.weeks, b.total, '#f5b301');
     else if (pv) {

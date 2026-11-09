@@ -19,7 +19,38 @@
     return '<div class="help" style="margin-bottom:12px">' + (area === 'sport' ? '🤖 Dieser Bereich wird vom KI-Trainer (' + esc(U.club().coach.name) + ', ' + esc(U.club().coach.profile) + ') verwaltet. Sie können alles einsehen.' : '🤖 Dieser Bereich wird von der KI-Geschäftsführung verwaltet. Sie können alles einsehen.') + '</div>';
   };
   U.go = function (screen, params) { U.screen = screen; U.p = params || {}; U.render(); var m = document.getElementById('main'); if (m) m.scrollTop = 0; };
+  // ---------- Private Original-Logos (Web-App: einmal importierte Datei daten/ANWURF_Logos.json) ----------
+  var LOGO_KEY = 'anwurf_logos', logoDone = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
+  U.storedLogos = function () { try { var v = JSON.parse(localStorage.getItem(LOGO_KEY) || 'null'); return v && v.logos ? v : null; } catch (e) { return null; } };
+  U.applyLogos = function (st, force) {
+    var L = U.storedLogos(); if (!st || !L) return 0;
+    if (!force && logoDone && logoDone.has(st)) return 0;
+    var n = 0; Object.keys(st.clubs).forEach(function (k) { var c = st.clubs[k], u = L.logos[c.name]; if (u && c.logoUrl !== u && !c.crestImage) { c.logoUrl = u; n++; } });
+    if (logoDone) logoDone.add(st); return n;
+  };
+  U.acts.importLogos = function () {
+    U.pickFile('.json,application/json', function (text) {
+      try {
+        var d = JSON.parse(text);
+        if (!d || d.format !== 'anwurf-logos' || !d.logos) throw new Error('Das ist keine ANWURF!-Logo-Datei (daten/ANWURF_Logos.json).');
+        try { localStorage.setItem(LOGO_KEY, JSON.stringify({ stamp: d.stamp, logos: d.logos })); } catch (e) { throw new Error('Der Browser erlaubt kein Speichern (privates Fenster?).'); }
+        var n = U.applyLogos(U.st, true); if (U.st) U.autosave();
+        U.toast(Object.keys(d.logos).length + ' Original-Logos importiert' + (U.st ? ' – ' + n + ' im laufenden Spiel ergänzt.' : '.')); U.render();
+      } catch (e) { U.modal('Logo-Import fehlgeschlagen', '<p>' + esc(e.message) + '</p>'); }
+    });
+  };
+  U.acts.removeLogos = function () {
+    var L = U.storedLogos(); try { localStorage.removeItem(LOGO_KEY); } catch (e) {}
+    if (U.st && L) {
+      var real = R.data.real, li = real ? real.clubCols.indexOf('logo') : -1, orig = {};
+      if (real) real.clubs.forEach(function (r) { if (r[li]) orig[r[0]] = r[li]; });
+      Object.keys(U.st.clubs).forEach(function (k) { var c = U.st.clubs[k]; if (L.logos[c.name] && c.logoUrl === L.logos[c.name]) { if (orig[c.name]) c.logoUrl = orig[c.name]; else delete c.logoUrl; } });
+      U.autosave();
+    }
+    U.toast('Importierte Logos entfernt.'); U.render();
+  };
   U.render = function () {
+    if (U.st) U.applyLogos(U.st);
     var app = document.getElementById('app');
     var inGame = !!U.st && ['start', 'wizard', 'load'].indexOf(U.screen) < 0;
     app.classList.toggle('nogame', !inGame);
@@ -310,7 +341,7 @@
 
   // ---------- Karriere-Assistent ----------
   U.wizPreview = function () {
-    if (!U.wiz.preview) { U.wiz.preview = W.newGame({ seed: U.wiz.seed, difficulty: U.wiz.difficulty, clubId: 'c1', world: U.wiz.world }); if (R.crests) R.crests.applyLibrary(U.wiz.preview); }
+    if (!U.wiz.preview) { U.wiz.preview = W.newGame({ seed: U.wiz.seed, difficulty: U.wiz.difficulty, clubId: 'c1', world: U.wiz.world }); if (R.crests) R.crests.applyLibrary(U.wiz.preview); U.applyLogos(U.wiz.preview, true); }
     return U.wiz.preview;
   };
   U.clubFacts = function (st, c) {
@@ -416,6 +447,7 @@
       else { opts.mode = 'existing'; opts.clubId = w.clubId; }
       U.st = W.newGame(opts);
       if (R.crests) R.crests.applyLibrary(U.st);
+      U.applyLogos(U.st, true);
       U.st.settings.difficulty = w.difficulty;
       U.wiz = null;
       U.autosave();

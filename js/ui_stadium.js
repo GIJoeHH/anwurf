@@ -5,21 +5,23 @@
   var U = R.ui, D = R.data, E = R.econ, SP = R.stadium, SM = R.stadiumModel, S3 = R.s3d, esc = R.esc, money = R.fmtMoney, num = R.fmtNum;
 
   function stufe(l, max) { var s = ''; for (var i = 0; i < max; i++) s += '<i class="' + (i < l ? 'on' : '') + '"></i>'; return '<span class="lvlbar">' + s + '</span>'; }
-  function badge(title, sub, l, max) { return '<b>' + esc(title) + '</b><span>' + esc(sub) + '</span>' + (max ? stufe(l, max) : ''); }
+  function badge(title, sub, l, max, busy) { return '<b>' + esc(title) + '</b><span>' + esc(sub) + '</span>' + (max ? '<span class="lvl-row">' + stufe(l, max) + (busy ? U.buildMark(typeof busy === 'string' ? busy : 'Im Bau') : '') + '</span>' : busy ? U.buildMark() : ''); }
+  // Wird in einem Bereich (N/S/W/E, Ecke) der Halle gebaut?
+  function areaBusy(m, a) { return m.jobs.some(function (j) { var s = m.sectors[j.sec]; return s && (s.area === a || (a === 'C' && s.side === 'C')); }); }
 
   // Callouts in der Halle: Ankerpunkte aus dem Modell
   function stadiumCallouts(m, c) {
     var G = SM.GEO, L = [], A = m.areas;
-    function side(a, x, y) { var ar = A[a]; L.push({ x: x, y: y, z: ar.top + 4, html: badge(SM.AREA_NAMES[a], ar.tiers ? ar.tiers + (ar.tiers === 1 ? ' Rang' : ' Ränge') + ' · ' + num(ar.cap) : 'Bauplatz', ar.tiers, 5), act: 'planSelArea', k: a }); }
+    function side(a, x, y) { var ar = A[a]; L.push({ x: x, y: y, z: ar.top + 4, html: badge(SM.AREA_NAMES[a], ar.tiers ? ar.tiers + (ar.tiers === 1 ? ' Rang' : ' Ränge') + ' · ' + num(ar.cap) : 'Bauplatz', ar.tiers, 5, areaBusy(m, a)), act: 'planSelArea', k: a }); }
     side('N', 0, -(G.Iy + A.N.depth * 0.5)); side('S', 0, G.Iy + A.S.depth * 0.5); side('W', -(G.Ix + A.W.depth * 0.5), 0); side('E', G.Ix + A.E.depth * 0.5, 0);
-    var ne = m.sectors.NE; L.push({ x: ne.center[0], y: ne.center[1], z: (ne.top || 2) + 3, html: badge('Ecken', m.closedCorners === 4 ? 'geschlossen ✓' : m.closedCorners + '/4 geschlossen', m.closedCorners, 4), act: 'planSelArea', k: 'NE' });
+    var ne = m.sectors.NE; L.push({ x: ne.center[0], y: ne.center[1], z: (ne.top || 2) + 3, html: badge('Ecken', m.closedCorners === 4 ? 'geschlossen ✓' : m.closedCorners + '/4 geschlossen', m.closedCorners, 4, areaBusy(m, 'C')), act: 'planSelArea', k: 'NE' });
     var fl = function (k) { return D.facilities[k].levels.length - 1; };
-    L.push({ x: -m.hall.x * 0.55, y: -m.hall.y * 0.7, z: m.roofH + 3, html: badge('Klima & Lüftung', D.facilities.dach.levels[m.levels.dach].n, m.levels.dach, fl('dach')), act: 'stadiumPart', k: 'dach' });
-    L.push({ x: m.hall.x * 0.45, y: -4, z: m.roofH - 1, html: badge('Hallenlicht & Show', 'Stufe ' + m.levels.licht + '/' + fl('licht'), m.levels.licht, fl('licht')), act: 'stadiumPart', k: 'licht' });
-    L.push({ x: 8, y: 6, z: 1.5, html: badge('Hallenboden', D.facilities.rasen.levels[m.levels.rasen].n, m.levels.rasen, fl('rasen')), act: 'stadiumPart', k: 'rasen' });
+    L.push({ x: -m.hall.x * 0.55, y: -m.hall.y * 0.7, z: m.roofH + 3, html: badge('Klima & Lüftung', D.facilities.dach.levels[m.levels.dach].n, m.levels.dach, fl('dach'), U.isBuilding(c, 'dach')), act: 'stadiumPart', k: 'dach' });
+    L.push({ x: m.hall.x * 0.45, y: -4, z: m.roofH - 1, html: badge('Hallenlicht & Show', 'Stufe ' + m.levels.licht + '/' + fl('licht'), m.levels.licht, fl('licht'), U.isBuilding(c, 'licht')), act: 'stadiumPart', k: 'licht' });
+    L.push({ x: 8, y: 6, z: 1.5, html: badge('Hallenboden', D.facilities.rasen.levels[m.levels.rasen].n, m.levels.rasen, fl('rasen'), U.isBuilding(c, 'rasen')), act: 'stadiumPart', k: 'rasen' });
     L.push({ x: 18, y: -(G.Iy + Math.min(A.N.depth, 12)), z: Math.max(A.N.top * 0.6, 5), html: badge('VIP & Hospitality', num(m.vip) + ' Plätze · Stufe ' + m.levels.hosp + '/3', m.levels.hosp, 3), act: 'stadiumPart', k: 'hosp' });
     var scr = m.parts.filter(function (p) { return p.kind === 'screen'; })[0];
-    if (scr) L.push({ x: scr.x, y: scr.cube ? 0 : scr.y + 6, z: scr.z + scr.hgt + 1, html: badge(scr.cube ? 'Videowürfel' : scr.live ? 'Anzeigetafel (elektronisch)' : 'Anzeigetafel', 'Stufe ' + m.levels.video + '/' + (D.facilities.video.levels.length - 1), m.levels.video, D.facilities.video.levels.length - 1), act: 'stadiumPart', k: 'video' });
+    if (scr) L.push({ x: scr.x, y: scr.cube ? 0 : scr.y + 6, z: scr.z + scr.hgt + 1, html: badge(scr.cube ? 'Videowürfel' : scr.live ? 'Anzeigetafel (elektronisch)' : 'Anzeigetafel', 'Stufe ' + m.levels.video + '/' + (D.facilities.video.levels.length - 1), m.levels.video, D.facilities.video.levels.length - 1, U.isBuilding(c, 'video')), act: 'stadiumPart', k: 'video' });
     if (m.guest.area) L.push({ x: m.guest.center[0], y: m.guest.center[1], z: (m.sectors[m.guest.sector].top || 2) + 2, html: '<b>Gästeblock</b><span>' + m.guest.sector + ' · ' + num(m.guest.cap) + '</span>', cls: 'guest', act: 'planSelArea', k: m.guest.sector });
     m.jobs.forEach(function (j) { var s = m.sectors[j.sec]; L.push({ x: s.center[0], y: s.center[1], z: Math.max(10, s.top + 6), html: '<b>🚧 Baustelle ' + j.sec + '</b><span>noch ' + j.weeks + ' Wo.</span>', cls: 'site', act: 'planSelArea', k: j.sec }); });
     return L;
@@ -28,7 +30,9 @@
     var rows = SM.summary(m);
     return '<div class="s3d-panel"><div class="s3d-panel-h"><span class="s3d-ic">' + U.lc('stadium', 22) + '</span><div><b>' + esc(title || c.stadiumName) + '</b><span>' + SM.STAGES[m.stage] + '</span></div></div>' +
       '<div class="s3d-kv"><div><span>Kapazität</span><b>' + num(m.capacity) + '</b></div><div><span>Attraktivität</span><b>' + E.attractiveness(c) + '<small>/100</small></b></div></div>' +
-      '<div class="s3d-sub">Hallenstufe ' + m.stage + '/6 · Ausstattung</div>' + rows.map(function (r) { return '<div class="s3d-row"><span>' + esc(r.n) + '</span><em>' + esc(r.txt) + '</em>' + stufe(r.l, r.max) + '</div>'; }).join('') + '</div>';
+      '<div class="s3d-sub">Hallenstufe ' + m.stage + '/6 · Ausstattung</div>' + rows.map(function (r) {
+        var busy = r.id.length === 1 ? areaBusy(m, r.id) : U.isBuilding(c, r.id === 'vip' ? 'hosp' : r.id) || (r.id === 'vip' && U.isBuilding(c, 'vip'));
+        return '<div class="s3d-row"><span>' + esc(r.n) + '</span><em>' + esc(r.txt) + '</em><span class="lvl-row">' + stufe(r.l, r.max) + (busy ? U.buildMark() : '') + '</span></div>'; }).join('') + '</div>';
   }
 
   // ---------- Hallenansicht (oben auf dem Hallen-Bildschirm) ----------
@@ -122,7 +126,7 @@
   U.cityStage = function (st, c) {
     var m = SM.build(c), blds = SM.city(c), keysRev = ['fanshop', 'restaurant', 'cafe', 'hotel', 'museum', 'eventhalle', 'erlebnis', 'gewerbe', 'solar', 'geschaeft'];
     var labels = blds.filter(function (b) { return b.key !== 'strasse'; }).map(function (b) {
-      return { x: b.x, y: b.y, bld: b.key, html: badge(b.name.replace(' & Merchandising', '').replace('Öffentlicher Nahverkehr', 'Nahverkehr'), b.level ? 'Stufe ' + b.level + '/' + b.max : 'Bauplatz', b.level, b.max), cls: b.level ? '' : 'empty', act: 'cityPlot', k: b.key };
+      return { x: b.x, y: b.y, bld: b.key, html: badge(b.name.replace(' & Merchandising', '').replace('Öffentlicher Nahverkehr', 'Nahverkehr'), b.level ? 'Stufe ' + b.level + '/' + b.max : 'Bauplatz', b.level, b.max, U.isBuilding(c, b.key)), cls: b.level ? '' : 'empty', act: 'cityPlot', k: b.key };
     });
     labels.push({ x: 0, y: 0, z: Math.max(m.roofH, m.areas.N.top) + 10, html: badge(c.stadiumName, num(m.capacity) + ' Plätze', 0, 0), cls: 'main', act: 'nav-stadion' });
     var lv = 0, n = 0; Object.keys(D.facilities).forEach(function (k) { var f = D.facilities[k], l = c.fac[k] != null ? c.fac[k] : (f.min || 0); lv += l / (f.levels.length - 1); n++; });

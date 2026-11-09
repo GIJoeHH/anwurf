@@ -327,7 +327,7 @@
       if (on || hl) g += '<polygon points="' + pts(fp) + '" fill="' + (hl ? 'rgba(56,189,248,.18)' : 'rgba(251,191,36,.12)') + '" stroke="' + (hl ? '#38bdf8' : '#fbbf24') + '" stroke-width=".55" filter="url(#spGlow)" pointer-events="none"/>';
       if (x.guest) g += '<polygon class="guest" points="' + pts(fp) + '" fill="none" stroke="#ef4444" stroke-width=".45" data-gx="' + m.guest.center[0] + '" data-gy="' + m.guest.center[1] + '"/>';
       // Beschriftung
-      var c = x.center, lab = x.id + (x.guest ? ' · GÄSTE' : x.cap ? ' · ' + fmtN(x.cap) : '');
+      var c = x.center, lab = x.id + (x.guest ? ' · GÄSTE' : x.cap ? ' · ' + fmtN(x.cap) : '') + (x.job ? ' 🚧' : '');
       var fs = x.side === 'C' ? 1.5 : 1.9, wpx = lab.length * fs * 0.56 + 1.6;
       g += '<g class="lbl" pointer-events="none"><rect x="' + r1(c[0] - wpx / 2) + '" y="' + r1(c[1] - fs * 0.85) + '" width="' + r1(wpx) + '" height="' + r1(fs * 1.55) + '" rx="' + r1(fs * 0.5) + '" fill="' + (x.guest ? 'rgba(127,29,29,.88)' : 'rgba(11,20,36,.78)') + '"/>' +
         '<text x="' + c[0] + '" y="' + r1(c[1] + fs * 0.36) + '" text-anchor="middle" font-size="' + fs + '" font-weight="800" fill="' + (x.guest ? '#fecaca' : '#fff') + '">' + lab + '</text></g>';

@@ -190,7 +190,7 @@
     h += '<div class="row" style="margin:12px 0"><label class="row"><input type="checkbox" data-chg="cityAuto"' + (c.cityAutoBuild ? ' checked' : '') + (U.can('business') ? '' : ' disabled') + '> Wirtschaftsbetriebe automatisch verwalten (KI baut rentable Betriebe selbstständig aus)</label>' +
       '<span class="muted small">Preisniveau:</span><div class="seg">' + ['Günstig', 'Normal', 'Gehoben'].map(function (l, i) { return '<button class="sm ' + ((c.cityPrice == null ? 1 : c.cityPrice) === i ? 'on' : '') + '" data-act="cityPrice" data-v="' + i + '"' + (U.can('business') ? '' : ' disabled') + '>' + l + '</button>'; }).join('') + '</div></div>';
     h += '<div class="panel tight" style="margin-bottom:14px">' + U.table('cityT', [
-      { k: 'n', l: 'Betrieb', f: function (r) { return esc(r.n); } }, { k: 'lvl', l: 'Stufe', num: true, f: function (r) { return r.lvl + '/' + r.max; } },
+      { k: 'n', l: 'Betrieb', f: function (r) { return esc(r.n); } }, { k: 'lvl', l: 'Stufe', num: true, f: function (r) { return r.lvl + '/' + r.max + (U.isBuilding(c, r.id) ? ' ' + U.buildMark() : ''); } },
       { k: 'rev', l: 'Einnahmen/J.', num: true, f: function (r) { return money(r.rev); } }, { k: 'up', l: 'Kosten/J.', num: true, f: function (r) { return money(r.up); } },
       { k: 'net', l: 'Überschuss', num: true, f: function (r) { return '<span class="' + (r.net < 0 ? 'neg' : 'pos') + '">' + money(r.net) + '</span>'; } },
       { k: 'syn', l: 'Synergie', num: true, f: function (r) { return r.syn ? '+' + Math.round(r.syn * 100) + ' %' : '–'; } }

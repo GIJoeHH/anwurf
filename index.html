@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ANWURF! – Der Handball gehört dir</title>
+<link rel="stylesheet" href="style.css">
+<!-- Web-App (iPad: Safari → Teilen → „Zum Home-Bildschirm“) -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ANWURF!">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#0b1220">
+</head>
+<body>
+<div id="app">
+  <header id="topbar"></header>
+  <nav id="nav"></nav>
+  <main id="main"></main>
+</div>
+<div id="modal" class="hidden"></div>
+<div id="toast" class="hidden"></div>
+<script src="js/util.js"></script>
+<script src="js/version.js"></script>
+<script src="js/data.js"></script>
+<script src="js/data_real.js"></script>
+<script src="js/world.js"></script>
+<script src="js/match.js"></script>
+<script src="js/economy.js"></script>
+<script src="js/stadium.js"></script>
+<script src="js/transfers.js"></script>
+<script src="js/season.js"></script>
+<script src="js/deals.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/dbimport.js"></script>
+<script src="js/crests.js"></script>
+<script src="js/save.js"></script>
+<script src="js/ui_core.js"></script>
+<script src="js/ui_gfx.js"></script>
+<script src="js/ui_art.js"></script>
+<script src="js/ui_widgets.js"></script>
+<script src="js/ui_team.js"></script>
+<script src="js/ui_club.js"></script>
+<script src="js/ui_match.js"></script>
+<script src="js/ui_misc.js"></script>
+<script src="js/ui_deals.js"></script>
+<script src="js/touch.js"></script>
+<script src="js/numpad.js"></script>
+<script src="js/webapp.js"></script>
+<script>RFM.ui.boot();</script>
+</body>
+</html>

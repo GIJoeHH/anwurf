@@ -387,7 +387,8 @@
   };
   U.choice = function (key, val, cur, title, text) { return '<div class="choice ' + (cur === val ? 'on' : '') + '" data-act="wizSet" data-k="' + key + '" data-v="' + val + '"><h3>' + title + '</h3><div class="muted small">' + text + '</div></div>'; };
   U.field = function (label, inner) { return '<div class="f"><span>' + label + '</span>' + inner + '</div>'; };
-  U.acts.wizSet = function (d) { U.wiz[d.k] = d.v; if (d.k === 'mode') U.wiz.clubId = null; if (d.k === 'difficulty' || d.k === 'world') { U.wiz.preview = null; U.wiz.clubId = null; U.wiz.replace = null; } U.render(); };
+  U.acts.wizSet = function (d) { U.wiz[d.k] = d.v; if (d.k === 'mode') U.wiz.clubId = null; if (d.k === 'difficulty') U.wiz.preview = null; // Vereins-IDs bleiben gleich → gewählter Verein bleibt erhalten
+    if (d.k === 'world') { U.wiz.preview = null; U.wiz.clubId = null; U.wiz.replace = null; } U.render(); };
   U.acts.wizNext = function () { U.wiz.step++; U.render(); };
   U.acts.wizBack = function () { U.wiz.step--; U.render(); };
   U.acts.wizPickClub = function (d) { U.wiz.clubId = d.id; U.render(); };

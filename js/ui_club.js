@@ -224,8 +224,8 @@
     if (tab === 'uebersicht') {
       var lim = E.creditLimit(st, c), rate = E.loanRate(st, c);
       var row = function (ic, l, v, cls, sub, tone) { return '<div class="fin-row"><div class="ic-tile ' + (tone || '') + '">' + U.lc(ic, 19) + '</div><div class="fin-l"><span>' + l + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</div><b class="' + (cls || '') + '">' + v + '</b></div>'; };
-      var labels = st.settings.cheatEnabled ? [{ x: -13, y: 21.35, z: 2.6, html: 'BANKDIREKTOR', cls: 'director-sign', act: 'bankSign' }] : [];
-      h += '<div class="bank-hero"><div class="panel tight bank-img">' + (R.s3d ? R.s3d.host('bank', { kind: 'bank', model: R.stadiumModel.build(c), cam: 'bank', labels: labels, interactive: true, ratio: '16/10',
+      // Das BANKDIREKTOR-Schild hängt als Messingschild in 3D an der Fassade (anklickbar, springt nicht mit)
+      h += '<div class="bank-hero"><div class="panel tight bank-img">' + (R.s3d ? R.s3d.host('bank', { kind: 'bank', model: R.stadiumModel.build(c), cam: 'bank', labels: [], plaque: st.settings.cheatEnabled ? 'bankSign' : null, interactive: true, ratio: '16/10',
         fallback: '<div class="bank-fb">' + U.lc('landmark', 48) + '<b>Vereinsbank ' + esc(c.city) + '</b>' + (st.settings.cheatEnabled ? '<div class="director-sign static" data-act="bankSign">BANKDIREKTOR</div>' : '') + '</div>' }) : '') + '</div>';
       h += '<div class="panel"><div class="panel-h"><h2>' + U.lc('landmark', 17) + ' Finanzstatus</h2><span class="muted small">' + esc(c.name) + '</span></div>' +
         row('wallet', 'Girokonto', '<span data-cash>' + money(c.cash) + '</span>', c.cash < 0 ? 'neg' : '', c.cash < 0 ? 'Dispozins 12 %' : '', c.cash < 0 ? 'bad' : '') +
@@ -395,9 +395,9 @@
     if (U.cheatSessionSt !== st) {
       // erster Klick dieser Sitzung: Spruch
       U.cheatSessionSt = st;
-      U.modal(U.lc('lock', 16) + ' Geheimer Buchhaltungskeller', r.lines.map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('') + '<p class="pos"><b>+' + money(r.paid) + '</b> wurden Ihrem Vereinskonto gutgeschrieben.</p><p class="muted small">Jeder weitere Klick aufs Schild bringt einen zufälligen Betrag zwischen 100.000 € und 5 Mio. € (je höher, desto seltener).' + (r.first ? ' Dieser Spielstand ist jetzt als „mit Cheat“ markiert. Der Cheat kann in den Einstellungen deaktiviert werden.' : '') + '</p>', '<button class="primary" data-act="closeModal">Danke, Herr Buchungsfehler!</button>');
+      U.modal(U.lc('lock', 16) + ' Geheimer Buchhaltungskeller', r.lines.map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('') + '<p class="pos"><b>+' + money(r.paid) + '</b> wurden Ihrem Vereinskonto gutgeschrieben.</p><p class="muted small">Jeder weitere Klick aufs Schild bringt einen zufälligen Betrag zwischen 50.000 € und 2,5 Mio. € (je höher, desto seltener).' + (r.first ? ' Dieser Spielstand ist jetzt als „mit Cheat“ markiert. Der Cheat kann in den Einstellungen deaktiviert werden.' : '') + '</p>', '<button class="primary" data-act="closeModal">Danke, Herr Buchungsfehler!</button>');
     } else {
-      U.toast((r.jackpot ? '🎰 JACKPOT! ' : r.paid >= 2000000 ? '💰 ' : '') + '+' + money(r.paid) + ' · Kontostand ' + money(U.club().cash));
+      U.toast((r.jackpot ? '🎰 JACKPOT! ' : r.paid >= 1000000 ? '💰 ' : '') + '+' + money(r.paid) + ' · Kontostand ' + money(U.club().cash));
       var k = document.querySelector('#main [data-cash]'); if (k) k.textContent = money(U.club().cash);
     }
   };

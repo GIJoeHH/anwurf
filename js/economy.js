@@ -510,7 +510,7 @@
     st.cheatUsed = true; st.cheatTotal = (st.cheatTotal || 0) + amt;
     R.season.achieve(st, 'bankdirector');
     return {
-      paid: amt, first: firstEver, jackpot: amt >= 500000,
+      paid: amt, first: firstEver, jackpot: amt >= 2500000,
       lines: firstEver ? ['Sie haben versehentlich den geheimen Buchhaltungskeller geöffnet.', 'Herr Buchungsfehler hat eine Überweisung gefunden, die offenbar seit 1991 auf Bearbeitung wartet.']
         : [R.pick(D.cheatMessages)]
     };

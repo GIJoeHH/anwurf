@@ -991,6 +991,7 @@
     // Vereinbarte Wechsel zur neuen Saison (vor dem Vertragsablauf, damit niemand dazwischenfunkt)
     T.executePending(st, true);
     // Spieler: Verträge, Altern, Karriereende
+    T.pickTopLeavers(st);
     Object.keys(st.clubs).forEach(function (k) { var c = st.clubs[k]; if (!c.userControlled) T.aiRenewals(st, c); });
     T.returnLoans(st);
     var retired = 0;

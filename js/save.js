@@ -74,6 +74,7 @@
     if (Object.keys(st.clubs).length < 54) throw new Error('Spielstand unvollständig');
     st.settings = st.settings || {}; st.inbox = st.inbox || []; st.news = st.news || []; st.achievements = st.achievements || {};
     Object.keys(st.clubs).forEach(function (k) { var c = st.clubs[k]; c.construction = c.construction || []; c.portfolio = c.portfolio || {}; c.loans = c.loans || []; });
+    if (R.stadium) Object.keys(st.clubs).forEach(function (k) { if (st.clubs[k].stadium) R.stadium.migrate(st.clubs[k]); }); // Stadionplan v1 → v2
     if (R.deals) R.deals.ensureAll(st);
     R.rng.seed(st.rngState || st.seed || 1);
     return st;

@@ -1,10 +1,12 @@
 /* ANWURF! – Dunkelblau/Anthrazit mit grünen Akzenten */
 :root {
-  --bg: #0b1220; --bg2: #111a2e; --panel: #16213a; --panel2: #1c2a48; --line: #2a3b60;
-  --text: #e6ecf7; --muted: #8ea0c2; --green: #22c55e; --green2: #16a34a; --amber: #f5b301; --red: #ef4444; --blue: #3b82f6;
-  --mono: "SF Mono", Menlo, Monaco, Consolas, monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --r: 8px;
+  /* Designsystem 2.0 – Basiswerte (Details und Komponenten in design.css) */
+  --bg: #0B1426; --bg2: #101D32; --panel: #172640; --panel2: #20314C; --line: #2B4161;
+  --text: #EDF4FC; --muted: #9CAFC9; --green: #18B979; --green2: #12965f; --amber: #E9B44B; --red: #E35E63; --blue: #3C95E5;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: var(--sans); /* früher Monospace – jetzt Inter mit Tabellenziffern */
+  --retro: "SF Mono", Menlo, Monaco, Consolas, monospace; /* nur noch für Easter Eggs (Anzeigetafel, Torjubel, Logo) */
+  --r: 10px;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; -webkit-font-smoothing: antialiased; }
@@ -323,3 +325,75 @@ input.np-field { caret-color: transparent; cursor: pointer; }
 .crest-logo > svg { display: none; }
 .crest-logo.fail > img { display: none; }
 .crest-logo.fail > svg { display: block; }
+/* ---------- Stadion & Vereinsstadt in 3D (stadium3d.js / ui_stadium.js) ---------- */
+.stage3d { margin-bottom: 4px; }
+.s3d-wrap { position: relative; }
+.stage-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.stage-note { font-size: 12px; flex: 1; min-width: 160px; }
+.s3d { position: relative; width: 100%; border-radius: 14px; overflow: hidden; background: linear-gradient(180deg, #1b2a4a, #8a7fa0 52%, #f0a467 58%, #2a2e3a); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.35); user-select: none; -webkit-user-select: none; }
+.s3d-cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+.s3d.drag .s3d-cv { cursor: grabbing; }
+.s3d-labels { position: absolute; inset: 0; pointer-events: none; }
+.s3d-lbl { position: absolute; transform: translate(-50%, -100%); pointer-events: auto; cursor: pointer; background: rgba(10,18,34,.86); border: 1px solid rgba(148,163,184,.35); border-radius: 8px; padding: 4px 8px 5px; display: flex; flex-direction: column; gap: 1px; min-width: 84px; box-shadow: 0 4px 14px rgba(0,0,0,.45); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); white-space: nowrap; }
+.s3d-lbl::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 1px; height: 6px; background: rgba(226,232,240,.6); }
+.s3d-lbl b { font-size: 11.5px; color: #fff; font-weight: 700; }
+.s3d-lbl span { font-size: 10px; color: #b6c3da; }
+.s3d-lbl:hover { border-color: #fbbf24; background: rgba(20,32,58,.95); }
+.s3d-lbl.guest { border-color: #ef4444; background: rgba(90,16,16,.88); }
+.s3d-lbl.site { border-color: #f5b301; background: rgba(80,56,6,.88); }
+.s3d-lbl.main { border-color: rgba(96,165,250,.8); }
+.s3d-lbl.main b { font-size: 13px; }
+.s3d-lbl.empty { opacity: .78; }
+.lvlbar { display: inline-flex; gap: 2px; margin-top: 2px; }
+.lvlbar i { width: 12px; height: 4px; border-radius: 2px; background: rgba(148,163,184,.3); }
+.lvlbar i.on { background: #22c55e; }
+.s3d-hint { position: absolute; right: 10px; bottom: 8px; font-size: 10.5px; color: rgba(255,255,255,.75); background: rgba(10,18,34,.55); padding: 3px 8px; border-radius: 6px; pointer-events: none; }
+.s3d-panel { position: absolute; left: 12px; top: 12px; width: 236px; background: rgba(10,18,34,.86); border: 1px solid rgba(148,163,184,.3); border-radius: 12px; padding: 10px 12px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+.s3d-panel-h { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.s3d-panel-h b { display: block; font-size: 14px; }
+.s3d-panel-h span { font-size: 11px; color: #9fb0d0; }
+.s3d-ic { font-size: 22px; }
+.s3d-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+.s3d-kv div { background: rgba(255,255,255,.05); border-radius: 8px; padding: 5px 7px; }
+.s3d-kv span { display: block; font-size: 10px; color: #9fb0d0; }
+.s3d-kv b { font-size: 16px; }
+.s3d-kv small { font-size: 10px; color: #9fb0d0; }
+.s3d-sub { font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px; color: #9fb0d0; margin: 4px 0 4px; }
+.s3d-row { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; font-size: 11.5px; padding: 3px 0; border-top: 1px solid rgba(148,163,184,.12); }
+.s3d-row em { font-style: normal; color: #dbe4f3; text-align: right; }
+.s3d-row .lvlbar { grid-column: 1 / -1; }
+.s3d-fallback { padding: 30px; text-align: center; }
+.splan-wrap svg { display: block; width: 100%; height: auto; border-radius: 10px; }
+.splan2 .splan-sec { cursor: pointer; }
+.splan2 .splan-sec:hover .tier, .splan2 .splan-sec.empty:hover polygon { filter: brightness(1.18); }
+.splan-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 11.5px; color: #cbd5e1; }
+.splan-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -2px; }
+.splan-legend .lg-roof { border: 1px dashed #e2e8f0; background: rgba(226,232,240,.12); }
+.splan-legend .lg-guest { border: 2px solid #ef4444; }
+.splan-legend .lg-site { background: repeating-linear-gradient(45deg, #f5b301 0 2px, rgba(245,179,1,.15) 2px 5px); }
+.splan-legend .lg-mast { background: #fde68a; border-radius: 50%; }
+i.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+.opt-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.opt-card { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 9px; background: var(--panel2); border: 1px solid var(--line); color: var(--text); cursor: pointer; }
+.opt-card b { font-size: 12px; font-weight: 700; }
+.opt-card span { font-size: 11px; color: var(--muted); }
+.opt-card em { font-style: normal; font-size: 12px; color: #fbbf24; font-weight: 700; }
+.opt-card.on { border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,.35) inset; }
+.impact { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.imp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.imp-grid div { background: var(--panel2); border-radius: 8px; padding: 6px 8px; }
+.imp-grid .span2 { grid-column: 1 / -1; }
+.imp-grid span { display: block; font-size: 10.5px; color: var(--muted); }
+.imp-grid b { font-size: 13.5px; }
+.imp-prev { position: relative; margin: 10px 0; }
+.imp-tag { position: absolute; left: 8px; top: 8px; font-size: 10.5px; background: rgba(10,18,34,.8); color: #7dd3fc; padding: 3px 8px; border-radius: 6px; }
+.big-build { width: 100%; padding: 12px; font-size: 15px; font-weight: 800; background: #16a34a; border-color: #15803d; }
+.big-build:disabled { opacity: .5; }
+.thumb-panel .s3d { border: 0; border-radius: 0; box-shadow: none; }
+@media (max-width: 900px) {
+  .s3d-panel { position: static; width: auto; margin: 8px 0 0; }
+  .s3d-lbl { min-width: 0; padding: 3px 6px; }
+  .s3d-lbl b { font-size: 10.5px; }
+  .s3d-lbl .lvlbar { display: none; }
+}
+.plan2 > .splan-panel { position: sticky; top: 8px; align-self: start; }

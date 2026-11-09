@@ -147,7 +147,7 @@
     video: { name: 'Videowände', group: 'stadion', levels: [
       L('Anzeigetafel per Hand', 0, 0, 0, { att: 0 }), L('Elektronische Anzeigetafel', 300000, 3, 15000, { att: 3 }), L('Videowürfel unter dem Hallendach', 1500000, 6, 50000, { att: 6 })] },
     rasen: { name: 'Hallenboden', group: 'stadion', levels: [
-      L('Alter Linoleumboden', 0, 0, 10000, { att: 0, play: 0 }), L('Schwingboden', 150000, 2, 30000, { att: 2, play: 1 }), L('Parkettboden', 800000, 4, 70000, { att: 4, play: 2 }), L('Mobiler Profi-Sportboden', 2000000, 6, 120000, { att: 5, play: 3 })] },
+      L('Alter Linoleumboden', 0, 0, 10000, { att: 0, play: 0 }), L('Schwingboden', 150000, 2, 30000, { att: 2, play: 1 }), L('Parkettboden', 800000, 4, 70000, { att: 4, play: 2 }), L('Mobiler Profi-Sportboden', 2000000, 6, 120000, { att: 5, play: 3 }), L('LED-Glasboden', 3000000, 8, 180000, { att: 8, play: 3 })] },
     sanitaer: { name: 'Sanitäranlagen', group: 'stadion', levels: [
       L('Dixi-Klos', 0, 0, 5000, { att: 0 }), L('Toilettenhäuschen', 120000, 2, 15000, { att: 3 }), L('Moderne Sanitärblöcke', 500000, 4, 35000, { att: 6 }), L('Premium-Sanitär', 1500000, 6, 60000, { att: 8 })] },
     hosp: { name: 'Hospitality & Gastronomie', group: 'stadion', levels: [

@@ -241,7 +241,15 @@
         else if (squad.length > 26 && sell.ovr < 55) { T.release(st, sell); }
       }
     }
-    if (!T.windowOpen(st) || !R.chance(intensity)) return;
+    if (!T.windowOpen(st)) return;
+    // Vereinslose Spieler: In der Vorbereitung greifen KI-Vereine zu, wenn ein freier Spieler ihren Kader verstärkt
+    if (st.phase === 'preseason' && squad.length < 24 && R.chance(0.5)) {
+      var top14 = R.avg(squad.slice().sort(function (a, b) { return b.ovr - a.ovr; }).slice(0, 14), function (p) { return p.ovr; });
+      var fa = T.freeAgents(st).filter(function (p) { return !p.youth && p.age <= 33 && p.ovr >= top14 - 2 && !(p.topFree && (st.prep || 1) < 3); })
+        .sort(function (a, b) { return b.ovr - a.ovr; })[0];
+      if (fa) { var fw = Math.max(fa.wage, W.fairWage(fa)); if (fw <= Math.max(0, income * 0.62 - wageBill) + income * (fa.ovr >= 80 ? 0.2 : 0.08)) { T.executeTransfer(st, fa, club, 0, fw, R.randInt(1, 3)); squad = W.squad(st, club.id); } }
+    }
+    if (!R.chance(intensity)) return;
     squad = W.squad(st, club.id);
     // Schwachstelle: Position mit der schwächsten Stammbesetzung
     var need = { TW: [1, 2], AUS: [4, 7], RUE: [4, 7], KRS: [2, 4] };
@@ -300,13 +308,29 @@
     p.clubId = null; p.listed = false; p.contract = 0; p.loan = null; p.freeSince = st.season;
   };
 
-  // Vertragsverlängerung (KI, zum Saisonende)
+  // Vertragsverlängerung (KI, zum Saisonende). Läuft vor dem Herunterzählen der Laufzeit: Wer jetzt noch 1 Jahr hat,
+  // dessen Vertrag endet mit dieser Saison. Topspieler (Stärke 78+) werden immer gehalten – außer den wenigen, die
+  // T.pickTopLeavers ausgewählt hat. Gute, junge oder entwicklungsfähige Spieler werden meist verlängert, und der Kader
+  // fällt durch Vertragsabläufe nicht unter 16 Spieler.
+  T.TOP_FREE_PER_SEASON = 3;
+  T.pickTopLeavers = function (st) {
+    var c = [];
+    Object.keys(st.players).forEach(function (k) { var p = st.players[k], cl = p.clubId && st.clubs[p.clubId]; p.topLeave = false; if (cl && !cl.userControlled && !p.youth && !p.loan && p.contract <= 1 && p.ovr >= 80 && p.age <= 33) c.push(p); });
+    R.shuffle(c).slice(0, T.TOP_FREE_PER_SEASON).forEach(function (p) { p.topLeave = true; });
+  };
   T.aiRenewals = function (st, club) {
-    var squad = W.squad(st, club.id);
-    squad.forEach(function (p) {
-      if (p.contract > 0) return;
-      var keep = p.age < 33 && (p.ovr >= R.avg(squad, function (x) { return x.ovr; }) - 4 || p.pot > p.ovr + 6) && squad.length <= 26;
-      if (keep) { p.contract = R.randInt(1, 3); p.wage = R.round(Math.max(p.wage, W.fairWage(p)), 1000); }
+    var squad = W.squad(st, club.id), avg = R.avg(squad, function (x) { return x.ovr; });
+    var expiring = squad.filter(function (p) { return p.contract <= 1 && !p.loan && !p.listed; }).sort(function (a, b) { return b.ovr - a.ovr; });
+    var staying = squad.length - expiring.length;
+    expiring.forEach(function (p) {
+      if (p.topLeave) { p.topLeave = false; p.topFree = true; R.season.news(st, W.playerName(p) + ' verlässt ' + club.short + ' ablösefrei', 'Der Vertrag des ' + p.age + '-Jährigen (Stärke ' + p.ovr + ') wird nicht verlängert – ein Hochkaräter ist auf dem Markt.', 'transfer'); return; }
+      var star = p.ovr >= 78 && p.age <= 34;
+      var good = p.age < 34 && (p.ovr >= avg - 7 || p.pot > p.ovr + 5 || (p.age <= 23 && p.ovr >= avg - 12));
+      var needed = staying < 16 && p.age < 36;
+      if (star || ((good || needed) && staying < 24 && R.chance(good ? 0.80 : 0.75))) {
+        p.contract = 1 + R.randInt(1, p.age <= 28 ? 3 : 2); // +1, weil die Laufzeit direkt danach um ein Jahr sinkt
+        p.wage = R.round(Math.max(p.wage, W.fairWage(p)), 1000); staying++;
+      }
     });
   };
 })(RFM);

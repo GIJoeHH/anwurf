@@ -1,8 +1,9 @@
 /* ANWURF! – Service Worker für den Offline-Betrieb (automatisch erzeugt von web/deploy.sh, nicht von Hand ändern) */
-const VERSION = '3ab19fc6ad';
+const VERSION = 'c443a77d5c';
 const CACHE = 'anwurf-' + VERSION;
 const CORE = [
   './',
+  './design.css',
   './icons/icon-180.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -14,11 +15,14 @@ const CORE = [
   './js/deals.js',
   './js/economy.js',
   './js/editor.js',
+  './js/icons.js',
   './js/match.js',
   './js/numpad.js',
   './js/save.js',
   './js/season.js',
   './js/stadium.js',
+  './js/stadium3d.js',
+  './js/stadium_model.js',
   './js/touch.js',
   './js/transfers.js',
   './js/ui_art.js',
@@ -28,6 +32,7 @@ const CORE = [
   './js/ui_gfx.js',
   './js/ui_match.js',
   './js/ui_misc.js',
+  './js/ui_stadium.js',
   './js/ui_team.js',
   './js/ui_widgets.js',
   './js/util.js',
@@ -36,6 +41,10 @@ const CORE = [
   './js/world.js',
   './manifest.webmanifest',
   './style.css',
+  './vendor/LICENSE-lucide.txt',
+  './vendor/fonts/LICENSE-Inter.txt',
+  './vendor/fonts/inter-latin-var.woff2',
+  './vendor/three.min.js',
 ];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));

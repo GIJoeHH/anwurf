@@ -327,7 +327,7 @@
     // Vorplatz (Umlauf)
     sc.flat(bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1], '#cfc8b8', GROUND + 100, EDGE);
     // Rasen mit Schachbrett-Mähmuster
-    var gA = ['#7a9a45', '#3f9e45', '#38a447', '#35a84c'][rasen], gB = shade(gA, 1.12);
+    var gA = ['#7a9a45', '#3f9e45', '#38a447', '#35a84c', '#35a84c'][rasen], gB = shade(gA, 1.12);
     sc.flat(X - g + 0.4 * k, Y - g + 0.4 * k, PL + 2 * g - 0.8 * k, PW + 2 * g - 0.8 * k, '#2e7d3a', GROUND + 200);
     var nx = 12, ny = 8;
     for (var i = 0; i < nx; i++) for (var j = 0; j < ny; j++) sc.flat(X + i * PL / nx, Y + j * PW / ny, PL / nx, PW / ny, (i + j) % 2 ? gA : gB, GROUND + 201);

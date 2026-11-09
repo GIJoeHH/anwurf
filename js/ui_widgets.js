@@ -1,33 +1,26 @@
-// ANWURF! – Grafik-Bausteine: Symbole, Geldstapel, Verlaufsdiagramme, Anzeigen, Retro-Bankfenster
+// ANWURF! – Grafik-Bausteine: Symbole (Lucide), Kennzahl-Karten, Geldstapel, Verlaufsdiagramme, Anzeigen, Retro-Bankfenster
 (function (R) {
   var E = R.econ, U = R.ui;
   var esc = R.esc, money = R.fmtMoney;
   function f1(n) { return (Math.round(n * 10) / 10).toString(); }
   var uid = 0;
 
-  // ---------- Symbole (eigene SVGs, farbig) ----------
-  var ICONS = {
-    trophy: '<path d="M7 3h10v3h3v2a4 4 0 0 1-4 4h-.3A5 5 0 0 1 13 14.8V17h3v3H8v-3h3v-2.2A5 5 0 0 1 8.3 12H8a4 4 0 0 1-4-4V6h3V3zm-1 5a2 2 0 0 0 2 2V8H6zm12 0h-2v2a2 2 0 0 0 2-2z" fill="#f5c542" stroke="#8a6a12" stroke-width=".8"/>',
-    coins: '<ellipse cx="9" cy="17" rx="6" ry="2.4" fill="#d4a017"/><rect x="3" y="12" width="12" height="5" fill="#e8b923"/><ellipse cx="9" cy="12" rx="6" ry="2.4" fill="#f7d354" stroke="#a87c0c" stroke-width=".6"/><ellipse cx="15" cy="10" rx="6" ry="2.4" fill="#d4a017"/><rect x="9" y="5" width="12" height="5" fill="#e8b923"/><ellipse cx="15" cy="5" rx="6" ry="2.4" fill="#f7d354" stroke="#a87c0c" stroke-width=".6"/><text x="15" y="7" font-size="4.6" text-anchor="middle" font-weight="900" fill="#8a6a12">€</text>',
-    fans: '<circle cx="7" cy="8" r="3" fill="#f2c9a0"/><path d="M2 20c0-4 2.5-7 5-7s5 3 5 7z" fill="#e11d48"/><circle cx="17" cy="8" r="3" fill="#e8b48a"/><path d="M12 20c0-4 2.5-7 5-7s5 3 5 7z" fill="#2563eb"/><circle cx="12" cy="6" r="3.2" fill="#f0c7a0"/><path d="M6.5 21c0-4.5 2.6-8 5.5-8s5.5 3.5 5.5 8z" fill="#22c55e"/>',
-    stadium: '<ellipse cx="12" cy="14" rx="10" ry="6" fill="#94a3b8"/><ellipse cx="12" cy="13" rx="10" ry="6" fill="#cbd5e1" stroke="#64748b" stroke-width=".6"/><ellipse cx="12" cy="13" rx="6.5" ry="3.6" fill="#22a447"/><line x1="12" y1="9.4" x2="12" y2="16.6" stroke="#fff" stroke-width=".6"/><path d="M3 9l2-5M21 9l-2-5" stroke="#64748b" stroke-width="1"/><circle cx="5" cy="4" r="1.2" fill="#fde68a"/><circle cx="19" cy="4" r="1.2" fill="#fde68a"/>',
-    heart: '<path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z" fill="#ef4444" stroke="#7f1d1d" stroke-width=".8"/>',
-    bank: '<path d="M12 2l10 5H2z" fill="#c9a24a"/><rect x="3" y="8" width="18" height="2" fill="#e5d3a1"/><g fill="#efe3c0"><rect x="4.5" y="10" width="2.4" height="8"/><rect x="9" y="10" width="2.4" height="8"/><rect x="13" y="10" width="2.4" height="8"/><rect x="17.2" y="10" width="2.4" height="8"/></g><rect x="2" y="18" width="20" height="3" fill="#a8885a"/>',
-    debt: '<rect x="3" y="6" width="18" height="13" rx="2" fill="#7f1d1d"/><rect x="3" y="9" width="18" height="2.6" fill="#1f2937"/><path d="M6 15h6" stroke="#fca5a5" stroke-width="1.4"/><circle cx="18" cy="5" r="4" fill="#ef4444"/><path d="M16.3 5h3.4" stroke="#fff" stroke-width="1.4"/>',
-    piggy: '<ellipse cx="12" cy="13" rx="8" ry="6" fill="#f9a8d4" stroke="#9d174d" stroke-width=".7"/><circle cx="17" cy="11" r=".9" fill="#831843"/><rect x="10" y="6.4" width="4" height="1.2" rx=".5" fill="#831843"/><rect x="7" y="17.5" width="2.2" height="3" fill="#f472b6"/><rect x="14" y="17.5" width="2.2" height="3" fill="#f472b6"/><ellipse cx="20.5" cy="13" rx="1.6" ry="1.9" fill="#f472b6"/><circle cx="12" cy="3.5" r="2" fill="#f7d354" stroke="#a87c0c" stroke-width=".5"/>',
-    stocks: '<rect x="2" y="3" width="20" height="18" rx="2" fill="#0f172a"/><polyline points="4,17 8,12 11,14 15,8 20,6" fill="none" stroke="#22c55e" stroke-width="2"/><polygon points="20,6 17,5.5 19.5,9" fill="#22c55e"/>',
-    star: '<path d="M12 2l3 6.6 7 .8-5.2 4.8 1.4 7L12 17.8 5.8 21.2l1.4-7L2 9.4l7-.8z" fill="#fbbf24" stroke="#92400e" stroke-width=".8"/>',
-    traffic: '<rect x="2" y="13" width="20" height="5" rx="1" fill="#475569"/><path d="M4 15.5h3M10 15.5h3M16 15.5h3" stroke="#fff" stroke-width=".8"/><rect x="5" y="7" width="9" height="5" rx="1.5" fill="#ef4444"/><rect x="7" y="8" width="5" height="2.2" fill="#bfdbfe"/><circle cx="7" cy="12.4" r="1.3" fill="#111"/><circle cx="12.4" cy="12.4" r="1.3" fill="#111"/>',
-    city: '<rect x="2" y="10" width="6" height="11" fill="#c9a27e"/><path d="M2 10l3-3 3 3z" fill="#a65c42"/><rect x="9" y="4" width="6" height="17" fill="#8fa1cf"/><rect x="16" y="8" width="6" height="13" fill="#d9cfb8"/><g fill="#fde68a"><rect x="10.3" y="6" width="1.4" height="1.4"/><rect x="12.6" y="6" width="1.4" height="1.4"/><rect x="10.3" y="9" width="1.4" height="1.4"/><rect x="12.6" y="12" width="1.4" height="1.4"/><rect x="17.3" y="10" width="1.4" height="1.4"/><rect x="19.4" y="13" width="1.4" height="1.4"/></g>',
-    energy: '<path d="M13 2L4 14h7l-2 8 9-12h-7z" fill="#facc15" stroke="#854d0e" stroke-width=".8"/>',
-    growth: '<rect x="3" y="14" width="4" height="7" fill="#60a5fa"/><rect x="10" y="9" width="4" height="12" fill="#3b82f6"/><rect x="17" y="4" width="4" height="17" fill="#1d4ed8"/>',
-    ball: '<circle cx="12" cy="12" r="9.5" fill="#fff" stroke="#111" stroke-width=".9"/><path d="M12 7.5l3.6 2.6-1.4 4.3H9.8L8.4 10.1z" fill="#111"/><path d="M12 7.5V2.6M15.6 10.1l4.6-1.5M14.2 14.4l2.8 3.9M9.8 14.4L7 18.3M8.4 10.1L3.8 8.6" stroke="#111" stroke-width=".9"/>'
+  // Linien-Symbole (Lucide, js/icons.js). Alte Namen werden auf das einheitliche Symbolset abgebildet.
+  var ALIAS = { fans: 'users', heart: 'heart-pulse', bank: 'landmark', debt: 'credit-card', piggy: 'piggy-bank', stocks: 'chart-line', traffic: 'car', city: 'building-2', energy: 'zap', growth: 'trending-up', ball: 'target', home: 'house' };
+  var TONE = { trophy: 'warn', star: 'warn', coins: 'warn', heart: 'bad', debt: 'bad', growth: 'ok', energy: 'ok', piggy: 'ok' };
+  U.lc = function (name, size, cls) {
+    var n = ALIAS[name] || name, body = (R.ICONS && R.ICONS[n]) || (R.ICONS && R.ICONS.info) || '';
+    size = size || 18;
+    return '<svg class="lc' + (cls ? ' ' + cls : '') + '" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-hidden="true">' + body + '</svg>';
   };
-  U.icon = function (name, size) { size = size || 24; return '<svg class="ic-svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name] || '') + '</svg>'; };
-  // KPI-Kachel mit Symbol und optionaler Grafik darunter
+  U.icon = function (name, size) { return U.lc(name, size ? Math.round(size * 0.8) : 20); };
+  U.iconTone = function (name) { return TONE[name] || ''; };
+  // Kennzahl-Karte: Symbol in getönter Kachel, Beschriftung, Wert, optional Grafik darunter
   U.ikpi = function (icon, label, value, cls, extra) {
-    return '<div class="kpi ikpi"><div class="ikpi-top"><div class="ikpi-ic">' + U.icon(icon, 30) + '</div><div><div class="l">' + label + '</div><div class="v ' + (cls || '') + '">' + value + '</div></div></div>' + (extra ? '<div class="ikpi-x">' + extra + '</div>' : '') + '</div>';
+    return '<div class="kpi ikpi"><div class="ikpi-top"><div class="ikpi-ic ' + U.iconTone(icon) + '">' + U.lc(icon, 21) + '</div><div><div class="l">' + label + '</div><div class="v ' + (cls || '') + '">' + value + '</div></div></div>' + (extra ? '<div class="ikpi-x">' + extra + '</div>' : '') + '</div>';
   };
+  // Leerzustand mit Symbol und Text (statt großer leerer Flächen)
+  U.empty = function (icon, text) { return '<div class="empty-state">' + U.lc(icon || 'info', 20) + '<span>' + text + '</span></div>'; };
 
   // ---------- Geldstapel: Banknoten-Bündel & Münzen, wächst mit dem Kontostand ----------
   U.moneyArt = function (cash, w, h) {
@@ -80,41 +73,65 @@
     return s;
   };
   // ---------- Bilanzprognose: Kontostand bisher (durchgezogen) + Prognose bis Saisonende (gestrichelt) ----------
-  U.forecastChart = function (past, future, opts) {
-    opts = opts || {}; var w = 640, h = opts.h || 190, L = 84, Rr = 14, T = 14, B = 24;
+  // ---------- Liquiditätsdiagramm: Ist (durchgezogen), Prognose (gestrichelt), Unsicherheitsband, Achsen, Tooltip ----------
+  // past: Kontostände dieser Saison, pastW: zugehörige Spielwochen, future: Prognosepfad ab heute (E.forecast().path)
+  U.liqChart = function (past, pastW, future, o) {
+    o = o || {}; var mainW = (typeof document !== 'undefined' && document.getElementById('main')) ? document.getElementById('main').clientWidth - 90 : 680; var w = Math.max(520, Math.min(1500, mainW)), h = o.h || 200, L = 86, Rr = 16, T = 14, B = 28; // Breite = verfügbarer Platz → Schrift bleibt lesbar
     past = past.filter(function (v) { return v != null && !isNaN(v); });
-    if (!past.length) past = [future[0]];
-    var all = past.concat(future.slice(1)), n = all.length, k = past.length - 1;
-    var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all);
-    if (mn < 0 && mx > 0) { /* Nulllinie sichtbar */ } else if (mx - mn < Math.abs(mx) * 0.1) { var c0 = (mx + mn) / 2, r0 = Math.max(Math.abs(c0) * 0.06, 50000); mn = c0 - r0; mx = c0 + r0; }
-    var pd = (mx - mn) * 0.1; mx += pd; mn -= pd;
+    if (!past.length) { past = [future[0]]; pastW = [o.from || 0]; }
+    var k = past.length - 1, all = past.concat(future.slice(1)), n = all.length;
+    var hasEnd = o.seasonEnd ? 1 : 0, nWeeks = future.length - 1 - hasEnd;
+    var weekOf = function (i) { return i <= k ? pastW[i] : (o.from || 0) + Math.min(i - k, nWeeks); };
+    var band = all.map(function (v, i) { var s = i <= k ? 0 : (o.sigma || 0) * Math.sqrt(Math.min(i - k, nWeeks)); return [v - s, v + s]; });
+    var lo = Math.min.apply(null, band.map(function (b) { return b[0]; })), hi = Math.max.apply(null, band.map(function (b) { return b[1]; }));
+    if (hi - lo < Math.max(Math.abs(hi), 1) * 0.08) { var mid = (hi + lo) / 2, r0 = Math.max(Math.abs(mid) * 0.06, 50000); lo = mid - r0; hi = mid + r0; }
+    var pd = (hi - lo) * 0.08; hi += pd; lo -= pd;
     function X(i) { return L + (w - L - Rr) * i / Math.max(1, n - 1); }
-    function Y(v) { return T + (h - T - B) * (1 - (v - mn) / (mx - mn)); }
-    var end = all[n - 1], col = end < 0 ? '#ef4444' : end >= past[k] ? '#22c55e' : '#f5b301', id = 'fc' + (uid++);
-    var s = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;display:block"><defs><linearGradient id="' + id + '" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="' + col + '" stop-opacity=".28"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></linearGradient></defs>';
-    for (var g = 0; g <= 3; g++) { var gv = mn + (mx - mn) * g / 3; s += '<line x1="' + L + '" x2="' + (w - Rr) + '" y1="' + f1(Y(gv)) + '" y2="' + f1(Y(gv)) + '" stroke="#2a3b60"/><text x="' + (L - 6) + '" y="' + f1(Y(gv) + 4) + '" font-size="12" fill="#9fb0d0" text-anchor="end">' + esc(R.fmtMoney(gv)) + '</text>'; }
-    if (mn < 0 && mx > 0) s += '<line x1="' + L + '" x2="' + (w - Rr) + '" y1="' + f1(Y(0)) + '" y2="' + f1(Y(0)) + '" stroke="#ef4444" stroke-dasharray="4 3"/><text x="' + (w - Rr - 4) + '" y="' + f1(Y(0) - 4) + '" font-size="11" fill="#fca5a5" text-anchor="end">0 €</text>';
-    // Zukunftsbereich hinterlegen
-    s += '<rect x="' + f1(X(k)) + '" y="' + T + '" width="' + f1(X(n - 1) - X(k)) + '" height="' + (h - T - B) + '" fill="rgba(245,179,1,.05)"/>';
+    function Y(v) { return T + (h - T - B) * (1 - (v - lo) / (hi - lo)); }
+    var end = all[n - 1], col = end < 0 ? '#E35E63' : end >= past[k] ? '#18B979' : '#E9B44B', id = 'lq' + (uid++);
+    var s = '<svg viewBox="0 0 ' + w + ' ' + h + '" class="liq"><defs><linearGradient id="' + id + '" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#3C95E5" stop-opacity=".28"/><stop offset="1" stop-color="#3C95E5" stop-opacity="0"/></linearGradient></defs>';
+    for (var g = 0; g <= 4; g++) { var gv = lo + (hi - lo) * g / 4; s += '<line x1="' + L + '" x2="' + (w - Rr) + '" y1="' + f1(Y(gv)) + '" y2="' + f1(Y(gv)) + '" stroke="#22365A"/><text x="' + (L - 8) + '" y="' + f1(Y(gv) + 4) + '" font-size="11.5" fill="#9CAFC9" text-anchor="end">' + esc(R.fmtMoney(gv)) + '</text>'; }
+    if (lo < 0 && hi > 0) s += '<line x1="' + L + '" x2="' + (w - Rr) + '" y1="' + f1(Y(0)) + '" y2="' + f1(Y(0)) + '" stroke="#E35E63" stroke-dasharray="4 3"/>';
+    // Zeitachse: Spielwochen
+    var ticks = []; for (var i = 0; i < n; i++) { var wv = weekOf(i); if (i === 0 || i === k || i === n - 1 || (wv % 8 === 0 && Math.abs(i - k) > 2 && i < n - 4 && i > 2)) ticks.push(i); }
+    ticks.forEach(function (i) { var lbl = i === k ? 'heute' : i === n - 1 ? 'Saisonende' : (weekOf(i) ? weekOf(i) + '. Wo.' : 'Start'); s += '<line x1="' + f1(X(i)) + '" x2="' + f1(X(i)) + '" y1="' + (h - B) + '" y2="' + (h - B + 4) + '" stroke="#2B4161"/><text x="' + f1(X(i)) + '" y="' + (h - 8) + '" font-size="11.5" fill="' + (i === k ? '#EDF4FC' : i === n - 1 ? col : '#9CAFC9') + '" text-anchor="' + (i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle') + '"' + (i === n - 1 ? ' font-weight="700"' : '') + '>' + lbl + '</text>'; });
+    // Ist-Fläche + Linie
     var pp = past.map(function (v, i) { return f1(X(i)) + ',' + f1(Y(v)); }).join(' ');
-    var fp = all.slice(k).map(function (v, i) { return f1(X(k + i)) + ',' + f1(Y(v)); }).join(' ');
-    var base = f1(Y(mn < 0 && mx > 0 ? 0 : mn));
-    s += '<polygon points="' + f1(X(k)) + ',' + base + ' ' + fp + ' ' + f1(X(n - 1)) + ',' + base + '" fill="url(#' + id + ')"/>';
-    if (past.length > 1) s += '<polyline points="' + pp + '" fill="none" stroke="#7dd3fc" stroke-width="2.2" stroke-linejoin="round"/>';
+    if (k > 0) s += '<polygon points="' + f1(X(0)) + ',' + (h - B) + ' ' + pp + ' ' + f1(X(k)) + ',' + (h - B) + '" fill="url(#' + id + ')"/><polyline points="' + pp + '" fill="none" stroke="#3C95E5" stroke-width="2.4" stroke-linejoin="round"/>';
+    // Unsicherheitsband + Prognose
+    if (o.sigma) { var up = [], dn = []; for (var j = k; j < n; j++) { up.push(f1(X(j)) + ',' + f1(Y(band[j][1]))); dn.unshift(f1(X(j)) + ',' + f1(Y(band[j][0]))); } s += '<polygon points="' + up.concat(dn).join(' ') + '" fill="' + col + '" fill-opacity=".12"/>'; }
+    var fp = all.slice(k).map(function (v, i2) { return f1(X(k + i2)) + ',' + f1(Y(v)); }).join(' ');
     s += '<polyline points="' + fp + '" fill="none" stroke="' + col + '" stroke-width="2.4" stroke-dasharray="7 5" stroke-linejoin="round"/>';
-    s += '<line x1="' + f1(X(k)) + '" x2="' + f1(X(k)) + '" y1="' + T + '" y2="' + (h - B) + '" stroke="#e6ecf7" stroke-opacity=".35"/>';
-    s += '<circle cx="' + f1(X(k)) + '" cy="' + f1(Y(past[k])) + '" r="4.5" fill="#7dd3fc" stroke="#0b1220" stroke-width="1.5"/>';
-    s += '<circle cx="' + f1(X(n - 1)) + '" cy="' + f1(Y(end)) + '" r="5" fill="' + col + '" stroke="#0b1220" stroke-width="1.5"/>';
-    s += '<text x="' + f1(X(k)) + '" y="' + (h - 7) + '" font-size="12" fill="#e6ecf7" text-anchor="' + (k === 0 ? 'start' : 'middle') + '">heute</text>';
-    if (k > 0) s += '<text x="' + L + '" y="' + (h - 7) + '" font-size="12" fill="#9fb0d0">' + esc(opts.startLabel || 'Saisonstart') + '</text>';
-    s += '<text x="' + (w - Rr) + '" y="' + (h - 7) + '" font-size="12" fill="' + col + '" text-anchor="end" font-weight="700">Saisonende</text>';
-    return '<div class="chart-box">' + s + '</svg></div>';
+    s += '<line x1="' + f1(X(k)) + '" x2="' + f1(X(k)) + '" y1="' + T + '" y2="' + (h - B) + '" stroke="#EDF4FC" stroke-opacity=".25"/>';
+    s += '<circle cx="' + f1(X(k)) + '" cy="' + f1(Y(past[k])) + '" r="4.5" fill="#3C95E5" stroke="#0B1426" stroke-width="1.5"/><circle cx="' + f1(X(n - 1)) + '" cy="' + f1(Y(end)) + '" r="5" fill="' + col + '" stroke="#0B1426" stroke-width="1.5"/>';
+    // Tooltip-Zonen je Woche
+    var zw = (w - L - Rr) / Math.max(1, n - 1);
+    for (var t = 0; t < n; t++) {
+      var tip = (t === n - 1 && hasEnd ? 'Saisonende inkl. Prämien' : t <= k ? (t === k ? 'Heute' : weekOf(t) + '. Spielwoche') + ' · Ist' : weekOf(t) + '. Spielwoche · Prognose') + ': ' + R.fmtMoney(all[t]) + (t > k && o.sigma ? ' (±' + R.fmtMoney(band[t][1] - all[t]) + ')' : '');
+      s += '<rect class="tipzone" data-tip="' + esc(tip) + '" data-cx="' + f1(X(t)) + '" data-cy="' + f1(Y(all[t])) + '" x="' + f1(X(t) - zw / 2) + '" y="' + T + '" width="' + f1(zw) + '" height="' + (h - T - B) + '" fill="transparent"/>';
+    }
+    return '<div class="chart-box liq-box">' + s + '</svg><div class="liq-legend"><span><i class="lg-ist"></i>Ist</span><span><i class="lg-prog" style="border-color:' + col + '"></i>Prognose</span>' + (o.sigma ? '<span><i class="lg-band" style="background:' + col + '"></i>Unsicherheitsbereich</span>' : '') + '</div></div>';
   };
+  U.forecastChart = function (past, future, opts) { return U.liqChart(past, past.map(function (v, i) { return i; }), future, opts); };
+  // Tooltip für Diagramme (Maus und Touch)
+  if (typeof document !== 'undefined') {
+    var tipEl = null;
+    var showTip = function (e) {
+      var z = e.target && e.target.closest ? e.target.closest('.tipzone') : null;
+      if (!z) { if (tipEl) tipEl.style.display = 'none'; return; }
+      if (!tipEl) { tipEl = document.createElement('div'); tipEl.className = 'chart-tip'; document.body.appendChild(tipEl); }
+      tipEl.textContent = z.getAttribute('data-tip'); tipEl.style.display = 'block';
+      var x = e.clientX, y = e.clientY;
+      tipEl.style.left = Math.min(window.innerWidth - tipEl.offsetWidth - 8, x + 12) + 'px'; tipEl.style.top = Math.max(8, y - 34) + 'px';
+    };
+    document.addEventListener('mousemove', showTip);
+    document.addEventListener('pointerdown', showTip);
+  }
   // ---------- Balken (horizontal, für Finanzbericht) ----------
-  U.hbars = function (items, total, col) {
+  U.hbars = function (items, total, col, icons) {
     return items.map(function (it) {
       var pct = total ? Math.abs(it.v) / total * 100 : 0;
-      return '<div class="hbar"><div class="hbar-l"><span>' + esc(it.k) + '</span><b class="mono">' + money(it.v) + '</b></div><div class="hbar-t"><div style="width:' + f1(Math.max(1.5, pct)) + '%;background:' + col + '"></div></div></div>';
+      return '<div class="hbar"><div class="hbar-l"><span>' + (icons && U.finIcon ? U.lc(U.finIcon(it.k), 14) + ' ' : '') + esc(it.k) + '</span><b class="mono">' + money(it.v) + '</b></div><div class="hbar-t"><div style="width:' + f1(Math.max(1.5, pct)) + '%;background:' + col + '"></div></div></div>';
     }).join('');
   };
   // ---------- Halbkreis-Anzeige ----------

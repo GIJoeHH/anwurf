@@ -480,6 +480,7 @@
     var st = U.st, s = st.settings;
     R.save.storageInfo().then(function (i) { var el = document.getElementById('storeInfo2'); if (el) el.textContent = i.path || ''; });
     return '<h1>Einstellungen</h1><div class="grid g2"><div class="panel"><h2>Spiel</h2><table class="t"><tr><td>Standard-Spielgeschwindigkeit</td><td><div class="seg">' + [['normal', 'Normal'], ['schnell', 'Schnell'], ['sofort', 'Sofort']].map(function (x) { return '<button class="sm ' + (s.matchSpeed === x[0] ? 'on' : '') + '" data-act="setSpeed2" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div></td></tr>' +
+      '<tr><td>Grafikdetails (Halle & Vereinsstadt)</td><td><div class="seg">' + [['hoch', 'Hoch'], ['reduziert', 'Reduziert']].map(function (x) { return '<button class="sm ' + ((R.s3d ? R.s3d.quality() : 'hoch') === x[0] ? 'on' : '') + '" data-act="setGfx" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div><div class="muted small">Reduziert: ohne Schatten, weniger Details – schont Akku und ältere iPads.</div></td></tr>' +
       '<tr><td>Retro-Soundeffekte</td><td><input type="checkbox" data-chg="setOpt" data-k="sound"' + (s.sound ? ' checked' : '') + '></td></tr>' +
       '<tr><td>Original-Vereinslogos anzeigen <span class="muted small">(werden aus dem Netz geladen)</span></td><td><input type="checkbox" data-chg="setOptInv" data-k="noLogos"' + (s.noLogos ? '' : ' checked') + '></td></tr>' +
       (U.cheatDiscovered(st) ? '<tr><td>Bankdirektor-Cheat aktiv</td><td><input type="checkbox" data-chg="setOpt" data-k="cheatEnabled"' + (s.cheatEnabled ? ' checked' : '') + '></td></tr>' : '') +
@@ -487,6 +488,7 @@
       '<div class="panel"><h2>Speichern & Synchronisieren</h2><p class="small" id="storeInfo2"></p><div class="grid"><button data-act="saveQuick">Manuell speichern …</button><button data-act="exportSave">Spielstand exportieren</button><button data-act="importSave">Spielstand importieren</button></div><p class="muted small">Tipp: In der Mac-App liegen alle Spielstände im iCloud-Ordner „Spielstände“ – so können Sie abwechselnd auf MacBook und iMac spielen. Bitte das Spiel nicht gleichzeitig auf beiden Geräten geöffnet haben.</p></div></div>' +
       '<div class="panel" style="margin-top:14px"><h2>Kurzanleitung</h2><p class="small">1. <b>NÄCHSTER SPIELTAG</b> spielt die nächste Runde. 2. <b>Mannschaft</b>: Aufstellung per Klick oder Ziehen. 3. <b>Transfermarkt</b>: Filtern, Spieler anklicken, Angebot abgeben. 4. <b>Halle / Vereinsstadt</b>: Ausbauen mit Wirtschaftlichkeitsrechnung. 5. <b>Bank</b>: Kredite, Tagesgeld, Aktien &amp; Krypto. ⏩ <b>Auto</b> spielt mehrere Spieltage am Stück. Leertaste pausiert das Live-Spiel.</p></div>';
   };
+  U.acts.setGfx = function (d) { if (R.s3d) R.s3d.setQuality(d.v); U.render(); };
   U.acts.setSpeed2 = function (d) { U.st.settings.matchSpeed = d.v; U.render(); };
   U.acts.setOpt = function (d, el) { U.st.settings[d.k] = el.checked; U.render(); };
   U.acts.setOptInv = function (d, el) { U.st.settings[d.k] = !el.checked; U.render(); };

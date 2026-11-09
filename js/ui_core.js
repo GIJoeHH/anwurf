@@ -28,6 +28,7 @@
     var html;
     try { html = fn(); } catch (e) { console.error(e); html = '<div class="panel"><h2>Fehler</h2><pre class="small">' + esc(e.stack || e) + '</pre></div>'; }
     document.getElementById('main').innerHTML = html;
+    if (R.s3d) { try { R.s3d.mountAll(document.getElementById('main')); } catch (e) { console.error(e); } }
     if (U.after) { var a = U.after; U.after = null; a(); }
     if (U.st && U.st.toast) { U.toast(U.st.toast.text); U.st.toast = null; }
   };
@@ -37,10 +38,12 @@
   };
   U.modal = function (title, body, footer, wide) {
     var m = document.getElementById('modal');
-    m.innerHTML = '<div class="dlg' + (wide ? ' wide' : '') + '"><div class="dlg-h"><span>' + title + '</span><button class="sm ghost" data-act="closeModal">✕</button></div><div class="dlg-b">' + body + '</div>' + (footer ? '<div class="dlg-f">' + footer + '</div>' : '') + '</div>';
-    m.classList.remove('hidden');
+    m.innerHTML = '<div class="dlg' + (wide ? ' wide' : '') + '" role="dialog" aria-label="' + esc(String(title).replace(/<[^>]+>/g, '')) + '"><div class="dlg-h"><span>' + title + '</span><button class="sm ghost" data-act="closeModal" aria-label="Schließen">' + (U.lc ? U.lc('x', 16) : '✕') + '</button></div><div class="dlg-b">' + body + '</div>' + (footer ? '<div class="dlg-f">' + footer + '</div>' : '') + '</div>';
+    m.classList.remove('drawer'); m.classList.remove('hidden');
   };
-  U.closeModal = function () { var m = document.getElementById('modal'); m.classList.add('hidden'); m.innerHTML = ''; U.modalLock = false; };
+  // Seitliches Detailpanel (z. B. Spielerprofil) – gleiche Bedienung wie ein Dialog
+  U.drawer = function (title, body, footer) { U.modal(title, body, footer); document.getElementById('modal').classList.add('drawer'); };
+  U.closeModal = function () { var m = document.getElementById('modal'); m.classList.add('hidden'); m.classList.remove('drawer'); m.innerHTML = ''; U.modalLock = false; };
   U.acts.closeModal = function () { if (!U.modalLock) U.closeModal(); };
   U.confirm = function (title, text, onYes) {
     U._confirmYes = onYes;
@@ -63,6 +66,7 @@
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !document.getElementById('modal').classList.contains('hidden')) U.acts.closeModal();
+    if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('nav-item')) { e.preventDefault(); e.target.click(); return; } // Tastaturbedienung der Navigation
     if (e.key === ' ' && U.screen === 'match' && U.acts.matchPause && e.target.tagName !== 'INPUT') { e.preventDefault(); U.acts.matchPause(); }
   });
   document.addEventListener('input', function (e) {
@@ -140,9 +144,11 @@
   // ---------- Kopfzeile & Navigation ----------
   U.renderTop = function () {
     var st = U.st, c = U.club(), el = document.getElementById('topbar');
-    var btnLabel = st.phase === 'seasonEnd' ? 'NEUE SAISON ▶' : st.phase === 'releg' ? 'RELEGATION ▶' : S.isBreak(st) ? 'NÄCHSTE WOCHE ▶' : 'NÄCHSTER SPIELTAG ▶';
+    var nextSub = st.phase === 'seasonEnd' ? 'Neue Saison' : st.phase === 'releg' ? 'Relegation' : S.isBreak(st) ? 'Nächste Woche' : 'Nächster Spieltag';
+    function chip(icon, label, val, cls, opt) { return '<div class="tb-chip' + (opt ? ' opt' : '') + '">' + U.lc(icon, 18) + '<div><span>' + label + '</span><b class="' + (cls || '') + '">' + val + '</b></div></div>'; }
+    var nextBtn = function (sub) { return '<button class="btn-next" data-act="next"' + (U.busy ? ' disabled' : '') + '><span class="bn-txt">Weiter<small>' + sub + '</small></span>' + U.lc('chevron-right', 20) + '</button>'; };
     if (!c) {
-      el.innerHTML = '<div class="tb-club"><div><div class="name">' + esc(st.manager.name) + ' – vereinslos</div><div class="sub">Saison ' + st.season + '/' + String(st.season + 1).slice(2) + ' · ' + S.calText(st) + '</div></div></div><div class="tb-spacer"></div><button class="btn-next" data-act="next">' + (st.phase === 'seasonEnd' ? 'NEUE SAISON ▶' : 'WOCHE ABWARTEN ▶') + '</button>';
+      el.innerHTML = '<div class="tb-club"><div><div class="name">' + esc(st.manager.name) + ' – vereinslos</div><div class="sub">Saison ' + st.season + '/' + String(st.season + 1).slice(2) + ' · ' + S.calText(st) + '</div></div></div><div class="tb-spacer"></div>' + nextBtn(st.phase === 'seasonEnd' ? 'Neue Saison' : 'Woche abwarten');
       return;
     }
     var pos = E.leaguePos(st, c);
@@ -152,21 +158,21 @@
     var prep = S.prepareWeek(st), nxt = prep.list.filter(function (x) { return x.user; })[0];
     var opp = nxt ? st.clubs[nxt.h === c.id ? nxt.a : nxt.h] : null;
     el.innerHTML = '<div class="tb-club">' + U.crest(c, 40) + '<div><div class="name">' + esc(c.name) + (st.cheatUsed ? ' <span class="cheat-tag" title="Spielstand mit Cheat">CHEAT</span>' : '') + '</div><div class="sub">' + D.leagueNames[W.lk(c)] + ' · ' + S.roleName(st.manager.role) + ' · Saison ' + st.season + '/' + String(st.season + 1).slice(2) + '</div></div></div>' +
-      '<div class="tb-stat">Platz<b>' + (st.week > 0 ? pos + '.' : '–') + '</b></div>' +
-      '<div class="tb-stat">' + (S.isBreak(st) ? 'Woche' : 'Spieltag') + '<b>' + S.calText(st, true) + '</b></div>' +
-      '<div class="tb-stat">Kontostand<b class="' + U.moneyCls(c.cash) + '">' + money(c.cash) + '</b></div>' +
-      '<div class="tb-stat">Stärke<b>' + strength + '</b></div>' +
-      '<div class="tb-stat">Stimmung<b>' + (mood >= 70 ? '😀' : mood >= 50 ? '🙂' : mood >= 35 ? '😐' : '😠') + ' ' + mood + '</b></div>' +
-      '<div class="tb-stat">Nächster Gegner<b>' + (opp ? esc(opp.short) + (nxt.comp !== 'league' ? ' (' + (nxt.comp === 'releg' ? 'AR' : nxt.comp === 'friendly' ? 'Test' : 'Pokal') + ')' : '') + (nxt.h === c.id ? ' (H)' : ' (A)') : '—') + '</b></div>' +
+      chip('trophy', 'Tabellenplatz', st.week > 0 ? pos + '.' : '–') +
+      chip('calendar-days', S.isBreak(st) ? 'Woche' : 'Spieltag', S.calText(st, true)) +
+      chip('wallet', 'Kontostand', money(c.cash), c.cash < 0 ? 'neg' : '') +
+      chip('users', 'Fanbasis', R.fmtNum(c.fans || 0), '', true) +
+      chip('gauge', 'Stärke · Moral', strength + ' · ' + mood, '', true) +
+      chip('shield', 'Nächster Gegner', opp ? esc(opp.short) + (nxt.comp !== 'league' ? ' (' + (nxt.comp === 'releg' ? 'AR' : nxt.comp === 'friendly' ? 'Test' : 'Pokal') + ')' : '') + (nxt.h === c.id ? ' · H' : ' · A') : '—', '', true) +
       '<div class="tb-spacer"></div>' +
-      (U.autoRun ? '<button class="sm danger" data-act="autoStop">■ Automatik stoppen</button>' : '<button class="sm ghost" data-act="autoStart" title="Spieltage automatisch mit Sofortergebnis durchspielen, bis etwas Wichtiges passiert">⏩ Auto</button>') +
-      '<button class="btn-next" data-act="next"' + (U.busy ? ' disabled' : '') + '>' + btnLabel + '</button>';
+      (U.autoRun ? '<button class="sm danger" data-act="autoStop">' + U.lc('square', 14) + 'Automatik stoppen</button>' : '<button class="sm ghost" data-act="autoStart" title="Spieltage automatisch mit Sofortergebnis durchspielen, bis etwas Wichtiges passiert">' + U.lc('fast-forward', 15) + 'Auto</button>') +
+      nextBtn(nextSub);
   };
   U.navItems = function () {
     var st = U.st, offers = st.inbox.filter(function (o) { return o.type === 'offer'; }).length, sp = st.inbox.filter(function (o) { return o.type === 'sponsor'; }).length;
-    var items = [['zentrale', '🏠', 'Zentrale', offers + sp], ['mannschaft', '👕', 'Mannschaft'], ['transfer', '🔄', 'Transfermarkt'], ['training', '🏃', 'Training'], ['verein', '🏢', 'Vereinsmanagement', sp],
-      ['stadion', '🏟️', 'Halle'], ['stadt', '🏙️', 'Vereinsstadt'], ['nachwuchs', '🌱', 'Nachwuchs'], ['medizin', '⚕️', 'Medizin'], ['bank', '🏦', 'Bank & Finanzen'],
-      ['spieltag', '🤾', 'Spieltag'], ['liga', '📊', 'Liga & Statistiken'], ['karriere', '👔', 'Managerkarriere', st.manager.unemployed ? st.manager.offers.length : 0], ['editor', '✏️', 'Editor'], ['einstellungen', '⚙️', 'Einstellungen']];
+    var items = [['zentrale', 'layout-dashboard', 'Zentrale', offers + sp, 'Sport'], ['mannschaft', 'shirt', 'Mannschaft'], ['transfer', 'arrow-left-right', 'Transfermarkt'], ['training', 'dumbbell', 'Training'], ['nachwuchs', 'graduation-cap', 'Nachwuchs'], ['medizin', 'stethoscope', 'Medizin'],
+      ['verein', 'briefcase', 'Vereinsmanagement', sp, 'Verein'], ['stadion', 'stadium', 'Halle'], ['stadt', 'building-2', 'Vereinsstadt'], ['bank', 'landmark', 'Bank & Finanzen'],
+      ['spieltag', 'calendar-days', 'Spieltag', 0, 'Wettbewerb'], ['liga', 'chart-column', 'Liga & Statistiken'], ['karriere', 'user-round', 'Managerkarriere', st.manager.unemployed ? st.manager.offers.length : 0], ['editor', 'pencil', 'Editor', 0, 'System'], ['einstellungen', 'settings', 'Einstellungen']];
     if (st.manager.unemployed) items = items.filter(function (i) { return ['liga', 'karriere', 'editor', 'einstellungen'].indexOf(i[0]) >= 0; });
     return items;
   };
@@ -174,8 +180,8 @@
     var cur = U.screen;
     var map = { bericht: 'spieltag', match: 'spieltag', saisonende: 'liga', spieler: 'mannschaft' };
     document.getElementById('nav').innerHTML = U.navItems().map(function (i) {
-      return (i[0] === 'spieltag' || i[0] === 'editor' ? '<div class="nav-sep"></div>' : '') + '<div class="nav-item ' + ((map[cur] || cur) === i[0] ? 'active' : '') + '" data-act="nav" data-s="' + i[0] + '"><span class="ic">' + i[1] + '</span>' + i[2] + (i[3] ? '<span class="badge">' + i[3] + '</span>' : '') + '</div>';
-    }).join('') + '<div class="nav-sep"></div><div class="nav-item" data-act="saveQuick"><span class="ic">💾</span>Speichern</div><div class="nav-item" data-act="toTitle"><span class="ic">⏏︎</span>Hauptmenü</div>';
+      return (i[4] ? '<div class="nav-group">' + i[4] + '</div>' : '') + '<div class="nav-item ' + ((map[cur] || cur) === i[0] ? 'active' : '') + '" data-act="nav" data-s="' + i[0] + '" tabindex="0" role="link"><span class="ic">' + U.lc(i[1], 18) + '</span>' + i[2] + (i[3] ? '<span class="badge">' + i[3] + '</span>' : '') + '</div>';
+    }).join('') + '<div class="nav-sep"></div><div class="nav-item" data-act="saveQuick" tabindex="0" role="button"><span class="ic">' + U.lc('save', 18) + '</span>Speichern</div><div class="nav-item" data-act="toTitle" tabindex="0" role="button"><span class="ic">' + U.lc('log-out', 18) + '</span>Hauptmenü</div>';
   };
   U.acts.nav = function (d) { if (U.screen === 'match' && U.liveActive) { U.toast('Das Spiel läuft – bitte erst beenden.'); return; } U.go(d.s); };
 

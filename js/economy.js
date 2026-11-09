@@ -493,10 +493,10 @@
   };
 
   // Geheimer Cheat: das Schild „BANKDIREKTOR“
-  // Jeder Klick bringt 100.000 €. Ob ein Spruch erscheint, entscheidet die Oberfläche (nur beim ersten Klick je Sitzung).
-  E.CHEAT_AMOUNT = 10000;
-  // Zufallsbetrag je Klick (Wahrscheinlichkeit in %): je höher der Betrag, desto seltener
-  E.CHEAT_TABLE = [[10000, 35], [20000, 15], [25000, 12], [50000, 10], [75000, 8], [100000, 7], [150000, 6], [200000, 5], [500000, 2]];
+  // Jeder Klick bringt einen Zufallsbetrag. Ob ein Spruch erscheint, entscheidet die Oberfläche (nur beim ersten Klick je Sitzung).
+  E.CHEAT_AMOUNT = 50000;
+  // Zufallsbetrag je Klick (Wahrscheinlichkeit in %): halbe ANPFIFF!-Werte – am häufigsten 50.000 €, höchstens 2,5 Mio. €
+  E.CHEAT_TABLE = [[50000, 35], [100000, 15], [125000, 12], [250000, 10], [375000, 8], [500000, 7], [750000, 6], [1000000, 5], [2500000, 2]];
   E.cheatAmount = function (rnd) {
     var x = (rnd == null ? Math.random() : rnd) * 100, acc = 0;
     for (var i = 0; i < E.CHEAT_TABLE.length; i++) { acc += E.CHEAT_TABLE[i][1]; if (x < acc) return E.CHEAT_TABLE[i][0]; }

@@ -134,7 +134,7 @@
     sc.add(base - 60, flat(sc, X - M, Y - M, 34 + 2 * M, 52 + 2 * M, sc.grad('#c9cfd8', '#aeb6c2', true), 0, 'stroke="#e5e7eb" stroke-width=".8"'));
     sc.add(base - 55, shadowRect(sc, BX0, BY0, BX1 - BX0, BY1 - BY0, 2.5));
     // Hallenboden (Innenraum) und Spielfeld
-    var floorCol = ['#9aa58c', '#c9a46c', '#d8a45b', '#f97316'][boden], courtCol = ['#7f9a6f', '#b98a4f', '#c98f45', '#1d4ed8'][boden];
+    var floorCol = ['#9aa58c', '#c9a46c', '#d8a45b', '#f97316', '#0f1b33'][boden], courtCol = ['#7f9a6f', '#b98a4f', '#c98f45', '#1d4ed8', '#12305e'][boden];
     var fl = flat(sc, BX0, BY0, BX1 - BX0, BY1 - BY0, shade(floorCol, 0.8), 0.01);
     fl += flat(sc, CX0 - 2, CY0 - 2, CW + 4, CL + 4, floorCol, 0.02);
     if (boden === 2) for (var pq = 0; pq < 12; pq++) fl += flat(sc, CX0 - 2 + pq * (CW + 4) / 12, CY0 - 2, (CW + 4) / 24, CL + 4, 'rgba(120,70,20,.12)', 0.025);

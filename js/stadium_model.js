@@ -114,6 +114,7 @@
     var gs = m.sectors[plan.guest] || null;
     m.guest = { sector: plan.guest, area: gs ? gs.area : null, center: gs ? gs.center : [0, 0], cap: gs ? gs.cap : 0 };
     if (gs) gs.guest = true;
+    SP.guestIds(plan).forEach(function (id) { if (m.sectors[id]) m.sectors[id].guest = true; }); // weitere Gästeblöcke
     // Hallenstufe 1–6 (bestimmt Fassade, Foyer, Materialien, Details)
     m.stage = SM.stageOf(m.capacityFull);
     m.facade = { 1: 'sheet', 2: 'clad', 3: 'dark', 4: 'glass', 5: 'glass', 6: 'glass' }[m.stage];

@@ -731,8 +731,8 @@
   };
   // Vereinsbank: Glasturm mit Sockelbau, Vordach, Vorplatz und Straße (gleiche Licht- und Materialwelt wie Stadion/Stadt)
   // Messingschild der (fiktiven) Vereinsbank: Logo „VB“ mit Löwenkopf-Raute, darunter BANKDIREKTOR
-  function bankPlaqueTex() {
-    return tex('bankPlaque', 512, 384, function (g, W, H) {
+  function bankPlaqueTex(city) {
+    return tex('bankPlaque|' + city, 512, 384, function (g, W, H) {
       var gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#e9cf86'); gr.addColorStop(0.5, '#c9a24a'); gr.addColorStop(1, '#8a6a22');
       g.fillStyle = gr; g.fillRect(0, 0, W, H);
       g.strokeStyle = '#5c4510'; g.lineWidth = 10; g.strokeRect(10, 10, W - 20, H - 20); g.strokeStyle = 'rgba(255,240,190,.7)'; g.lineWidth = 3; g.strokeRect(24, 24, W - 48, H - 48);
@@ -742,8 +742,8 @@
       g.fillStyle = '#f3dc93'; g.beginPath(); g.moveTo(cx - 44, cy - 14); g.lineTo(cx, cy - 46); g.lineTo(cx + 44, cy - 14); g.closePath(); g.fill();
       [-30, -10, 10, 30].forEach(function (dx) { g.fillRect(cx + dx - 5, cy - 10, 10, 44); }); g.fillRect(cx - 46, cy + 36, 92, 9);
       g.fillStyle = '#2a1d02'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.font = '900 34px -apple-system, Helvetica, Arial'; g.fillText('VEREINSBANK', cx, 262);
-      g.font = '900 46px -apple-system, Helvetica, Arial'; g.fillText('BANKDIREKTOR', cx, 318);
+      g.font = '900 50px -apple-system, Helvetica, Arial'; g.fillText('VEREINSBANK', cx, 280);
+      var ct = String(city || '').toUpperCase(); g.font = '700 ' + (ct.length > 16 ? 26 : 32) + 'px -apple-system, Helvetica, Arial'; g.fillText(ct, cx, 330);
       for (var i = 0; i < 600; i++) { g.fillStyle = 'rgba(255,255,255,' + Math.random() * 0.06 + ')'; g.fillRect(Math.random() * W, Math.random() * H, 2, 1); }
     });
   }
@@ -763,9 +763,9 @@
     B.box('steelDark', -16, 25, 0.5, 0.5, 0, 7.2, 0, { top: false }); B.box('steelDark', 16, 25, 0.5, 0.5, 0, 7.2, 0, { top: false });
     sign(B, 'sgBANK', 'VEREINSBANK', '#0b1424', '#e8eef8', 0, 21.15, 8.0, 20, 1.6, 0);
     // Messingschild im Erdgeschoss links neben dem Vordach (anklickbar, wenn der Cheat aktiv ist)
-    if (cfg && cfg.plaque) {
-      var pl = new T.Mesh(new T.PlaneGeometry(7.2, 5.4), new T.MeshStandardMaterial({ map: bankPlaqueTex(), metalness: 0.65, roughness: 0.32, emissive: '#5a4512', emissiveIntensity: 0.35 }));
-      pl.position.set(-25, 3.9, 21.08); pl.userData.act = cfg.plaque; group.add(pl);
+    {
+      var pl = new T.Mesh(new T.PlaneGeometry(7.2, 5.4), new T.MeshStandardMaterial({ map: bankPlaqueTex(cfg && cfg.city), metalness: 0.65, roughness: 0.32, emissive: '#5a4512', emissiveIntensity: 0.35 }));
+      pl.position.set(-25, 3.9, 21.08); if (cfg && cfg.plaque) pl.userData.act = cfg.plaque; group.add(pl);
       B.box('steelDark', -25, 21.03, 7.6, 0.06, 1.0, 5.8, 0, {});
     }
     // Nachbargebäude
@@ -864,7 +864,7 @@
     Object.keys(TEX).forEach(function (k) { TEX[k].dispose(); }); TEX = {}; S3._env = null; SNAPS = {};
     if (renderer) { renderer.dispose(); if (renderer.forceContextLoss) renderer.forceContextLoss(); renderer = null; }
   };
-  function hashOf(cfg) { var m = cfg.model; return cfg.kind + '|' + (cfg.plaque || '') + '|' + hq() + '|' + JSON.stringify(m.parts) + '|' + JSON.stringify(m.levels) + '|' + m.colors + '|' + Math.round(m.attendance * 4) + '|' + JSON.stringify((cfg.buildings || []).map(function (b) { return b.level; })) + '|' + (cfg.highlight || []).join() + '|' + (cfg.kind === 'focus' && cfg.focus ? cfg.focus.key + cfg.focus.level : ''); }
+  function hashOf(cfg) { var m = cfg.model; return cfg.kind + '|' + (cfg.plaque || '') + '|' + (cfg.city || '') + '|' + hq() + '|' + JSON.stringify(m.parts) + '|' + JSON.stringify(m.levels) + '|' + m.colors + '|' + Math.round(m.attendance * 4) + '|' + JSON.stringify((cfg.buildings || []).map(function (b) { return b.level; })) + '|' + (cfg.highlight || []).join() + '|' + (cfg.kind === 'focus' && cfg.focus ? cfg.focus.key + cfg.focus.level : ''); }
   function getScene(cfg) {
     var h = hashOf(cfg), k = cfg.kind + ':' + h.length + ':' + hsh(h);
     if (!CACHE[k]) {

@@ -252,6 +252,7 @@
     var isLeagueWeek = st.phase === 'season';
     if (isLeagueWeek) st.week++;
     st.tick = (st.tick || 0) + 1; // fortlaufende Kalenderwoche (auch Vorbereitung/Winterpause)
+    if (R.realty) R.realty.tick(st); // Immobilien: Monatsbuchungen am Monatsende (idempotent je Kalenderwoche)
 
     prep.list.forEach(function (fx) {
       var m = played[fx.key];
@@ -382,11 +383,13 @@
   S.guestAftermath = function (st, home, away, att, fx) {
     var g = att.guests || 0; if (!g || !R.stadium) return;
     R.stadium.ensure(home);
-    var plan = home.stadium, derby = home.rivals.indexOf(away.id) >= 0, lgF = { 1: 1.3, 2: 1, 3: 0.8 }[home.league] || 1;
-    plan.wear = Math.min(100, (plan.wear || 0) + g / 360 * (derby ? 2 : 1) * (fx.comp === 'friendly' ? 0.3 : 1));
+    var plan = home.stadium, mu = E.matchup(st, home, away), derby = mu.derby >= 0.4, lgF = { 1: 1.3, 2: 1, 3: 0.8 }[home.league] || 1;
+    // Fanfreundschaft: viele Gäste, aber friedlich – keine Abnutzung, keine Randale
+    if (!mu.friend) plan.wear = Math.min(100, (plan.wear || 0) + g / 360 * (1 + mu.derby * 1.4) * (fx.comp === 'friendly' ? 0.3 : 1));
     home.guestStats = { season: st.season, last: g, demand: att.guestDemand, cap: att.guestCap, short: att.guestDemand > att.guestCap * 1.15 && g >= att.guestCap * 0.97 };
     var san = E.level(home, 'sanitaer') ? home.fac.sanitaer || 0 : 0;
-    var p = Math.min(0.35, g / 200 * 0.014 * (derby ? 2.2 : 1) * lgF * (1 + plan.wear / 45) * (1 - san * 0.12));
+    var p = Math.min(0.35, g / 200 * 0.014 * (1 + mu.derby * 1.7) * lgF * (1 + plan.wear / 45) * (1 - san * 0.12));
+    if (mu.friend) return;
     if (st.pendingEvent || fx.comp === 'friendly' || !R.chance(p)) return;
     var type = S.forceDamageType || (R.chance(0.6) ? 'wc' : R.stadium.guestType(home) === 'steh' ? 'zaun' : 'sitze');
     var dmg = R.round({ wc: 600 + san * 900, zaun: 900, sitze: 400 }[type] * (1 + g / 500) * (derby ? 1.5 : 1), 100);

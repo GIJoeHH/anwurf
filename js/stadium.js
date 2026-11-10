@@ -84,6 +84,8 @@
       var g = ['E2', 'E1', 'W2', 'W1', 'SE', 'S3', 'N3'].concat(SP.SECTORS.map(function (s) { return s.id; })).filter(function (id) { return p.sectors[id].tiers.length; })[0];
       p.guest = g || 'E2';
     }
+    p.guests = (Array.isArray(p.guests) ? p.guests : [p.guest]).filter(function (id) { return p.sectors[id] && p.sectors[id].tiers.length; });
+    if (!p.guests.length || p.guests.indexOf(p.guest) < 0) p.guests.unshift(p.guest);
     p.v = SP.VERSION;
     return p;
   };
@@ -104,8 +106,10 @@
     r.vip = r.business + r.loge;
     return r;
   };
-  SP.guestCap = function (club) { var p = club.stadium; return p && p.guest ? SP.secCap(p, p.guest, { live: true }).total : 0; };
-  SP.guestType = function (club) { var p = club.stadium, t = p && p.guest && p.sectors[p.guest].tiers[0]; return t ? t.type : 'steh'; };
+  // Mehrere Gästeblöcke möglich (plan.guests); plan.guest bleibt der erste Block (ältere Spielstände)
+  SP.guestIds = function (p) { if (!p) return []; var g = Array.isArray(p.guests) && p.guests.length ? p.guests : (p.guest ? [p.guest] : []); return g.filter(function (id) { return p.sectors[id]; }); };
+  SP.guestCap = function (club) { var p = club.stadium; return SP.guestIds(p).reduce(function (s, id) { return s + SP.secCap(p, id, { live: true }).total; }, 0); };
+  SP.guestType = function (club) { var p = club.stadium, cnt = {}; SP.guestIds(p).forEach(function (id) { p.sectors[id].tiers.forEach(function (t, ti) { cnt[t.type] = (cnt[t.type] || 0) + SP.tierCap(SP.sec(id), ti, t.type, t.size); }); }); var k = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; })[0]; return k || 'steh'; };
   SP.upkeep = function (club) {
     var plan = club.stadium, u = 0;
     SP.SECTORS.forEach(function (s) { plan.sectors[s.id].tiers.forEach(function (t, ti) { u += SP.tierCap(s, ti, t.type, t.size) * SP.TYPES[t.type].up; }); });
@@ -177,7 +181,9 @@
     });
     return done;
   };
-  SP.setGuest = function (club, id) { var p = SP.ensure(club); if (!p.sectors[id] || !p.sectors[id].tiers.length) return false; p.guest = id; p.wear = Math.min(p.wear || 0, 40); return true; };
+  SP.removeGuest = function (club, id) { var p = SP.ensure(club), g = SP.guestIds(p); if (g.length <= 1 || g.indexOf(id) < 0) return false; p.guests = g.filter(function (x) { return x !== id; }); p.guest = p.guests[0]; return true; };
+  SP.addGuest = function (club, id) { var p = SP.ensure(club); if (!p.sectors[id] || !p.sectors[id].tiers.length) return false; var g = SP.guestIds(p); if (g.indexOf(id) < 0) g.push(id); p.guests = g; p.guest = g[0]; return true; };
+  SP.setGuest = function (club, id) { var p = SP.ensure(club); if (!p.sectors[id] || !p.sectors[id].tiers.length) return false; p.guest = id; p.guests = [id]; p.wear = Math.min(p.wear || 0, 40); return true; };
   // Gästeblock sanieren (Abnutzung durch Gästefans)
   SP.repairCost = function (club) { var p = club.stadium; return Math.round(((p && p.wear) || 0) * (800 + SP.guestCap(club) * 2.5) / 1000) * 1000; };
   SP.repair = function (club) { var c = SP.repairCost(club); if (!c) return { ok: false, why: 'Kein Sanierungsbedarf' }; if (club.cash < c) return { ok: false, why: 'Nicht genug Geld' }; club.cash -= c; E.book(club, 'Unterhalt Anlagen', -c); club.stadium.wear = 0; return { ok: true, cost: c }; };

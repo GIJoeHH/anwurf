@@ -78,7 +78,9 @@
     h += '<div class="small muted" style="margin-bottom:6px">' + (sec.kind === 'corner' ? 'Ecke: <b>' + (m.corners[sel].state === 'closed' ? 'geschlossen' : 'offen') + '</b> · ' : '') + '' + tiers.length + '/' + SP.maxTiers(sec) + ' Ränge</div>';
     h += tiers.length ? '<table class="t small">' + tiers.map(function (t, ti) { return '<tr><td>' + SP.TIER_NAMES[ti] + '</td><td><i class="dot" style="background:' + SM.TYPE_COL[t.type] + '"></i>' + SP.TYPES[t.type].n + '</td><td class="num">' + Math.round(t.size * 100) + ' %</td><td class="num">' + num(SP.tierCap(sec, ti, t.type, t.size)) + '</td></tr>'; }).join('') + '</table>' : '<p class="muted small">Noch keine Tribüne – hier ist nur Hallenboden.</p>';
     if (job) h += '<div class="help small" style="margin-top:8px">🚧 Im Bau: <b>' + esc(job.n) + '</b> – noch ' + job.weeks + ' von ' + job.total + ' Wochen.' + U.bar(job.total - job.weeks, job.total, '#f5b301') + '</div>';
-    if (plan.guest !== sel && tiers.length && can) h += '<button class="sm" style="margin-top:8px" data-act="planGuest" data-k="' + sel + '">🔴 Als Gästeblock festlegen</button>';
+    var gIds = SP.guestIds(plan);
+    if (can && gIds.indexOf(sel) >= 0 && gIds.length > 1) h += '<button class="sm" style="margin-top:8px" data-act="planGuestDel" data-k="' + sel + '">✕ Gästeblock aufheben</button>';
+    if (gIds.indexOf(sel) < 0 && tiers.length && can) h += '<button class="sm" style="margin-top:8px" data-act="planGuestAdd" data-k="' + sel + '">＋ Als weiteren Gästeblock</button> <button class="sm" style="margin-top:8px" data-act="planGuest" data-k="' + sel + '">🔴 Als einzigen Gästeblock festlegen</button>';
     if (opts.length) {
       h += '<h3 style="margin-top:12px">Ausbauoptionen</h3><div class="opt-list">' + opts.map(function (o, i) {
         return '<button class="opt-card' + (i === oi ? ' on' : '') + '" data-act="planOpt" data-v="' + i + '"><b>' + esc(o.n) + '</b><span>' + (o.cap ? (o.cap > 0 ? '+' : '') + num(o.cap) + ' Plätze · ' : '') + o.weeks + ' Wo.</span><em>' + (o.cost ? money(o.cost) : 'kostenlos') + '</em></button>';
@@ -103,7 +105,7 @@
     // Kapazität & Gästeblock
     h += '<div class="panel"><h2>Kapazität</h2><div class="grid g2">' + U.ikpi('fans', 'Stehplätze', num(parts.steh)) + U.ikpi('stadium', 'Sitzplätze', num(parts.sitz)) + U.ikpi('stocks', 'Business', num(parts.business)) + U.ikpi('star', 'Logenplätze', num(parts.loge)) + '</div>' +
       (full.steh + full.sitz + full.vip > parts.steh + parts.sitz + parts.vip ? '<p class="small warn" style="margin-top:6px">🚧 Wegen Umbau gesperrt: ' + num(full.steh + full.sitz + full.vip - parts.steh - parts.sitz - parts.vip) + ' Plätze</p>' : '') +
-      '<p class="small" style="margin-top:6px">Gästeblock: <b>' + esc(SP.sec(plan.guest).n) + '</b> · ' + num(SP.guestCap(c)) + ' Plätze' + (gs && gs.season === st.season ? ' · zuletzt ' + num(gs.last) + ' Gästefans' + (gs.short ? ' <span class="warn">(zu klein – Nachfrage ' + num(gs.demand) + ')</span>' : '') : '') + '</p>' +
+      '<p class="small" style="margin-top:6px">' + (SP.guestIds(plan).length > 1 ? 'Gästeblöcke' : 'Gästeblock') + ': <b>' + SP.guestIds(plan).map(function (id) { return esc(SP.sec(id).n); }).join(', ') + '</b> · ' + num(SP.guestCap(c)) + ' Plätze · Pflichtkontingent 10 %: ' + num(Math.round((parts.steh + parts.sitz) * E.GUEST_QUOTA)) + (SP.guestCap(c) < Math.round((parts.steh + parts.sitz) * E.GUEST_QUOTA) ? ' <span class="warn">(Gästeblöcke zu klein – weiteren Block festlegen)</span>' : '') + (gs && gs.season === st.season ? ' · zuletzt ' + num(gs.last) + ' Gästefans' + (gs.short ? ' <span class="warn">(zu klein – Nachfrage ' + num(gs.demand) + ')</span>' : '') : '') + '</p>' +
       '<div class="row between small"><span>Abnutzung Gästeblock</span><b>' + Math.round(plan.wear || 0) + ' %</b></div>' + U.bar(plan.wear || 0, 100, (plan.wear || 0) > 60 ? '#ef4444' : (plan.wear || 0) > 30 ? '#f5b301' : '#22c55e') +
       (can && (plan.wear || 0) >= 5 ? '<button class="sm" style="margin-top:6px" data-act="planRepair">Gästeblock sanieren (' + money(SP.repairCost(c)) + ')</button>' : '') +
       '<p class="muted small" style="margin-top:6px">Je höher die Liga und je größer der Gegner, desto mehr Gästefans reisen an – mehr Einnahmen, aber auch mehr Abnutzung und Randale-Gefahr. Gute Sanitäranlagen und eine regelmäßige Sanierung senken das Risiko.</p></div>';
@@ -113,6 +115,8 @@
   };
   U.acts.planSel = function (d) { U.p.sec = d.k; U.p.opt = null; U.render(); };
   U.acts.planOpt = function (d) { U.p.opt = +d.v; U.render(); };
+  U.acts.planGuestAdd = function (d) { if (SP.addGuest(U.club(), d.k)) U.toast('Zusätzlicher Gästeblock: ' + SP.sec(d.k).n); U.render(); };
+  U.acts.planGuestDel = function (d) { if (SP.removeGuest(U.club(), d.k)) U.toast('Gästeblock aufgehoben: ' + SP.sec(d.k).n); U.render(); };
   U.acts.planGuest = function (d) { if (SP.setGuest(U.club(), d.k)) U.toast('Gästeblock: ' + SP.sec(d.k).n); U.render(); };
   U.acts.planRepair = function () { var r = SP.repair(U.club()); U.toast(r.ok ? 'Gästeblock saniert (' + money(r.cost) + ').' : r.why); U.render(); };
   U.acts.planBuild = function (d) {

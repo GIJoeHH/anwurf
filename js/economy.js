@@ -31,6 +31,46 @@
     return R.clamp(Math.round(a), 0, 100);
   };
 
+  // ---------- Entfernung, Derbys, Fanfreundschaften ----------
+  E.DERBY_KM = 150;
+  E.geo = function (club) { if (club.geo) return club.geo; var g = D.cityGeo && D.cityGeo[club.city]; if (g) return g; var h = 0, s = String(club.city || club.name); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return [48 + (h % 600) / 100, 6.5 + ((h >> 10) % 750) / 100]; };
+  E.distance = function (a, b) {
+    var p = E.geo(a), q = E.geo(b), rad = Math.PI / 180, dLat = (q[0] - p[0]) * rad, dLon = (q[1] - p[1]) * rad;
+    var x = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(p[0] * rad) * Math.cos(q[0] * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 6371 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  };
+  // Fanfreundschaften einmal je Spielwelt festlegen (bekannte zuerst, dann feste Zufallspaare > 150 km, keine Rivalen)
+  E.ensureFriends = function (st) {
+    if (st.friendsInit && st.friendsV === D.fanFriendsV) return;
+    var first = !st.friendsInit;
+    var clubs = Object.keys(st.clubs).map(function (k) { return st.clubs[k]; }), byShort = {};
+    clubs.forEach(function (c) { c.friends = c.friends || []; byShort[c.short] = c; });
+    function link(a, b) { if (!a || !b || a === b || a.friends.indexOf(b.id) >= 0 || (a.rivals || []).indexOf(b.id) >= 0) return; a.friends.push(b.id); b.friends.push(a.id); }
+    (D.fanFriends || []).forEach(function (f) { link(byShort[f[0]], byShort[f[1]]); });
+    st.friendsV = D.fanFriendsV;
+    if (!first) return; // ältere Spielstände: nur die bekannten Paare ergänzen
+    var seed = 0; String(st.seed || 1).split('').forEach(function (ch) { seed = (seed * 31 + ch.charCodeAt(0)) >>> 0; });
+    var rnd = function () { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }; // eigener Zufall: verändert den Spielverlauf nicht
+    clubs.forEach(function (a) {
+      if (a.friends.length || rnd() < 0.45) return;
+      var cand = clubs.filter(function (b) { return b !== a && !b.friends.length && E.distance(a, b) > E.DERBY_KM && (a.rivals || []).indexOf(b.id) < 0; });
+      if (cand.length) link(a, cand[Math.floor(rnd() * cand.length)]);
+    });
+    st.friendsInit = true;
+  };
+  // Begegnung: Derby-Brisanz 0..1 (bis 150 km, je kürzer desto brisanter; Erzrivalen mindestens 0,7), Fanfreundschaft
+  E.matchup = function (st, home, away) {
+    if (!away) return { km: 0, derby: 0, friend: false, rival: false };
+    if (st) E.ensureFriends(st);
+    var km = E.distance(home, away), rival = (home.rivals || []).indexOf(away.id) >= 0, friend = (home.friends || []).indexOf(away.id) >= 0;
+    var d = km <= E.DERBY_KM ? Math.pow(1 - km / E.DERBY_KM, 1.3) : 0;
+    if (rival) d = Math.max(d, 0.7);
+    if (friend) d = 0; // befreundete Fanlager: kein Derby-Feeling, sondern friedliche Stimmung
+    var label = friend ? 'Fanfreundschaft' : d > 0 && home.city === away.city ? 'Stadtderby' : d >= 0.75 || rival ? 'Erzrivale' : d >= 0.4 ? 'Brisantes Derby' : d > 0 ? 'Regionalduell' : '';
+    return { km: Math.round(km), derby: Math.round(d * 100) / 100, friend: friend, rival: rival, label: label };
+  };
+  E.GUEST_QUOTA = 0.10; // der Gastverein erhält 10 % der Stadiontickets
+
   E.refPrices = { 1: { steh: 13, sitz: 26, vip: 140 }, 2: { steh: 10, sitz: 17, vip: 75 }, 3: { steh: 7, sitz: 11, vip: 35 } };
   function priceFactor(price, ref) { var r = Math.max(0.1, price / ref); return R.clamp(Math.pow(r, -1.35), 0.05, 1.8); }
 
@@ -56,8 +96,11 @@
   E.attendance = function (st, home, away, comp) {
     var leagueF = { 1: 1.0, 2: 0.82, 3: 0.66 }[home.league];
     var sport = E.sportFactor(st, home);
-    var oppF = 0.88 + (away ? away.reputation : 50) / 100 * 0.3;
-    var derby = away && home.rivals.indexOf(away.id) >= 0 ? 1.35 : 1;
+    var mu = E.matchup(st, home, away), nOpp = (st.leagues[home.league] && st.leagues[home.league].clubIds.length) || 18;
+    var oppPos = away && away.league === home.league && st.week >= 3 ? E.leaguePos(st, away) : (away ? (away.lastPos || 9) + (away.league - home.league) * 6 : 9);
+    var oppPosF = 1 + 0.14 * (1 - R.clamp((oppPos - 1) / (nOpp - 1), 0, 1.4)) - 0.05; // Tabellenplatz des Gegners
+    var oppF = (0.88 + (away ? away.reputation : 50) / 100 * 0.3) * oppPosF;
+    var derby = 1 + 0.5 * mu.derby, friendF = mu.friend ? 1.18 : 1;
     var compF = comp === 'cup' ? 1.05 : comp === 'releg' ? 1.4 : comp === 'final' ? 2 : comp === 'friendly' ? 0.22 : 1;
     var attr = E.attractiveness(home);
     var attrF = 0.7 + 0.5 * (1 - Math.exp(-attr / 35));
@@ -65,19 +108,24 @@
     var mkt = [0.98, 1, 1.03][home.budgets.marketing];
     var trustF = 0.9 + (home.fanTrust != null ? home.fanTrust : 60) / 500; // Fanvertrauen
     var promoF = home.ticketPromo > 0 ? 1.05 : 1;
-    var demand = home.fans * 1.05 * leagueF * sport * oppF * derby * compF * attrF * fanCare * mkt * trustF * promoF;
+    var demand = home.fans * 1.05 * leagueF * sport * oppF * derby * friendF * compF * attrF * fanCare * mkt * trustF * promoF;
     var parts = E.capacityParts(home), ref = E.refPrices[home.league], prices = home.tickets;
     if (home.blockedArea && comp !== 'final') { parts = { steh: Math.round(parts.steh * 0.8), sitz: Math.round(parts.sitz * 0.8), vip: parts.vip, biz: parts.biz }; }
     // Gästefans: je höher die Liga und je größer/besser der Gegner, desto mehr reisen an (Derby: noch mehr)
-    var gDemand = 0, gCap = 0, gType = 'steh', guests = 0;
+    var gDemand = 0, gCap = 0, gType = 'steh', guests = 0, guestFree = 0, guestFreeOk = false, guestQuota = 0, guestBlocks = 0, homeInGuest = 0;
     if (away && comp !== 'final') {
       var lgF = { 1: 0.05, 2: 0.034, 3: 0.022 }[home.league] || 0.02;
-      gDemand = away.fans * lgF * (0.55 + away.reputation / 110) * (derby > 1 ? 1.8 : 1) * (comp === 'cup' ? 1.25 : comp === 'releg' ? 1.6 : comp === 'friendly' ? 0.15 : 1) * (0.85 + E.sportFactor(st, away) * 0.15);
-      gCap = E.guestCap(home); if (home.blockedArea) gCap = Math.round(gCap * 0.8);
+      gDemand = away.fans * lgF * (0.55 + away.reputation / 110) * (1 + 1.2 * mu.derby) * (mu.friend ? 1.6 : 1) * (1.15 - Math.min(0.45, mu.km / 1600)) * (comp === 'cup' ? 1.25 : comp === 'releg' ? 1.6 : comp === 'friendly' ? 0.15 : 1) * (0.85 + E.sportFactor(st, away) * 0.15);
+      var blocks = E.guestCap(home); if (home.blockedArea) blocks = Math.round(blocks * 0.8);
       gType = plan(home) ? R.stadium.guestType(home) : 'steh';
       var gk = gType === 'sitz' || gType === 'steh' ? gType : 'sitz';
-      gCap = Math.min(gCap, parts[gk] || 0);
+      blocks = Math.min(blocks, parts[gk] || 0);
+      var quota = Math.round((parts.steh + parts.sitz) * E.GUEST_QUOTA); // Pflichtkontingent 10 % für den Gastverein
+      gCap = Math.min(blocks, quota);
       guests = Math.round(Math.min(gCap, gDemand * priceFactor(prices[gk], ref[gk])));
+      // Nicht benötigte Gästetickets dürfen eigene Fans kaufen – außer im Derby (Sicherheitsrisiko, Pufferzone bleibt leer)
+      guestFree = Math.max(0, gCap - guests); guestFreeOk = mu.derby <= 0 && comp !== 'friendly';
+      guestQuota = quota; guestBlocks = blocks;
       parts = { steh: parts.steh - (gk === 'steh' ? gCap : 0), sitz: parts.sitz - (gk === 'sitz' ? gCap : 0), vip: parts.vip, biz: parts.biz };
       gType = gk;
     }
@@ -87,6 +135,8 @@
       var share = parts[k] / capNorm;
       var d = demand * share * priceFactor(prices[k], ref[k]) * (k === 'sitz' ? 0.95 : 1.05);
       res[k] = Math.round(Math.min(parts[k], d));
+      // übrige Nachfrage füllt freie Gästetickets (gleiche Platzart)
+      if (guestFreeOk && k === gType && d > res[k]) { var extra = Math.round(Math.min(guestFree - homeInGuest, d - res[k])); if (extra > 0) { res[k] += extra; homeInGuest += extra; } }
     });
     // Logen (VIP-Preis) und Business-Plätze (35 % des VIP-Preises, breitere Nachfrage)
     var bizCap = parts.biz || 0, logeCap = parts.vip - bizCap;
@@ -111,7 +161,9 @@
     if (home.freeTickets) { var ft = Math.min(home.freeTickets, res.steh + res.sitz); ticket -= ft * prices.steh; }
     var cater = total * (3 + (lv(home, 'hosp').att || 0) * 0.5) + resLoge * 40 + resBiz * 15;
     var parking = carsUsed * (lv(home, 'parken').fee || 0);
-    return { total: total, parts: res, guests: guests, guestDemand: Math.round(gDemand), guestCap: gCap, capacity: E.capacity(home), ticket: ticket, cater: cater, parking: parking, congestion: congestion, demand: Math.round(demand), satisfaction: R.clamp(Math.round(100 - congestion * 120 - Math.max(0, (prices.steh / ref.steh - 1) * 40)), 0, 100) };
+    return { matchup: mu, oppPos: oppPos, guestQuota: guestQuota, guestBlocks: guestBlocks, guestType: gType, homeInGuest: homeInGuest, guestFreeOk: guestFreeOk, guestEmpty: Math.max(0, gCap - guests - homeInGuest),
+      factors: { fans: home.fans, league: leagueF, sport: sport, opp: oppF, oppPos: oppPosF, derby: derby, friend: friendF, comp: compF, attr: attrF }, prices: { steh: prices.steh, sitz: prices.sitz, vip: prices.vip },
+      total: total, parts: res, guests: guests, guestDemand: Math.round(gDemand), guestCap: gCap, capacity: E.capacity(home), ticket: ticket, cater: cater, parking: parking, congestion: congestion, demand: Math.round(demand), satisfaction: R.clamp(Math.round(100 - congestion * 120 - Math.max(0, (prices.steh / ref.steh - 1) * 40)), 0, 100) };
   };
 
   // ---------- Vereinsstadt ----------
@@ -601,6 +653,12 @@
       });
     }
     if (end) { cash += end; path.push(cash); }
+    // Immobilien: Mieten, Kosten, Zinsen, Tilgung und Bauauszahlungen zu den tatsächlichen Monatsenden im Zeitraum
+    if (R.realty && st.realty && (st.realty.props.some(function (p) { return p.club === club.id; }) || st.realty.loans.some(function (l) { return l.club === club.id; }))) {
+      var rf = R.realty.forecast(st, club, Math.max(0, total - from));
+      if (rf.rent) add('Mieteinnahmen', rf.rent); if (rf.cost) add('Immobilienkosten', -rf.cost); if (rf.zins) add('Immobilienzinsen', -rf.zins); if (rf.tilg) add('Tilgung Immobilien', -rf.tilg); if (rf.bau) add('Bauprojekte Immobilien', -rf.bau);
+      var dr = rf.rent - rf.cost - rf.zins - rf.tilg - rf.bau; cash += dr; path.push(cash);
+    }
     var inc = 0, exp = 0;
     Object.keys(lines).forEach(function (k) { if (lines[k] > 0) inc += lines[k]; else exp += lines[k]; });
     return { weeksLeft: Math.max(0, total - from), from: from, homeGames: homeGames, lines: lines, income: inc, expense: exp, endCash: cash, path: path, pos: pos, seasonEnd: end };

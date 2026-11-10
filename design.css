@@ -426,3 +426,7 @@ table.t tr.sel td:first-child { box-shadow: inset 3px 0 var(--act); }
 @media (max-width: 1500px) { #topbar .tb-chip.opt ~ .tb-chip.opt { display: none; } }
 @media (max-width: 1250px) { #topbar .tb-chip.opt { display: none; } }
 @media (max-width: 760px) { #topbar .tb-chip:first-of-type { display: none; } #topbar [data-act="autoStart"] { display: none; } }
+
+/* App-Logo auf dem Startbildschirm */
+.title-logo { display: block; width: 132px; height: 132px; margin: 0 auto 14px; border-radius: 28px; box-shadow: 0 12px 34px rgba(0,0,0,.45); }
+@media (max-width: 600px) { .title-logo { width: 96px; height: 96px; border-radius: 22px; } }

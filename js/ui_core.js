@@ -283,7 +283,7 @@
 
   // ---------- Startbildschirm ----------
   U.screens.start = function () {
-    return '<div class="title-screen"><div class="title-box"><div class="logo">ANWURF!<small>DER HANDBALL GEHÖRT DIR</small><span class="logo-sub">Von der Schulturnhalle zum Handballimperium</span></div>' +
+    return '<div class="title-screen"><div class="title-box"><img class="title-logo" src="icons/icon-512.png" alt="ANWURF!-Logo"><div class="logo">ANWURF!<small>DER HANDBALL GEHÖRT DIR</small><span class="logo-sub">Von der Schulturnhalle zum Handballimperium</span></div>' +
       '<div class="menu-btns">' + (U.st ? '<button class="primary" data-act="resume" style="display:flex;align-items:center;justify-content:center;gap:10px">' + (U.club() ? U.crest(U.club(), 26) : '') + '▶ Weiterspielen' + (U.club() ? ' <span style="font-weight:400;opacity:.85">· ' + esc(U.club().short) + '</span>' : '') + '</button>' : '') +
       '<button class="' + (U.st ? '' : 'primary') + '" data-act="newCareer">Neue Karriere</button><button data-act="loadScreen">Spielstand laden</button><button data-act="importSave">Spielstand importieren</button>' + '' + '</div>' +
       '<p class="muted small" style="margin-top:26px" id="storeInfo">' + (R.save.isNative ? '💾 Spielstände werden im iCloud-Sync-Ordner gespeichert.' : '💾 Browser-Modus: Spielstände liegen in diesem Browser. Zum Abgleich mit Mac/iPad: Speichern → „In iCloud sichern“ bzw. „Spielstand importieren“.' + (R.save.lastSync() ? ' Zuletzt in iCloud gesichert: ' + new Date(R.save.lastSync()).toLocaleString('de-DE') + '.' : '')) + '</p>' +

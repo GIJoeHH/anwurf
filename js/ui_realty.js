@@ -59,7 +59,7 @@
   };
 
   // ---------- Liniendiagramm aus gespeicherten Monatswerten ----------
-  U.lineChart = function (rows, series, o) {
+  U.rtChart = function (rows, series, o) {
     o = o || {}; var W = 560, H = o.h || 170, L = 62, Rr = 10, T = 12, B = 22;
     if (!rows || rows.length < 2) return '<div class="empty-state">' + U.lc('chart-line', 18) + '<span>' + (o.empty || 'Noch keine Verlaufsdaten – die Werte werden monatlich gespeichert.') + '</span></div>';
     var all = []; series.forEach(function (s) { rows.forEach(function (r) { var v = s.f(r); if (isFinite(v)) all.push(v); }); });
@@ -121,9 +121,9 @@
     else {
       h += '<div class="panel"><div class="panel-h"><h2>' + U.lc('briefcase', 17) + ' Immobilienportfolio (' + pf.count + ' Objekte)</h2></div><div class="rt-cards">' + pf.props.map(function (p) { return propCard(st, c, p); }).join('') + '</div></div>';
       var lab = function (r) { return RE.dateText(st, r.t); };
-      h += '<div class="grid g2"><div class="panel"><h2>Vermögen, Restschuld und Eigenkapital</h2>' + U.lineChart(hist, [{ n: 'Immobilienvermögen', col: '#60a5fa', f: function (r) { return r.v; }, fill: true }, { n: 'Restschuld', col: '#f87171', f: function (r) { return r.d; } }, { n: 'Eigenkapital', col: '#22c55e', f: function (r) { return r.e; } }], { labels: lab, zero: true }) + '</div>' +
-        '<div class="panel"><h2>Mieteinnahmen und Netto-Cashflow (Monat)</h2>' + U.lineChart(hist, [{ n: 'Mieteinnahmen', col: '#22c55e', f: function (r) { return r.r; }, fill: true }, { n: 'Netto-Cashflow', col: '#fbbf24', f: function (r) { return r.cf; } }], { labels: lab }) + '</div></div>' +
-        '<div class="panel"><h2>Vermietungsquote</h2>' + U.lineChart(hist, [{ n: 'Vermietungsquote', col: '#a78bfa', f: function (r) { return r.o; } }], { labels: lab, h: 120, fmt: function (v) { return Math.round(v) + ' %'; } }) + '</div>';
+      h += '<div class="grid g2"><div class="panel"><h2>Vermögen, Restschuld und Eigenkapital</h2>' + U.rtChart(hist, [{ n: 'Immobilienvermögen', col: '#60a5fa', f: function (r) { return r.v; }, fill: true }, { n: 'Restschuld', col: '#f87171', f: function (r) { return r.d; } }, { n: 'Eigenkapital', col: '#22c55e', f: function (r) { return r.e; } }], { labels: lab, zero: true }) + '</div>' +
+        '<div class="panel"><h2>Mieteinnahmen und Netto-Cashflow (Monat)</h2>' + U.rtChart(hist, [{ n: 'Mieteinnahmen', col: '#22c55e', f: function (r) { return r.r; }, fill: true }, { n: 'Netto-Cashflow', col: '#fbbf24', f: function (r) { return r.cf; } }], { labels: lab }) + '</div></div>' +
+        '<div class="panel"><h2>Vermietungsquote</h2>' + U.rtChart(hist, [{ n: 'Vermietungsquote', col: '#a78bfa', f: function (r) { return r.o; } }], { labels: lab, h: 120, fmt: function (v) { return Math.round(v) + ' %'; } }) + '</div>';
     }
     // Vermögensdarstellung
     var liquid = c.cash + c.savings, other = stocksV + cryptoV + pf.value, liab = E.debt(c) + pf.debt;
@@ -266,7 +266,7 @@
       row('Monatliche Rate', -q.annuity) + row('Zinsen im 1. Jahr', -q.zinsY1) + row('Tilgung im 1. Jahr', -q.tilgY1) + row('Restschuld nach ' + q.fix + ' Jahren', q.restFix) + (q.fee ? row('Bearbeitungsgebühr', -q.fee) : '') + '</div>' +
       '<div class="rt-result"><h3>Erwarteter Betrieb (Monat)</h3>' + row('Erwartete Mieteinnahmen', q.rentM) + row('Bewirtschaftungskosten', -q.costM) + row('Darlehensrate', -q.annuity) + row('Erwarteter Cashflow', q.cfM, 'b') +
       '<div class="rt-row"><span>Schuldendienstdeckung (DSCR)</span><b class="' + (q.dscr >= 1.2 ? 'pos' : q.dscr >= 1 ? '' : 'neg') + '">' + (isFinite(q.dscr) ? q.dscr.toFixed(2).replace('.', ',') : '–') + '</b></div>' + (o.mode === 'neubau' ? '<p class="muted small">Mieten erst nach Fertigstellung; während der Bauzeit fallen nur Bauzinsen an.</p>' : '') + '</div></div>';
-    h += '<div class="panel tight" style="margin-top:10px"><h3>Restschuld, Zins- und Tilgungsanteil</h3>' + U.lineChart(q.schedule.map(function (s) { return s; }), [{ n: 'Restschuld', col: '#22c55e', f: function (r) { return r.rest; }, fill: true }, { n: 'Zinsen p.a.', col: '#f87171', f: function (r) { return r.zins; } }, { n: 'Tilgung p.a.', col: '#60a5fa', f: function (r) { return r.tilg; } }], { labels: function (r) { return 'J' + r.year; }, zero: true, h: 150 }) + '</div>';
+    h += '<div class="panel tight" style="margin-top:10px"><h3>Restschuld, Zins- und Tilgungsanteil</h3>' + U.rtChart(q.schedule.map(function (s) { return s; }), [{ n: 'Restschuld', col: '#22c55e', f: function (r) { return r.rest; }, fill: true }, { n: 'Zinsen p.a.', col: '#f87171', f: function (r) { return r.zins; } }, { n: 'Tilgung p.a.', col: '#60a5fa', f: function (r) { return r.tilg; } }], { labels: function (r) { return 'J' + r.year; }, zero: true, h: 150 }) + '</div>';
     h += q.ok ? '<div class="note ok">' + U.lc('circle-check', 15) + ' Die ' + esc(q.bank) + ' bewilligt die Finanzierung (Bonität ' + q.credit.grade + ', ' + q.credit.score + '/1000).</div>'
       : '<div class="note bad">' + U.lc('circle-x', 15) + ' <b>Finanzierung abgelehnt:</b><ul>' + q.reasons.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul><span class="small">Möglich: mehr Eigenkapital einsetzen, ein kleineres Objekt wählen, andere Tilgung/Zinsbindung oder bestehende Schulden reduzieren.</span></div>';
     box.innerHTML = h;
@@ -348,7 +348,7 @@
       row('Erwartete Mieteinnahmen / Monat', cl.rentM) + row('Laufende Betriebskosten / Monat', -cl.costM) + row('Erwarteter Cashflow / Monat', cl.rentM - cl.costM - A, 'b') +
       '<div class="rt-row"><span>Schuldendienstdeckungsgrad</span><b class="' + (dscr >= 1.2 ? 'pos' : dscr >= 1 ? '' : 'neg') + '">' + (isFinite(dscr) ? dscr.toFixed(2).replace('.', ',') : '–') + '</b></div>';
     var eqRows = sched.map(function (s, i) { return { year: s.year, rest: s.rest, zins: s.zins, tilg: s.tilg, eq: cl.price * Math.pow(1.015, s.year) - s.rest }; });
-    h += U.lineChart(eqRows, [{ n: 'Restschuld', col: '#f87171', f: function (r) { return r.rest; } }, { n: 'Eigenkapital im Objekt (Wert +1,5 % p.a.)', col: '#22c55e', f: function (r) { return r.eq; }, fill: true }, { n: 'Zinsanteil p.a.', col: '#fbbf24', f: function (r) { return r.zins; } }, { n: 'Tilgungsanteil p.a.', col: '#60a5fa', f: function (r) { return r.tilg; } }], { labels: function (r) { return 'J' + r.year; }, zero: true, h: 160 });
+    h += U.rtChart(eqRows, [{ n: 'Restschuld', col: '#f87171', f: function (r) { return r.rest; } }, { n: 'Eigenkapital im Objekt (Wert +1,5 % p.a.)', col: '#22c55e', f: function (r) { return r.eq; }, fill: true }, { n: 'Zinsanteil p.a.', col: '#fbbf24', f: function (r) { return r.zins; } }, { n: 'Tilgungsanteil p.a.', col: '#60a5fa', f: function (r) { return r.tilg; } }], { labels: function (r) { return 'J' + r.year; }, zero: true, h: 160 });
     return h + '<p class="muted small">Gleiches Rechenmodell wie im Kreditvertrag (Annuität: Darlehen × Monatszins / (1 − (1 + Monatszins)^−Monate) bzw. Sollzins + Anfangstilgung).</p>';
   }
 })(RFM);

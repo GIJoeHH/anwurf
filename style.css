@@ -460,3 +460,13 @@ i.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; marg
 .tk-curve { display: block; margin-top: 6px; }
 .tk-games td { vertical-align: middle; }
 @media (max-width: 800px) { .tk-row { grid-template-columns: 1fr 100px; } .tk-f { grid-column: 1 / -1; } .tk-fx { grid-template-columns: 1fr 1fr; } .tk-sum { grid-template-columns: repeat(3, 1fr); } }
+/* Ticketpreise: Optimum, Dauerkarten */
+.tk-opt { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+.tk-opt > div { display: flex; flex-direction: column; padding: 6px 8px; border-radius: 8px; background: rgba(15,23,42,.45); }
+.tk-opt small { font-size: 11px; color: var(--muted, #94a3b8); } .tk-opt b { font-size: 14px; }
+.tk-price.col { flex-direction: column; align-items: flex-start; gap: 4px; } .tk-price.col label { display: flex; align-items: center; gap: 4px; }
+.tk-row.dk { border-color: rgba(167,139,250,.4); }
+.tk-scroll { overflow-x: auto; }
+.tk-reco td, .tk-reco th { white-space: nowrap; }
+@media (max-width: 800px) { .tk-opt { grid-template-columns: 1fr 1fr; } }
+.tk-price.col input { width: 92px; }

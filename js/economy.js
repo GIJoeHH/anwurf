@@ -71,8 +71,93 @@
   };
   E.GUEST_QUOTA = 0.10; // der Gastverein erhält 10 % der Stadiontickets
 
-  E.refPrices = { 1: { steh: 13, sitz: 26, vip: 140 }, 2: { steh: 10, sitz: 17, vip: 75 }, 3: { steh: 7, sitz: 11, vip: 35 } };
+  // Referenzpreise je Liga: Steh/Sitz/Business pro Spiel, Loge = Saisonmiete je Loge (Privatraum in der Halle für 12 Gäste mit eigenem Catering)
+  E.refPrices = { 1: { steh: 13, sitz: 26, biz: 50, loge: 30000, vip: 140 }, 2: { steh: 10, sitz: 17, biz: 27, loge: 15000, vip: 75 }, 3: { steh: 7, sitz: 11, biz: 13, loge: 7000, vip: 35 } };
   function priceFactor(price, ref) { var r = Math.max(0.1, price / ref); return R.clamp(Math.pow(r, -1.35), 0.05, 1.8); }
+  E.priceFactor = priceFactor;
+  E.LOGE_SEATS = 12; // Plätze je Loge
+  E.HOME_GAMES = 17; // Liga-Heimspiele je Saison
+  E.ST_MAX_SHARE = 0.85; // höchstens 85 % einer Platzart als Dauerkarten (Rest bleibt für Tageskarten)
+  E.logeBoxes = function (club) { var v = E.capacityParts(club), seats = v.vip - (v.biz || 0); return seats > 0 ? Math.max(1, Math.floor(seats / E.LOGE_SEATS)) : 0; };
+  // Ticketdaten ergänzen (alte Spielstände: ein gemeinsamer VIP-Preis → Business je Spiel + Logen-Saisonmiete)
+  E.ensureTix = function (club) {
+    var t = club.tickets, ref = E.refPrices[club.league] || E.refPrices[3];
+    if (t.biz == null) t.biz = Math.max(5, Math.round((t.vip || ref.vip) * 0.35));
+    if (t.loge == null) t.loge = R.round((t.vip || ref.vip) / ref.vip * ref.loge, 1000);
+    if (!club.seasonTix) club.seasonTix = { steh: { price: R.round(t.steh * E.HOME_GAMES * 0.8, 5), limit: null }, sitz: { price: R.round(t.sitz * E.HOME_GAMES * 0.8, 5), limit: null }, sold: null };
+    return club.seasonTix;
+  };
+  // Durchschnittliche Tageskarten-Nachfrage je Platzart über die Liga-Heimspiele (ohne Dauerkarten)
+  E.tixBase = function (st, club) {
+    var lk = W.lk(club), lg = st.leagues[lk], opps = [];
+    if (lg) for (var w = 1; w <= R.season.SEASON_WEEKS; w++) R.season.roundsOf(st, lk, w).forEach(function (r) { (lg.fixtures[r] || []).forEach(function (f) { if (f.h === club.id) opps.push(st.clubs[f.a]); }); });
+    if (!opps.length && lg) opps = lg.clubIds.filter(function (x) { return x !== club.id; }).map(function (x) { return st.clubs[x]; });
+    var step = Math.max(1, Math.floor(opps.length / 6)), smp = opps.filter(function (o, i) { return i % step === 0; }).slice(0, 6), b = { steh: 0, sitz: 0, cap: { steh: 0, sitz: 0 }, games: lg ? Math.max(1, lg.clubIds.length - 1) : E.HOME_GAMES }; // Heimspiele je Saison (Staffelgröße)
+    smp.forEach(function (o) { var a = E.attendance(st, club, o, 'league', { holders: { steh: 0, sitz: 0 }, logen: 0 }); b.steh += a.dem.steh / smp.length; b.sitz += a.dem.sitz / smp.length; b.cap = a.capK; });
+    b.steh = Math.round(b.steh); b.sitz = Math.round(b.sitz);
+    return b;
+  };
+  // Dauerkarten-Nachfrage je Platzart: treue Fans; entscheidend ist der Rabatt gegenüber 17 Tageskarten
+  // (20 % Rabatt → 60 % der Stammnachfrage; teurer als 17 Tageskarten kauft niemand eine Dauerkarte)
+  E.ST_OVERLAP = 0.6; // ein Dauerkarten-Inhaber wäre im Schnitt bei 60 % der Spiele ohnehin mit Tageskarte gekommen
+  E.stDemand = function (club, k, base, price) {
+    var single = Math.max(1, club.tickets[k] * (base.games || E.HOME_GAMES)), disc = 1 - price / single;
+    var loyal = 0.85 + (club.fanTrust != null ? club.fanTrust : 60) / 400;
+    return Math.max(0, base[k] * 0.6 * loyal * Math.pow(R.clamp((disc + 0.05) / 0.25, 0, 1.6), 0.8));
+  };
+  E.stSold = function (club, k, base, price, limit) {
+    var cap = Math.round((base.cap[k] || 0) * E.ST_MAX_SHARE), n = Math.min(cap, Math.round(E.stDemand(club, k, base, price)));
+    if (limit != null && limit >= 0) n = Math.min(n, Math.round(limit));
+    return Math.max(0, n);
+  };
+  // Saisonerlös einer Platzart bei Dauerkartenpreis p: Dauerkarten + verbleibende Tageskarten (Durchschnittsspiel)
+  E.stSeasonRevenue = function (club, k, base, price, limit) {
+    var n = E.stSold(club, k, base, price, limit), cap = base.cap[k] || 0;
+    var single = Math.min(Math.max(0, cap - n), Math.max(0, base[k] - n * E.ST_OVERLAP));
+    return { sold: n, stRev: n * price, dayRev: single * club.tickets[k] * base.games, total: n * price + single * club.tickets[k] * base.games, perGame: Math.min(cap, n + single) };
+  };
+  // Logen: Saisonmiete, Nachfrage aus Ansehen und sportlicher Lage
+  E.logeDemand = function (st, club, price) {
+    var boxes = E.logeBoxes(club), ref = (E.refPrices[club.league] || E.refPrices[3]).loge;
+    return Math.max(0, boxes * (0.45 + club.reputation / 140) * E.sportFactor(st, club) * priceFactor(price, ref));
+  };
+  E.logeRented = function (st, club, price) { return Math.min(E.logeBoxes(club), Math.round(E.logeDemand(st, club, price))); };
+  // Verkaufsprognose für die kommende Saison (vor dem 1. Spieltag)
+  var quoteCache = {};
+  E.seasonQuote = function (st, club, base) {
+    var sx = E.ensureTix(club), t = club.tickets, caps = E.capacityParts(club);
+    var key = club.id + '|' + st.season + '|' + st.tick + '|' + t.steh + '|' + t.sitz + '|' + t.loge + '|' + sx.steh.price + '|' + sx.steh.limit + '|' + sx.sitz.price + '|' + sx.sitz.limit + '|' + caps.steh + '|' + caps.sitz + '|' + caps.vip + '|' + club.fans + '|' + club.reputation;
+    if (!base && quoteCache[key]) return quoteCache[key];
+    base = base || E.tixBase(st, club);
+    var q = { steh: E.stSold(club, 'steh', base, sx.steh.price, sx.steh.limit), sitz: E.stSold(club, 'sitz', base, sx.sitz.price, sx.sitz.limit), logen: E.logeRented(st, club, t.loge), base: base };
+    q.stRev = q.steh * sx.steh.price + q.sitz * sx.sitz.price; q.logeRev = q.logen * t.loge;
+    quoteCache = {}; quoteCache[key] = q;
+    return q;
+  };
+  // Gilt der Verkauf schon für diese Saison? Sonst Prognose (Vorbereitung) bzw. nichts (Saisonende)
+  E.seasonHolders = function (st, club) {
+    var sx = E.ensureTix(club);
+    if (sx.sold && sx.sold.season === st.season) return { steh: sx.sold.steh, sitz: sx.sold.sitz, logen: sx.sold.logen, sold: true };
+    if (st.phase === 'preseason') { var q = E.seasonQuote(st, club); return { steh: q.steh, sitz: q.sitz, logen: q.logen, sold: false }; }
+    return { steh: 0, sitz: 0, logen: 0, sold: false };
+  };
+  // Dauerkarten- und Logenverkauf vor dem 1. Spieltag (alle Vereine). Alte Spielstände mitten in der Saison: anteilig.
+  E.seasonSales = function (st) {
+    if (st.phase === 'preseason' || st.phase === 'seasonEnd') return;
+    var frac = st.week <= 1 ? 1 : R.clamp((R.season.SEASON_WEEKS - st.week + 1) / R.season.SEASON_WEEKS, 0, 1);
+    Object.keys(st.clubs).forEach(function (id) {
+      var c = st.clubs[id]; if (!c || !c.tickets || !st.leagues[W.lk(c)]) return;
+      var sx = E.ensureTix(c); if (sx.sold && sx.sold.season === st.season) return;
+      if (!c.userControlled) { sx.steh.price = R.round(c.tickets.steh * E.HOME_GAMES * 0.8, 5); sx.sitz.price = R.round(c.tickets.sitz * E.HOME_GAMES * 0.8, 5); }
+      var q = E.seasonQuote(st, c, E.tixBase(st, c));
+      var stRev = Math.round(q.stRev * frac), lRev = Math.round(q.logeRev * frac);
+      sx.sold = { season: st.season, steh: q.steh, sitz: q.sitz, logen: q.logen, pSteh: sx.steh.price, pSitz: sx.sitz.price, pLoge: c.tickets.loge, stRev: stRev, logeRev: lRev };
+      c.cash += stRev + lRev;
+      if (stRev) E.book(c, 'Dauerkarten', stRev);
+      if (lRev) E.book(c, 'Logenvermietung', lRev);
+      if (c.userControlled && R.season.news) R.season.news(st, 'Dauerkartenverkauf abgeschlossen', R.fmtNum(q.steh + q.sitz) + ' Dauerkarten (' + R.fmtMoney(stRev) + ') und ' + q.logen + ' Logen (' + R.fmtMoney(lRev) + ') verkauft.', 'finanz');
+    });
+  };
 
   E.leaguePos = function (st, club) {
     var t = R.season.table(st, W.lk(club));
@@ -93,7 +178,8 @@
   };
 
   // Zuschauerberechnung für ein Heimspiel
-  E.attendance = function (st, home, away, comp) {
+  E.attendance = function (st, home, away, comp, opts) {
+    opts = opts || {}; E.ensureTix(home);
     var leagueF = { 1: 1.0, 2: 0.82, 3: 0.66 }[home.league];
     var sport = E.sportFactor(st, home);
     var mu = E.matchup(st, home, away), nOpp = (st.leagues[home.league] && st.leagues[home.league].clubIds.length) || 18;
@@ -130,19 +216,26 @@
       gType = gk;
     }
     var capNorm = parts.steh + parts.sitz || 1;
-    var res = { steh: 0, sitz: 0, vip: 0 };
+    var res = { steh: 0, sitz: 0, vip: 0 }, dem = {}, capK = { steh: parts.steh, sitz: parts.sitz };
+    // Dauerkarten-Inhaber haben ihren Platz sicher; Tageskarten nur für die übrige Nachfrage
+    var sh = comp === 'friendly' ? { steh: 0, sitz: 0, logen: 0 } : opts.holders ? { steh: opts.holders.steh || 0, sitz: opts.holders.sitz || 0, logen: opts.logen != null ? opts.logen : null } : E.seasonHolders(st, home);
+    var dayTk = { steh: 0, sitz: 0 };
     ['steh', 'sitz'].forEach(function (k) {
       var share = parts[k] / capNorm;
       var d = demand * share * priceFactor(prices[k], ref[k]) * (k === 'sitz' ? 0.95 : 1.05);
-      res[k] = Math.round(Math.min(parts[k], d));
+      dem[k] = d;
+      var hold = Math.min(parts[k], sh[k] || 0);
+      res[k] = Math.round(Math.min(parts[k], hold + Math.max(0, d - hold * E.ST_OVERLAP)));
+      dayTk[k] = Math.max(0, res[k] - hold);
       // übrige Nachfrage füllt freie Gästetickets (gleiche Platzart)
-      if (guestFreeOk && k === gType && d > res[k]) { var extra = Math.round(Math.min(guestFree - homeInGuest, d - res[k])); if (extra > 0) { res[k] += extra; homeInGuest += extra; } }
+      if (guestFreeOk && k === gType && d > res[k]) { var extra = Math.round(Math.min(guestFree - homeInGuest, d - res[k])); if (extra > 0) { res[k] += extra; dayTk[k] += extra; homeInGuest += extra; } }
     });
-    // Logen (VIP-Preis) und Business-Plätze (35 % des VIP-Preises, breitere Nachfrage)
+    // Business-Seats (Tribünenplatz mit Essen im Stadioninneren, Preis je Spiel) und Logen (Privaträume, Saisonmiete)
     var bizCap = parts.biz || 0, logeCap = parts.vip - bizCap;
-    var vipD = logeCap * (0.45 + home.reputation / 140) * sport * priceFactor(prices.vip, ref.vip) * (comp === 'final' ? 1.5 : 1);
-    var bizD = bizCap * (0.35 + home.reputation / 180) * sport * priceFactor(prices.vip, ref.vip) * (comp === 'final' ? 1.5 : 1);
-    var resLoge = Math.round(Math.min(logeCap, vipD)), resBiz = Math.round(Math.min(bizCap, bizD));
+    var bizD = bizCap * (0.35 + home.reputation / 180) * sport * priceFactor(prices.biz, ref.biz) * (comp === 'final' ? 1.5 : 1) * (comp === 'friendly' ? 0.3 : 1);
+    var logenN = sh.logen != null ? sh.logen : E.logeRented(st, home, prices.loge);
+    var resLoge = Math.round(Math.min(logeCap, logenN * E.LOGE_SEATS * (comp === 'friendly' ? 0.4 : 0.92))), resBiz = Math.round(Math.min(bizCap, bizD));
+    dem.biz = bizD; dem.loge = logenN;
     res.vip = resLoge + resBiz;
     var total = res.steh + res.sitz + res.vip + guests;
     // Verkehr: Engpass → Staus, Zuschauerverlust, Unzufriedenheit
@@ -152,17 +245,18 @@
       var lost = (total - tcap) * 0.45;
       congestion = R.clamp((total - tcap) / Math.max(1, total), 0, 1);
       var keep = (total - lost) / total;
-      res.steh = Math.round(res.steh * keep); res.sitz = Math.round(res.sitz * keep); resLoge = Math.round(resLoge * keep); resBiz = Math.round(resBiz * keep); res.vip = resLoge + resBiz; guests = Math.round(guests * keep);
+      res.steh = Math.round(res.steh * keep); res.sitz = Math.round(res.sitz * keep); dayTk.steh = Math.round(dayTk.steh * keep); dayTk.sitz = Math.round(dayTk.sitz * keep); resLoge = Math.round(resLoge * keep); resBiz = Math.round(resBiz * keep); res.vip = resLoge + resBiz; guests = Math.round(guests * keep);
       total = res.steh + res.sitz + res.vip + guests;
     }
     var transitShare = Math.min(0.75, lv(home, 'oepnv').fans / Math.max(1, total));
     var carsUsed = Math.min(lv(home, 'parken').cars, total * (1 - transitShare) / 2.6);
-    var ticket = (res.steh * prices.steh + res.sitz * prices.sitz) * (home.ticketPromo > 0 ? 0.9 : 1) + resLoge * prices.vip + resBiz * prices.vip * 0.35 + guests * prices[gType];
-    if (home.freeTickets) { var ft = Math.min(home.freeTickets, res.steh + res.sitz); ticket -= ft * prices.steh; }
+    // Eintritt je Spiel: nur Tageskarten und Business (Dauerkarten und Logen werden vor der Saison bezahlt)
+    var ticket = (dayTk.steh * prices.steh + dayTk.sitz * prices.sitz) * (home.ticketPromo > 0 ? 0.9 : 1) + resBiz * prices.biz + guests * prices[gType];
+    if (home.freeTickets) { var ft = Math.min(home.freeTickets, dayTk.steh + dayTk.sitz); ticket -= ft * prices.steh; }
     var cater = total * (3 + (lv(home, 'hosp').att || 0) * 0.5) + resLoge * 40 + resBiz * 15;
     var parking = carsUsed * (lv(home, 'parken').fee || 0);
     return { matchup: mu, oppPos: oppPos, guestQuota: guestQuota, guestBlocks: guestBlocks, guestType: gType, homeInGuest: homeInGuest, guestFreeOk: guestFreeOk, guestEmpty: Math.max(0, gCap - guests - homeInGuest),
-      factors: { fans: home.fans, league: leagueF, sport: sport, opp: oppF, oppPos: oppPosF, derby: derby, friend: friendF, comp: compF, attr: attrF }, prices: { steh: prices.steh, sitz: prices.sitz, vip: prices.vip },
+      factors: { fans: home.fans, league: leagueF, sport: sport, opp: oppF, oppPos: oppPosF, derby: derby, friend: friendF, comp: compF, attr: attrF }, prices: { steh: prices.steh, sitz: prices.sitz, biz: prices.biz, loge: prices.loge }, dem: dem, capK: capK, holders: sh, dayTk: dayTk, resBiz: resBiz, resLoge: resLoge, bizCap: bizCap, logeCap: logeCap, logeBoxes: E.logeBoxes(home),
       total: total, parts: res, guests: guests, guestDemand: Math.round(gDemand), guestCap: gCap, capacity: E.capacity(home), ticket: ticket, cater: cater, parking: parking, congestion: congestion, demand: Math.round(demand), satisfaction: R.clamp(Math.round(100 - congestion * 120 - Math.max(0, (prices.steh / ref.steh - 1) * 40)), 0, 100) };
   };
 
@@ -244,7 +338,7 @@
     var upNow = f.levels[cur] ? f.levels[cur].up : 0;
     var addRev = revNext - revNow, addCost = next.up - upNow;
     if (key === 'steh' || key === 'sitz' || key === 'vip') {
-      var avgPrice = key === 'vip' ? club.tickets.vip : club.tickets[key];
+      var avgPrice = key === 'vip' ? (club.tickets.loge || 60000) / E.LOGE_SEATS / E.HOME_GAMES : club.tickets[key];
       var capAdd = key === 'vip' ? next.vip - f.levels[cur].vip : next.cap - f.levels[cur].cap;
       var demandRoom = Math.max(0, (club.lastDemand || club.avgAttendance || 0) - E.capacity(club));
       addRev = Math.min(capAdd, demandRoom + capAdd * 0.15) * avgPrice * 17;
@@ -627,6 +721,7 @@
     Object.keys(weekly).forEach(function (k) { wk += weekly[k]; });
     var lines = {}, path = [club.cash], cash = club.cash, homeGames = 0;
     function add(k, v) { lines[k] = (lines[k] || 0) + v; }
+    if (st.phase === 'preseason' && st.leagues[W.lk(club)]) { var sq = E.seasonHolders(st, club), sxq = E.ensureTix(club); if (!sq.sold) { var dkR = Math.round(sq.steh * sxq.steh.price + sq.sitz * sxq.sitz.price), lgR = Math.round(sq.logen * club.tickets.loge); if (dkR) add('Dauerkarten', dkR); if (lgR) add('Logenvermietung', lgR); cash += dkR + lgR; } }
     var acc = Math.round(club.interestAccrued || 0); // bereits aufgelaufene, noch nicht gutgeschriebene Zinsen
     if (acc && from < total) { add('Zinserträge', acc); cash += acc; }
     for (var w = from + 1; w <= total; w++) {

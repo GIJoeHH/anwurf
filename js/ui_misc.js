@@ -379,6 +379,7 @@
     var h = '<div class="panel" style="margin-bottom:14px"><h2>🛡️ Vereinslogos</h2>' +
       '<p class="small">Die ' + nLogo + ' Vereine der Bundesliga und 2. Bundesliga zeigen ihre <b>Original-Logos</b>. Sie werden beim Anzeigen von der HBL-Bilddatenbank geladen; ohne Internet erscheint das im Spiel erzeugte Wappen. Für die Vereine der 3. Liga können Sie unten mit „🖼️ Bild“ ein eigenes Logo hochladen. Es wird im Spielstand gespeichert und funktioniert offline. Unter Einstellungen lassen sich die Original-Logos abschalten.</p>' +
       '<p class="muted small">Rechte: Vereinswappen sind Marken der Vereine. Frei lizenzierte Dateien (Wikimedia Commons) werden vorausgewählt; Wappen mit unklarer oder nicht freier Lizenz nur, wenn Sie bestätigen, dass Sie sie ausschließlich privat in Ihrem Spiel nutzen. Alle anderen behalten das neutrale, im Spiel erzeugte Wappen. Wappen werden nie in die veröffentlichte Web-App eingebaut.</p>' +
+      '<div class="row" style="margin:8px 0"><button class="primary sm" data-act="crestWiki">' + U.lc('search', 14) + ' Logos für Vereine ohne Logo suchen (Wikidata)</button><span class="muted small">' + clubs.filter(function (c) { return !c.logoUrl && !c.crestImage; }).length + ' Vereine noch ohne Logo</span></div>' +
       '<div class="row"><span class="muted small">' + clubs.length + ' Vereine (Bundesliga ' + cnt[1] + ' · 2. Bundesliga ' + cnt[2] + ' · 3. Liga ' + cnt[3] + ') · ' + nLogo + ' Original-Logos · ' + withImg + ' eigene Bilder</span></div></div>';
     h += '<div class="panel tight"><table class="t"><tr><th></th><th>Verein</th><th>Liga</th><th>OpenLigaDB</th><th>Wappen</th><th></th></tr>' + clubs.map(function (c) {
       var s = crestState(c);
@@ -386,6 +387,30 @@
         '<td style="white-space:nowrap"><button class="sm" data-act="edCrestImg" data-id="' + c.id + '" title="Eigenes Wappenbild hochladen">🖼️ Bild</button>' + (c.crestImage ? ' <button class="sm" data-act="edCrestDel" data-id="' + c.id + '" title="Neutrales Wappen verwenden">✕</button>' : '') + '</td></tr>';
     }).join('') + '</table></div>';
     return h;
+  };
+  // Logo-Suche über Wikidata: Vorschau mit Häkchen, nur nach Bestätigung übernehmen
+  U.acts.crestWiki = function () {
+    var st = U.st, CR = R.crests;
+    U.modal('Vereinslogos suchen', '<p id="crestProg">Suche in Wikidata …</p><p class="muted small">Es werden nur Treffer mit Sportart Handball und hinterlegtem Logo (Wikimedia Commons) vorgeschlagen.</p>', '<button data-act="closeModal">Abbrechen</button>');
+    CR.wikidataSearch(st, function (d, n, name) { crestProgress('Suche ' + d + ' / ' + n + ' · ' + name); }).then(function (rows) {
+      rows.sort(function (a, b) { return (b.img ? 1 : 0) - (a.img ? 1 : 0) || a.club.name.localeCompare(b.club.name, 'de'); });
+      U.wikiPrev = rows; U.showWikiPreview();
+    });
+  };
+  U.showWikiPreview = function () {
+    var rows = U.wikiPrev, found = rows.filter(function (r) { return r.img; }), n = found.filter(function (r) { return r.sel; }).length;
+    var h = '<p class="small">' + found.length + ' von ' + rows.length + ' Vereinen ohne Logo gefunden. Bitte prüfen, ob das Logo zum Verein passt.</p>' +
+      '<div class="scroll" style="max-height:52vh"><table class="t"><tr><th>✓</th><th>Logo</th><th>Verein</th><th>Wikidata-Treffer</th><th>Lizenz</th></tr>' + rows.map(function (r, i) {
+        return '<tr><td><input type="checkbox" data-chg="wikiSel" data-i="' + i + '"' + (r.sel ? ' checked' : '') + (r.img ? '' : ' disabled') + '></td><td>' + (r.img ? '<img src="' + r.img + '" style="width:34px;height:34px;object-fit:contain">' : U.crest(r.club, 28)) + '</td><td>' + esc(r.club.name) + '</td>' +
+          '<td class="small">' + (r.hit ? esc(r.hit.label) + ' <span class="muted">(' + esc(r.hit.qid) + (r.hit.desc ? ' · ' + esc(r.hit.desc) : '') + ')</span>' : '<span class="muted">' + (r.status === 'error' ? 'Fehler: ' + esc(r.error || '') : 'kein Logo gefunden') + '</span>') + '</td>' +
+          '<td class="small">' + (r.img ? '<span class="pos">Wikimedia Commons</span>' : '') + '</td></tr>';
+      }).join('') + '</table></div><p class="muted small" style="margin-top:8px">Commons-Dateien sind frei lizenziert (meist gemeinfreie Textlogos); das Markenrecht liegt beim Verein – nur private Nutzung. Übernommene Logos werden im Spielstand gespeichert, gelten auch für neue Karrieren auf diesem Gerät und funktionieren offline.</p>';
+    U.modal('Vorschau: Vereinslogos aus Wikidata', h, '<button data-act="closeModal">Abbrechen</button><button class="primary" data-act="wikiApply"' + (n ? '' : ' disabled') + '>' + n + ' Logos übernehmen</button>', true);
+  };
+  U.acts.wikiSel = function (d, el) { U.wikiPrev[+d.i].sel = el.checked; U.showWikiPreview(); };
+  U.acts.wikiApply = function () {
+    var st = U.st, n = 0; U.wikiPrev.forEach(function (r) { if (r.sel && r.img && R.crests.applyWikidata(st, r)) n++; });
+    U.wikiPrev = null; U.closeModal(); U.toast(n + ' Vereinslogos übernommen.'); if (U.autosave) U.autosave(); U.render();
   };
   function crestProgress(text) { var el = document.getElementById('crestProg'); if (el) el.textContent = text; }
   U.acts.crestAuto = function () {
@@ -481,6 +506,8 @@
     R.save.storageInfo().then(function (i) { var el = document.getElementById('storeInfo2'); if (el) el.textContent = i.path || ''; });
     return '<h1>Einstellungen</h1><div class="grid g2"><div class="panel"><h2>Spiel</h2><table class="t"><tr><td>Standard-Spielgeschwindigkeit</td><td><div class="seg">' + [['normal', 'Normal'], ['schnell', 'Schnell'], ['sofort', 'Sofort']].map(function (x) { return '<button class="sm ' + (s.matchSpeed === x[0] ? 'on' : '') + '" data-act="setSpeed2" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div></td></tr>' +
       '<tr><td>Grafikdetails (Halle & Vereinsstadt)</td><td><div class="seg">' + [['hoch', 'Hoch'], ['reduziert', 'Reduziert']].map(function (x) { return '<button class="sm ' + ((R.s3d ? R.s3d.quality() : 'hoch') === x[0] ? 'on' : '') + '" data-act="setGfx" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div><div class="muted small">Reduziert: ohne Schatten, weniger Details – schont Akku und ältere iPads.</div></td></tr>' +
+      '<tr><td>Echte Sponsoren (Firmennamen und Logos, nur privat)</td><td><input type="checkbox" data-chg="setOpt" data-k="realSponsors"' + (s.realSponsors !== false ? ' checked' : '') + '></td></tr>' +
+      (R.logos ? '<tr><td>Sponsorenlogos auf diesem Gerät <div class="muted small" id="logoStat">' + R.logos.status().loaded + ' von ' + R.logos.status().total + ' geladen · aus Wikimedia Commons, Markenrechte bei den Unternehmen</div></td><td><button class="sm" data-act="logosLoad">' + U.lc('refresh-cw', 14) + ' Laden</button></td></tr>' : '') +
       '<tr><td>Retro-Soundeffekte</td><td><input type="checkbox" data-chg="setOpt" data-k="sound"' + (s.sound ? ' checked' : '') + '></td></tr>' +
       '<tr><td>Original-Vereinslogos anzeigen <span class="muted small">(werden aus dem Netz geladen)</span></td><td><input type="checkbox" data-chg="setOptInv" data-k="noLogos"' + (s.noLogos ? '' : ' checked') + '></td></tr>' +
       (function () { var L = U.storedLogos(); return '<tr><td>Original-Logos für die Web-App<div class="muted small">Datei <b>daten/ANWURF_Logos.json</b> aus dem iCloud-Ordner Handball-Manager-Anwurf einmal importieren. Sie bleibt nur in diesem Browser – nur für die private Nutzung.</div></td><td>' +
@@ -489,6 +516,13 @@
       '<tr><td>Schwierigkeitsgrad</td><td>' + W.diffSettings[s.difficulty].name + '</td></tr>' + (U.cheatDiscovered(st) ? '<tr><td>Spielstand mit Cheat</td><td>' + (st.cheatUsed ? '<span class="cheat-tag">JA</span> (' + money(st.cheatTotal || 0) + ')' : 'nein') + '</td></tr>' : '') + '</table></div>' +
       '<div class="panel"><h2>Speichern & Synchronisieren</h2><p class="small" id="storeInfo2"></p><div class="grid"><button data-act="saveQuick">Manuell speichern …</button><button data-act="exportSave">Spielstand exportieren</button><button data-act="importSave">Spielstand importieren</button></div><p class="muted small">Tipp: In der Mac-App liegen alle Spielstände im iCloud-Ordner „Spielstände“ – so können Sie abwechselnd auf MacBook und iMac spielen. Bitte das Spiel nicht gleichzeitig auf beiden Geräten geöffnet haben.</p></div></div>' +
       '<div class="panel" style="margin-top:14px"><h2>Kurzanleitung</h2><p class="small">1. <b>NÄCHSTER SPIELTAG</b> spielt die nächste Runde. 2. <b>Mannschaft</b>: Aufstellung per Klick oder Ziehen. 3. <b>Transfermarkt</b>: Filtern, Spieler anklicken, Angebot abgeben. 4. <b>Halle / Vereinsstadt</b>: Ausbauen mit Wirtschaftlichkeitsrechnung. 5. <b>Bank</b>: Kredite, Tagesgeld, Aktien &amp; Krypto. ⏩ <b>Auto</b> spielt mehrere Spieltage am Stück. Leertaste pausiert das Live-Spiel.</p></div>';
+  };
+  U.acts.logosLoad = function (d, el) {
+    if (!R.logos) return; if (el) el.disabled = true;
+    var stat = document.getElementById('logoStat');
+    R.logos.loadMissing(function (done, total, name) { if (stat) stat.textContent = 'Lade ' + done + ' / ' + total + ' · ' + name; }).then(function (r) {
+      var s = R.logos.status(); U.toast(r.total ? r.ok + ' von ' + r.total + ' Logos geladen (' + s.loaded + '/' + s.total + ' gesamt).' : 'Alle Logos sind bereits geladen.'); U.render();
+    }, function () { U.toast('Logos konnten nicht geladen werden (offline?).'); U.render(); });
   };
   U.acts.setGfx = function (d) { if (R.s3d) R.s3d.setQuality(d.v); U.render(); };
   U.acts.setSpeed2 = function (d) { U.st.settings.matchSpeed = d.v; U.render(); };

@@ -51,6 +51,7 @@
   };
   U.render = function () {
     if (U.st) U.applyLogos(U.st);
+    if (R.logos && U.st && !U._logoAuto) { U._logoAuto = true; setTimeout(function () { R.logos.autoLoad(U.st, function () { if (U.screen === 'verein') U.render(); }); }, 4000); }
     var app = document.getElementById('app');
     var inGame = !!U.st && ['start', 'wizard', 'load'].indexOf(U.screen) < 0;
     app.classList.toggle('nogame', !inGame);

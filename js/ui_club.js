@@ -27,6 +27,9 @@
   function hashStr(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   U.brandLogo = function (name, size, isKit) {
     size = size || 64; name = String(name || '?');
+    // Echtes Firmenlogo, wenn es auf diesem Gerät geladen wurde (nur privat, siehe js/logos.js)
+    var real = R.logos && (!U.st || R.logos.enabled(U.st)) ? R.logos.get(name) : null;
+    if (real) return '<span class="brand-img" style="width:' + size + 'px;height:' + size + 'px;padding:' + Math.round(size * 0.1) + 'px" aria-label="' + esc(name) + '"><img src="' + real + '" alt="' + esc(name) + '"></span>';
     var h = hashStr(name), col = LOGO_COL[h % LOGO_COL.length], shape = (h >> 4) % 3, ic = isKit ? '👕' : '';
     if (!ic) for (var i = 0; i < LOGO_IC.length; i++) if (LOGO_IC[i][0].test(name)) { ic = LOGO_IC[i][1]; break; }
     var words = name.replace(/[&.,]/g, ' ').split(/\s+/).filter(function (w) { return w && !/^(AG|GmbH|SE|und|&|Zum|Der|Die|Das|Holding)$/i.test(w); });

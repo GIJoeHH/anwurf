@@ -351,10 +351,11 @@
   // Öffentliche Zuschüsse hängen von der öffentlichen Wahrnehmung ab
   E.subRate = function (club, lvl) { if (!lvl || !lvl.sub) return 0; return Math.min(0.5, lvl.sub * (0.8 + (club.publicImage != null ? club.publicImage : 50) / 250)); };
   // Gleichzeitige Bauvorhaben (Ausbaustufen + Tribünenprojekte in der Halleplan)
-  // Begrenzung nur in der Halle (Ausstattung, Verkehr, Tribünen in der Halleplan): max. 10 gleichzeitig.
-  // Vereinsstadt und Abteilungen (Medizin, Jugend, Training) sind unbegrenzt.
+  // Begrenzung nur für die Halle selbst (Ausstattung und Tribünen im Hallenplan): max. 10 gleichzeitig.
+  // Verkehrsinfrastruktur (ÖPNV, Straße, Parkplätze) liegt außerhalb der Halle und ist – wie Vereinsstadt und
+  // Abteilungen (Medizin, Jugend, Training) – nicht begrenzt.
   E.MAX_BUILDS = 10;
-  E.STADIUM_GROUPS = ['stadion', 'infra'];
+  E.STADIUM_GROUPS = ['stadion'];
   E.isStadiumKey = function (key) { return E.STADIUM_GROUPS.indexOf(D.facilities[key].group) >= 0; };
   E.buildCount = function (club) { return club.construction.filter(function (c) { return E.isStadiumKey(c.key); }).length + (club.stadium && club.stadium.jobs ? club.stadium.jobs.length : 0); };
   E.canBuild = function (st, club, key) {
@@ -815,7 +816,8 @@
     return out;
   };
   // Ältere Spielstände / Editor: ein Bandenvertrag ohne Platz wird auf alle freien Banden verteilt
-  E.ensureBande = function (st, club) {
+  // spread: neue Spielwelt – jede Bande an eine eigene Firma; sonst (alter Vertrag) behalten alle Banden den Vertragspartner
+  E.ensureBande = function (st, club, spread) {
     if (!club || !club.sponsors) return;
     var loose = club.sponsors.filter(function (s) { return s.cat === 'bande' && !s.slot; });
     if (!loose.length) return;
@@ -823,7 +825,9 @@
     var src = loose[0], free = E.bandeFree(club);
     free.forEach(function (id) {
       var sl = E.bandeSlot(id), f = sl.w / BANDE_W;
-      club.sponsors.push(bandeScale({ id: W.nextId(st, 'sponsor'), cat: 'bande', name: src.name, amount: src.amount, years: src.years, topN: src.topN, bonusTop: src.bonusTop, bonusPromo: src.bonusPromo, bonusTitle: src.bonusTitle }, id, f));
+      // jede Bande an eine eigene Firma (erst wenn alle Namen vergeben sind, wiederholen sie sich)
+      var nm = spread && id !== free[0] && W.genSponsor ? W.genSponsor(st, club, 'bande').name : src.name;
+      club.sponsors.push(bandeScale({ id: W.nextId(st, 'sponsor'), cat: 'bande', name: nm, amount: src.amount, years: src.years, topN: src.topN, bonusTop: src.bonusTop, bonusPromo: src.bonusPromo, bonusTitle: src.bonusTitle }, id, f));
     });
   };
   // Pakete: eine Firma mietet mehrere freie Banden (ganze Seite, Paare, alle freien) mit Mengenrabatt

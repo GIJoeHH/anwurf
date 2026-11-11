@@ -174,6 +174,61 @@
     });
   };
 
+  // ---------- Logo-Suche über Wikidata (Handballvereine ohne Logo) ----------
+  // Sucht den Verein in Wikidata, nimmt nur Treffer mit Sportart Handball (P641 = Q8418) oder „Handball“ in der
+  // Beschreibung und lädt das Logo (P154) von Wikimedia Commons. Commons enthält nur frei lizenzierte Dateien
+  // (meist gemeinfreie Textlogos); das Markenrecht bleibt beim Verein.
+  function wdJSON(url) { return timeout(15000, fetch(url)).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }); }
+  CR.wdQuery = function (c) { return String(c.realName || c.name).replace(/\s+(II|2|U23)$/i, '').trim(); };
+  CR.wikidataFind = function (c) {
+    var q = CR.wdQuery(c);
+    return wdJSON('https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&origin=*&language=de&uselang=de&type=item&limit=7&search=' + encodeURIComponent(q)).then(function (s) {
+      var hits = (s.search || []).map(function (x) { return { id: x.id, label: x.label || '', desc: x.description || '' }; });
+      if (!hits.length) return null;
+      return wdJSON('https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims&format=json&origin=*&ids=' + hits.map(function (h) { return h.id; }).join('|')).then(function (w) {
+        var best = null;
+        hits.forEach(function (h, i) {
+          var e = w.entities && w.entities[h.id], cl = (e && e.claims) || {}, sport = (cl.P641 || []).some(function (x) { return x.mainsnak && x.mainsnak.datavalue && x.mainsnak.datavalue.value.id === 'Q8418'; });
+          var hb = sport || /handball/i.test(h.desc), logo = R.logos ? R.logos.pickClaim(cl.P154) : null;
+          var score = (hb ? 2 : 0) + (logo ? 1 : 0) + CR.similarity(CR.key(q), CR.key(h.label)) - i * 0.05;
+          if (hb && logo && (!best || score > best.score)) best = { qid: h.id, label: h.label, desc: h.desc, file: logo, score: score };
+        });
+        return best;
+      });
+    });
+  };
+  CR.commonsThumb = function (file) {
+    return wdJSON('https://commons.wikimedia.org/w/api.php?action=query&prop=imageinfo&iiprop=url&iiurlwidth=256&format=json&origin=*&titles=' + encodeURIComponent('File:' + file)).then(function (j) {
+      var pages = (j.query && j.query.pages) || {}, p = pages[Object.keys(pages)[0]], ii = p && p.imageinfo && p.imageinfo[0];
+      if (!ii) throw new Error('Datei nicht gefunden'); return ii.thumburl || ii.url;
+    });
+  };
+  // Alle Vereine ohne Original-Logo und ohne eigenes Bild durchsuchen; onProgress(done, total, name)
+  CR.wikidataSearch = function (st, onProgress) {
+    var list = Object.keys(st.clubs).map(function (k) { return st.clubs[k]; }).filter(function (c) { return !c.logoUrl && !CR.hasManual(c); });
+    var rows = [], done = 0, i = 0;
+    return new Promise(function (resolve) {
+      if (!list.length) return resolve(rows);
+      function next() {
+        if (i >= list.length) return;
+        var c = list[i++], row = { club: c, clubId: c.id };
+        rows.push(row);
+        CR.wikidataFind(c).then(function (hit) {
+          if (!hit) { row.status = 'none'; return; }
+          row.hit = hit; return CR.commonsThumb(hit.file).then(function (url) { row.url = url; return CR.loadImage(url); }).then(function (img) { row.img = img; row.sel = true; row.status = 'found'; });
+        }).catch(function (e) { row.status = 'error'; row.error = e && e.message; })
+          .then(function () { done++; if (onProgress) onProgress(done, list.length, c.name); if (done === list.length) resolve(rows); else next(); });
+      }
+      for (var k = 0; k < 4; k++) next();
+    });
+  };
+  CR.applyWikidata = function (st, row) {
+    var c = st.clubs[row.clubId]; if (!c || !row.img) return false;
+    c.crestImage = row.img; c.crestManual = false;
+    c.crestSrc = { provider: 'Wikidata', qid: row.hit.qid, file: row.hit.file, url: row.url, license: 'Wikimedia Commons', fetched: new Date().toISOString().slice(0, 10) };
+    CR.libPut(c); return true;
+  };
+
   // ---------- Speichern ----------
   // Wappen beim Verein im Spielstand ablegen (offline verfügbar) und Team-ID dauerhaft merken
   CR.applyRow = function (st, r) {

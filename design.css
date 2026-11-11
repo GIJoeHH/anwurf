@@ -430,3 +430,7 @@ table.t tr.sel td:first-child { box-shadow: inset 3px 0 var(--act); }
 /* App-Logo auf dem Startbildschirm */
 .title-logo { display: block; width: 132px; height: 132px; margin: 0 auto 14px; border-radius: 28px; box-shadow: 0 12px 34px rgba(0,0,0,.45); }
 @media (max-width: 600px) { .title-logo { width: 96px; height: 96px; border-radius: 22px; } }
+
+/* Echte Firmenlogos (nur privat, auf dem Gerät geladen) */
+.brand-img { display: inline-flex; align-items: center; justify-content: center; background: #fff; border-radius: 14%; box-sizing: border-box; overflow: hidden; flex: 0 0 auto; }
+.brand-img img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }

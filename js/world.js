@@ -377,7 +377,7 @@
       var mean = 40 + c.tier * 38 + (c === userClub ? 0 : diff.ai);
       if (c.founded) mean = real ? st.leagueMean[3] - 7 : 47;
       if (!real || c.founded) W.genSquad(st, c, mean);
-      ['haupt', 'trikot', 'aermel', 'ausruester', 'bande'].forEach(function (cat) { var s = W.genSponsor(st, c, cat); if (c.founded && cat !== 'haupt' && cat !== 'bande') return; c.sponsors.push(s); });
+      ['haupt', 'trikot', 'aermel', 'ausruester', 'bande'].forEach(function (cat) { var s = W.genSponsor(st, c, cat); if (c.founded && cat !== 'haupt' && cat !== 'bande') return; c.sponsors.push(s); }); if (R.econ && R.econ.ensureBande) R.econ.ensureBande(st, c);
     });
     userClub.cash = Math.round(userClub.cash * (opts.mode === 'found' ? 1 : diff.cash));
 

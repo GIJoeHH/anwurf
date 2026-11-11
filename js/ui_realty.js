@@ -315,7 +315,7 @@
       '</div></div><div class="panel"><h2>Ergebnis (live)</h2><div id="rtCalcRes">' + calcRes(st, c) + '</div></div></div>';
     // Bankangebote
     var o = { use: 'wohn', mode: 'bestand', risk: 1 }, og = { use: 'gewerbe', mode: 'bestand', risk: 1 };
-    h += '<div class="grid g2"><div class="panel"><h2>' + U.lc('landmark', 17) + ' Angebote der Immobilienbanken</h2><table class="t small"><tr><th>Bank</th><th>Objekt</th><th class="num">Sollzins</th><th class="num">Bindung</th><th class="num">Beleihung</th><th class="num">Gebühr</th></tr>' +
+    h += '<div class="grid" style="grid-template-columns:minmax(0,1fr)"><div class="panel" style="min-width:0;overflow-x:auto"><h2>' + U.lc('landmark', 17) + ' Angebote der Immobilienbanken</h2><table class="t small"><tr><th>Bank</th><th>Objekt</th><th class="num">Sollzins</th><th class="num">Bindung</th><th class="num">Beleihung</th><th class="num">Gebühr</th></tr>' +
       [[o, 10, 'Vereinsbank'], [o, 15, 'Nord Kapital'], [o, 10, 'Wohnbau Kredit'], [og, 15, 'Business Real Estate Finance'], [og, 10, 'Vereinsbank']].map(function (x, i) {
         var T = RE.terms(st, c, x[0], x[1]), bump = [0, 0.0012, 0.0024, 0, 0.0015][i];
         return '<tr><td><b>' + (T.promo ? esc(T.bank) : x[2]) + '</b></td><td>' + (x[0].use === 'wohn' ? 'Wohnimmobilie' : 'Gewerbeimmobilie') + '</td><td class="num ' + (T.promo ? 'pos' : '') + '">' + pct(T.rate + (T.promo ? 0 : bump), 2) + (T.promo ? ' <span class="pill ok">Aktion</span>' : '') + '</td><td class="num">' + x[1] + ' J.</td><td class="num">' + Math.round(T.ltv * 100) + ' %</td><td class="num">' + pct(T.fee, 2) + '</td></tr>';

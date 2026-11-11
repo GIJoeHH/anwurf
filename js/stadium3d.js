@@ -40,28 +40,39 @@
   function noise(g, w, h, n, a, r) { for (var i = 0; i < n; i++) { g.fillStyle = 'rgba(' + (r() < 0.5 ? '0,0,0' : '255,255,255') + ',' + (a * r()) + ')'; g.fillRect(r() * w, r() * h, 1 + r() * 2, 1 + r() * 2); } }
   // Sitzreihen mit Publikum: 16 m (u) × 12 m (v), Reihen à 0,8 m, Treppenaufgänge
   function seatTex(type, col, dens, guest, alt) {
-    var key = 'seat|' + type + '|' + col + '|' + dens + '|' + (guest ? 1 : 0) + '|' + alt;
-    return tex(key, 256, 256, function (g, w, h) {
-      var r = rng(hsh(key)), rows = 15, rh = h / rows;
+    var key = 'seat2|' + type + '|' + col + '|' + dens + '|' + (guest ? 1 : 0) + '|' + alt;
+    // 512 px = 16 m → 32 px/m: Reihen 0,8 m, Sitzbreite 0,5 m, Personen ~0,45 m breit (aus der Nähe als Menschen erkennbar)
+    return tex(key, 512, 512, function (g, w, h) {
+      g.translate(0, h); g.scale(1, -1); // Kopf zeigt die Tribüne hinauf
+      var r = rng(hsh(key)), rows = 15, rh = h / rows, seat = 16, stair = 22;
       var base = type === 'steh' ? '#8b8780' : type === 'business' ? '#3a3f47' : type === 'loge' ? '#2b2f36' : col;
-      var crowdCols = guest ? ['#d4d4d8', '#b91c1c', '#111827', '#e5e7eb', '#7f1d1d'] : [alt, alt, col, col, col, '#111827', '#f8fafc', '#1f2937', '#6b7280'];
+      var crowdCols = guest ? ['#d4d4d8', '#b91c1c', '#111827', '#e5e7eb', '#7f1d1d'] : [alt, alt, col, col, col, '#111827', '#f8fafc', '#1f2937', '#6b7280', '#374151'];
+      var skin = ['#f1c7a5', '#d8a27c', '#8d5a3b', '#f3d6bd', '#c68e66'], hair = ['#2b1d14', '#5a3b24', '#111111', '#a0794d', '#d9c08a', '#6b6b6b'];
       for (var i = 0; i < rows; i++) {
         var y = i * rh;
-        g.fillStyle = type === 'steh' ? (i % 2 ? '#86827a' : '#918d85') : shade(base, i % 2 ? 0.92 : 1.0); g.fillRect(0, y, w, rh);
-        g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, y, w, 2.2); // Stufenkante
-        if (type !== 'steh') { g.fillStyle = 'rgba(0,0,0,.18)'; for (var sx = 0; sx < w; sx += 5) g.fillRect(sx, y + 3, 1, rh - 5); } // Sitzschalen
-        else if (i % 4 === 2) { g.fillStyle = '#c9c4ba'; g.fillRect(0, y + rh * 0.5, w, 1.2); } // Wellenbrecher
-        for (var px = 14; px < w - 2; px += 4.3) {
+        g.fillStyle = type === 'steh' ? (i % 2 ? '#86827a' : '#918d85') : shade(base, i % 2 ? 0.9 : 1.0); g.fillRect(0, y, w, rh);
+        g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(0, y, w, 3); // Stufenkante
+        if (type !== 'steh') { // Sitzschalen mit Lehne
+          for (var sx = stair + 2; sx < w - 2; sx += seat) { g.fillStyle = shade(base, 1.18); g.fillRect(sx + 2, y + rh * 0.3, seat - 4, rh * 0.42); g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(sx + 2, y + rh * 0.72, seat - 4, 2); }
+        } else if (i % 4 === 2) { g.fillStyle = '#c9c4ba'; g.fillRect(0, y + rh * 0.55, w, 2.5); } // Wellenbrecher
+        for (var px = stair + 2; px < w - seat + 2; px += seat) {
           if (r() > dens) continue;
-          var pc = crowdCols[Math.floor(r() * crowdCols.length)];
-          g.fillStyle = pc; g.fillRect(px + r(), y + rh * 0.35, 3.2, rh * 0.5);
-          g.fillStyle = ['#f1c7a5', '#d8a27c', '#8d5a3b', '#f3d6bd'][Math.floor(r() * 4)]; g.fillRect(px + 0.6 + r(), y + rh * 0.12, 2.1, 2.4);
+          var cx = px + seat / 2 + (type === 'steh' ? (r() - 0.5) * 6 : (r() - 0.5) * 1.5), bw = 11 + r() * 3, top = y + rh * (0.34 + r() * 0.06);
+          g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(cx - bw / 2 + 1.5, top + 2, bw, rh * 0.62); // Schatten
+          g.fillStyle = crowdCols[Math.floor(r() * crowdCols.length)]; g.fillRect(cx - bw / 2, top, bw, rh * 0.6); // Oberkörper
+          g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(cx - bw / 2, top, bw, 2);
+          if (r() < 0.12) { g.fillStyle = guest ? '#b91c1c' : alt; g.fillRect(cx - bw / 2 - 1, top + 3, bw + 2, 3); } // Schal
+          var hr = 3.4 + r() * 0.6, hy = top - hr + 1;
+          g.fillStyle = skin[Math.floor(r() * skin.length)]; g.beginPath(); g.arc(cx, hy, hr, 0, Math.PI * 2); g.fill(); // Kopf
+          g.fillStyle = hair[Math.floor(r() * hair.length)]; g.beginPath(); g.arc(cx, hy - 1, hr, Math.PI, Math.PI * 2); g.fill(); // Haare
+          if (r() < 0.06) { g.fillStyle = skin[0]; g.fillRect(cx - bw / 2 - 2, top - 9, 3, 10); } // Arm hoch
         }
       }
-      g.fillStyle = '#a7a39b'; g.fillRect(0, 0, 11, h); g.fillStyle = 'rgba(0,0,0,.25)'; for (var j = 0; j < rows; j++) g.fillRect(0, j * rh + rh / 2, 11, 1); // Treppe
-      noise(g, w, h, 900, 0.08, r);
+      g.fillStyle = '#a7a39b'; g.fillRect(0, 0, stair, h); g.fillStyle = 'rgba(0,0,0,.25)'; for (var j = 0; j < rows; j++) g.fillRect(0, j * rh + rh / 2, stair, 2); // Treppe
+      noise(g, w, h, 1800, 0.06, r);
     });
   }
+
   // Hallenboden 49 × 27 m (Innenraum bis zu den Tribünen) mit Handballfeld 40 × 20 m; q = Stufe „Hallenboden“
   function courtTex(q, emis) {
     var G = SM.GEO, IW = 2 * G.Ix, IH = 2 * G.Iy, s = 1024 / IW, w = 1024, h = Math.round(IH * s), cg = SM.courtGeo();
@@ -827,7 +838,7 @@
     if (cam === 'stadt') return { az: -22, el: 34, dist: 760, tx: 0, ty: 0, tz: 25, fov: 34 };
     if (cam === 'bank') return { az: -22, el: 12, dist: 128, tx: -4, ty: 17, tz: 6, fov: 36 };
     if (cam === 'focus' && cfg.focus) { var sl = SM.CITY_SLOTS[cfg.focus.key]; return { az: -32, el: 30, dist: Math.max(sl.w, sl.d) * 1.55 + 50, tx: sl.x, ty: 4, tz: sl.y + 4, fov: 34 }; }
-    if (cam === 'innen') return { az: 0, el: 0, dist: 0, fov: 66, inside: true, yaw: 0, pitch: 8 }; // Standpunkt Mittelkreis, Rundumblick
+    if (cam === 'innen') return { az: 0, el: 0, dist: 0, fov: 60, inside: true, yaw: 0, pitch: -4 }; // Erhöhter Zuschauerblick auf Spielfeld und Tribünen
     if (cam === 'vorschau' && cfg.noRoof) { var dv = Math.max(ex.x * 1.25, ex.y * 1.6) * 1.6 + (m.roofH || 8) * 0.6; return { az: -24, el: 56, dist: dv, tx: -12, ty: 2, tz: 3, fov: 34 }; } // Ausbauvorschau ohne Dach: steiler von oben
     // Halle schräg von oben (Schnittansicht): Blick durch das Dachtragwerk auf Feld und Tribünen
     var d = Math.max(ex.x * 1.25, ex.y * 1.6) * (cfg.kind === 'world' ? 2.3 : 1.85) + (m.roofH || 8) * 0.8;
@@ -836,8 +847,10 @@
   function placeCamera(camera, v, cfg) {
     camera.fov = v.fov; camera.near = v.inside ? 0.2 : 1; camera.far = 4000;
     if (v.inside) {
-      // Am Mittelkreis in Augenhöhe stehen und sich frei um 360° umsehen
-      var y = 1.75, z = 0;
+      // Sitzplatz im Unterrang der Südtribüne (Gegenseite); ohne Tribüne eine erhöhte Plattform am Rand
+      var G0 = SM.GEO, Sa = cfg.model.areas.S, y, z;
+      if (Sa && Sa.tiers) { var dd = Math.min(Sa.depth * 0.55, G0.TD[0] * 0.8); z = G0.Iy + dd; y = G0.HIN[0] + dd * G0.rake + 1.3; }
+      else { z = G0.Iy - 1; y = 9; }
       camera.position.set(0, y, z);
       var yaw = v.yaw * DEG, pitch = v.pitch * DEG;
       camera.lookAt(Math.sin(yaw) * 100, y + Math.tan(pitch) * 100, z - Math.cos(yaw) * 100);
@@ -884,7 +897,7 @@
     pending[key] = cfg;
     return '<div class="s3d-wrap"><div class="s3d s3d-' + cfg.kind + '" data-s3d="' + key + '" style="aspect-ratio:' + (cfg.ratio || '16/9') + '">' +
       '<canvas class="s3d-cv"></canvas><div class="s3d-labels"></div>' +
-      (cfg.interactive ? '<div class="s3d-hint">' + (cfg.cam === 'innen' ? 'Ziehen zum Umsehen – 360° vom Mittelkreis · Zoom mit Mausrad/zwei Fingern' : 'Ziehen zum Drehen · Zoom mit Mausrad/zwei Fingern') + '</div>' : '') + '</div>' + (cfg.overlay || '') + '</div>';
+      (cfg.interactive ? '<div class="s3d-hint">' + (cfg.cam === 'innen' ? 'Ziehen zum Umsehen – Blick von der Südtribüne · Zoom mit Mausrad/zwei Fingern' : 'Ziehen zum Drehen · Zoom mit Mausrad/zwei Fingern') + '</div>' : '') + '</div>' + (cfg.overlay || '') + '</div>';
   };
   S3.mountAll = function (root) {
     var keys = Object.keys(pending); live = {};

@@ -41,7 +41,14 @@
     var st = U.st, c = U.club(), can = U.can('business');
     var h = '<div class="page-h"><div><h1 class="row" style="gap:10px">' + U.crest(c, 32) + 'Vereinsmanagement</h1><div class="page-sub">Sponsoren, Trainerteam und Verwaltung von ' + esc(c.name) + '</div></div></div>' + U.roleNote('business');
     // Sponsoren
+    E.ensureBande(st, c);
     h += '<div class="sec-h">' + U.lc('handshake', 17) + ' Sponsoren <span style="margin-left:auto">' + money(E.sponsorTotal(c)) + ' pro Saison</span></div><div class="cards3">' + Object.keys(D.sponsorCategories).map(function (cat) {
+      if (cat === 'bande') {
+        var bs = E.bandeOf(c), bn = bs.length, bexp = bs.filter(function (x) { return x.years <= 1; }).length;
+        var bst = bn >= 20 ? (bexp ? '<span class="pill warn">' + bexp + ' laufen aus</span>' : '<span class="pill ok">ausgebucht</span>') : '<span class="pill warn">' + (20 - bn) + ' frei</span>';
+        return '<div class="ccard' + (bn ? '' : ' empty') + (bn < 20 ? ' attn' : '') + '" data-act="bandeOpen" tabindex="0" role="button"><div class="cc-top"><div class="ic-tile ' + (bn ? 'ok' : 'neutral') + '">' + U.lc(SP_IC.bande, 19) + '</div><div class="cc-t"><b>' + D.sponsorCategories.bande + '</b><span>' + bn + ' von 20 Banden vermietet</span></div>' + bst + '</div>' +
+          '<div class="cc-val"><b>' + money(R.sum(bs, function (x) { return x.amount; })) + '</b><small>/Saison</small></div><div class="cc-sub">Je Tor 4 Banden (2 links, 2 rechts vom Tor), je Längsseite 6 – einzeln vermietbar</div></div>';
+      }
       var s = c.sponsors.filter(function (x) { return x.cat === cat; })[0], off = st.inbox.filter(function (o) { return o.type === 'sponsor' && o.cat === cat; })[0];
       var status = off ? '<span class="pill warn">' + off.offers.length + ' Angebote offen</span>' : s ? (s.years <= 1 ? '<span class="pill warn">läuft aus</span>' : '<span class="pill ok">aktiv</span>') : '<span class="pill">offen</span>';
       var bonus = s ? [s.bonusTop ? 'Top-' + s.topN + ': ' + money(s.bonusTop) : '', s.bonusPromo ? 'Aufstieg: ' + money(s.bonusPromo) : '', s.bonusTitle ? 'Meister: ' + money(s.bonusTitle) : ''].filter(Boolean) : [];
@@ -88,6 +95,76 @@
         (can ? '<button class="primary" data-act="sponsorPick" data-id="' + off.id + '" data-i="' + i + '">Unterschreiben</button>' : '') + '</div>';
     }).join('') + '</div><p class="muted small" style="margin-top:10px">★ = bester Wert. Höhe der Angebote: Liga, Ruf, Fanbasis, Erfolg; Verwaltung und Marketing auf „Premium“ verbessern die Konditionen.</p>';
     U.modal(title + ' – Angebote vergleichen', h, (can ? '<button data-act="sponsorRefresh" data-k="' + cat + '">Neue Angebote einholen</button>' : '') + '<button data-act="closeModal">Später</button>', true);
+  };
+  // ---------- Bandenwerbung: Übersichtsplan und einzelne Banden ----------
+  function bandeInbox(st, c) {
+    var it = st.inbox.filter(function (o) { return o.type === 'sponsor' && o.cat === 'bande'; })[0], fr = E.bandeFree(c).length;
+    if (it) { if (fr) it.free = fr; else st.inbox.splice(st.inbox.indexOf(it), 1); }
+  }
+  U.acts.bandeOpen = function () {
+    var st = U.st, c = U.club(), can = U.can('business'), bs = E.bandeOf(c), by = {};
+    bs.forEach(function (s) { by[s.slot] = s; });
+    function slot(id) {
+      var s = by[id], cls = s ? (s.years <= 1 ? 'warn' : 'ok') : 'free';
+      return '<button class="bd-slot ' + cls + '" data-act="bandeSlot" data-k="' + id + '" title="' + esc(E.bandeLabel(id)) + '"><i>' + id + '</i><b>' + (s ? esc(s.name) : 'frei') + '</b><small>' + (s ? money(s.amount) : '') + '</small></button>';
+    }
+    function ids(side) { return E.BANDE_SLOTS.filter(function (s) { return s.side === side; }).map(function (s) { return s.id; }); }
+    function col(side) { var l = ids(side); return '<div class="bd-col">' + slot(l[0]) + slot(l[1]) + '<div class="bd-goal">Tor</div>' + slot(l[2]) + slot(l[3]) + '</div>'; }
+    var sum = R.sum(bs, function (s) { return s.amount; }), free = E.bandeFree(c).length;
+    var h = '<div class="bd-sum"><span><b>' + bs.length + '</b> von 20 Banden vermietet</span><span><b>' + money(sum) + '</b> pro Saison</span>' + (free ? '<span class="pill warn">' + free + ' frei</span>' : '<span class="pill ok">ausgebucht</span>') + '</div>' +
+      '<div class="bd-map"><div class="bd-cap">' + E.BANDE_SIDES.G + '</div><div class="bd-row">' + ids('G').map(slot).join('') + '</div>' +
+      '<div class="bd-mid">' + col('L') + '<div class="bd-pitch"><span>' + (R.data.sponsorCategories.namensrechte.indexOf('Halle') >= 0 ? 'Spielfeld' : 'Spielfeld') + '</span></div>' + col('R') + '</div>' +
+      '<div class="bd-row">' + ids('H').map(slot).join('') + '</div><div class="bd-cap">' + E.BANDE_SIDES.H + '</div></div>' +
+      (function () {
+        if (free < 2) return '';
+        c.bandePkg = c.bandePkg && c.bandePkg.length && c.bandePkg.every(function (p) { return p.slots.every(function (id) { return !by[id]; }); }) ? c.bandePkg : E.bandePackages(st, c);
+        if (!c.bandePkg.length) return '';
+        return '<h3 style="margin:16px 0 8px">Paketangebote</h3><div class="bd-pkgs">' + c.bandePkg.map(function (p, i) {
+          return '<div class="bd-pkg"><div class="row" style="gap:10px;flex-wrap:nowrap">' + U.brandLogo(p.name, 40) + '<div style="min-width:0"><b>' + esc(p.name) + '</b><div class="small muted">' + p.slots.length + ' Banden: ' + esc(E.bandeGroupName(p.slots)) + '</div></div></div>' +
+            '<table class="t small"><tr><td>Gesamtpreis/Saison</td><td class="num"><b>' + money(p.total) + '</b></td></tr><tr><td>Preis pro Bande</td><td class="num">' + money(p.per) + '</td></tr><tr><td>Laufzeit</td><td class="num">' + p.years + ' J.</td></tr><tr><td>Gesamtwert</td><td class="num">' + money(p.total * p.years) + '</td></tr>' + (p.disc ? '<tr><td>Paketrabatt</td><td class="num">' + p.disc + ' %</td></tr>' : '') + '</table>' +
+            (can ? '<button class="sm primary" data-act="bandePkg" data-i="' + i + '">Paket unterschreiben</button>' : '') + '</div>';
+        }).join('') + '</div>';
+      })() +
+      '<p class="muted small" style="margin-top:10px">Bande antippen, um Angebote zu vergleichen. Die Mitte der Gegengerade ist im Fernsehen am besten zu sehen und bringt am meisten; die äußeren Banden hinter den Toren am wenigsten. Verträge laufen 1–3 Jahre.</p>';
+    U.modal(U.lc('megaphone', 17) + ' Bandenwerbung', h, (can && free >= 2 ? '<button data-act="bandePkgNew">Neue Paketangebote</button>' : '') + (can && free ? '<button data-act="bandeFillAll">Alle freien Banden einzeln vergeben</button>' : '') + '<button class="primary" data-act="closeModal">Schließen</button>', true);
+  };
+  U.acts.bandeSlot = function (d) {
+    var st = U.st, c = U.club(), can = U.can('business'), id = d.k, s = E.bandeOf(c).filter(function (x) { return x.slot === id; })[0];
+    function rows(x) { return [['Pro Jahr', x.amount], ['Laufzeit', x.years], ['Gesamtwert', x.amount * x.years], ['Bonus Top-' + x.topN, x.bonusTop], ['Bonus Aufstieg', x.bonusPromo], ['Bonus Meister', x.bonusTitle]]; }
+    var title = U.lc('megaphone', 17) + ' ' + esc(E.bandeLabel(id)), back = '<button data-act="bandeOpen">Zurück zum Plan</button>';
+    if (s) {
+      U.modal(title, '<div class="cmp"><div class="cmp-card best"><div class="logo">' + U.brandLogo(s.name, 84) + '</div><b>' + esc(s.name) + '</b><span class="tag green">Laufender Vertrag</span>' + (s.pkg ? '<div class="small" style="margin:6px 0">Teil eines Pakets: <b>' + s.pkgN + ' Banden</b> · Gesamtpreis <b>' + money(s.pkgTotal) + '</b>/Saison · Ø ' + money(Math.round(s.pkgTotal / s.pkgN)) + ' pro Bande</div>' : '') + '<table>' + rows(s).map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + (r[0] === 'Laufzeit' ? r[1] + ' J.' : money(r[1])) + '</td></tr>'; }).join('') + '</table></div></div><p class="muted small" style="margin-top:10px">Läuft der Vertrag aus, wird die Bande wieder frei.</p>', back + '<button class="primary" data-act="closeModal">Schließen</button>');
+      return;
+    }
+    c.bandeOff = c.bandeOff || {};
+    var off = c.bandeOff[id] || (c.bandeOff[id] = E.bandeOffers(st, c, id));
+    var bestTotal = Math.max.apply(null, off.map(function (x) { return x.amount * x.years; }));
+    var h = '<div class="cmp">' + off.map(function (x, i) {
+      return '<div class="cmp-card' + (x.amount * x.years === bestTotal ? ' best' : '') + '"><div class="logo">' + U.brandLogo(x.name, 84) + '</div><b>' + esc(x.name) + '</b><table>' + rows(x).map(function (r, j) { return '<tr><td>' + r[0] + '</td><td>' + (j === 1 ? r[1] + ' J.' : money(r[1])) + '</td></tr>'; }).join('') + '</table>' +
+        (can ? '<button class="primary" data-act="bandePick" data-k="' + id + '" data-i="' + i + '">Unterschreiben</button>' : '') + '</div>';
+    }).join('') + '</div>';
+    U.modal(title + ' – Angebote', h, back + (can ? '<button data-act="bandeRefresh" data-k="' + id + '">Neue Angebote einholen</button>' : ''), true);
+  };
+  U.acts.bandePick = function (d) {
+    var st = U.st, c = U.club(), off = c.bandeOff && c.bandeOff[d.k], o = off && off[+d.i]; if (!o) return;
+    E.signBande(st, c, d.k, o); bandeInbox(st, c);
+    U.toast('Bande ' + d.k + ' vermietet: ' + o.name + ' · ' + money(o.amount) + '/Saison'); U.render(); U.acts.bandeOpen();
+  };
+  U.acts.bandePkg = function (d) {
+    var st = U.st, c = U.club(), p = c.bandePkg && c.bandePkg[+d.i]; if (!p) return;
+    var r = E.signBandePackage(st, c, p); if (!r.ok) { U.toast(r.why); return; }
+    c.bandePkg = null; bandeInbox(st, c);
+    U.toast('Paket an ' + p.name + ': ' + p.slots.length + ' Banden für ' + money(p.total) + '/Saison (' + money(p.per) + ' je Bande)'); U.render(); U.acts.bandeOpen();
+  };
+  U.acts.bandePkgNew = function () { U.club().bandePkg = null; U.acts.bandeOpen(); };
+  U.acts.bandeRefresh = function (d) { var c = U.club(); c.bandeOff = c.bandeOff || {}; delete c.bandeOff[d.k]; U.acts.bandeSlot(d); };
+  U.acts.bandeFillAll = function () {
+    var st = U.st, c = U.club(), n = 0, sum = 0; c.bandeOff = c.bandeOff || {};
+    E.bandeFree(c).forEach(function (id) {
+      var off = c.bandeOff[id] || E.bandeOffers(st, c, id), best = off.slice().sort(function (a, b) { return b.amount * b.years - a.amount * a.years; })[0];
+      E.signBande(st, c, id, best); n++; sum += best.amount;
+    });
+    bandeInbox(st, c); U.toast(n + ' Banden vermietet · ' + money(sum) + '/Saison'); U.render(); U.acts.bandeOpen();
   };
   U.acts.sponsorPick = function (d) { S.acceptSponsor(U.st, d.id, +d.i); U.closeModal(); U.render(); U.toast('Vertrag unterschrieben!'); };
   U.acts.sponsorSearch = function (d, silent) {

@@ -194,6 +194,8 @@
   T.generateOffersForUser = function (st, club) {
     // Außerhalb des Transferfensters keine Angebote; abgelaufene entfernen
     if (!T.windowOpen(st)) { st.inbox = st.inbox.filter(function (o) { return o.type !== 'offer'; }); return; }
+    // Kader am Minimum: keine Angebote, die sich gar nicht annehmen ließen
+    if (!T.canSell(st, club.id)) { st.inbox = st.inbox.filter(function (o) { return o.type !== 'offer'; }); return; }
     var listed = W.squad(st, club.id).filter(function (p) { return p.listed; });
     listed.forEach(function (p) {
       if (!R.chance(0.35)) return;
@@ -220,13 +222,16 @@
     }
     st.inbox = st.inbox.filter(function (o) { return o.type !== 'offer' || (o.tick != null ? (st.tick || 0) - o.tick <= 2 : o.season === st.season && st.week - o.week <= 2); }).slice(0, 30);
   };
+  // Mindestkader: Verkäufe nur, wenn danach noch genug Spieler bleiben
+  T.MIN_SQUAD = 14;
+  T.canSell = function (st, clubId) { return W.squad(st, clubId).length > T.MIN_SQUAD; };
   T.acceptOffer = function (st, offerId) {
     var o = st.inbox.filter(function (x) { return x.id === offerId; })[0];
     if (!o) return { ok: false };
     var p = st.players[o.pid], buyer = st.clubs[o.from];
     if (!p || p.clubId !== st.manager.clubId) { st.inbox.splice(st.inbox.indexOf(o), 1); return { ok: false, why: 'Spieler nicht mehr verfügbar' }; }
     if (!T.windowOpen(st)) { st.inbox.splice(st.inbox.indexOf(o), 1); return { ok: false, why: 'Transferfenster geschlossen' }; }
-    if (W.squad(st, p.clubId).length <= 16) return { ok: false, why: 'Kader zu klein (mindestens 16 Spieler)' };
+    if (!T.canSell(st, p.clubId)) return { ok: false, why: 'Kader zu klein: Nach dem Verkauf blieben nur ' + (W.squad(st, p.clubId).length - 1) + ' Spieler (mindestens ' + T.MIN_SQUAD + '). Erst einen Spieler verpflichten.' };
     T.executeTransfer(st, p, buyer, o.amount, Math.max(p.wage, W.fairWage(p)), R.randInt(2, 4));
     st.inbox = st.inbox.filter(function (x) { return x.pid !== o.pid; });
     return { ok: true };

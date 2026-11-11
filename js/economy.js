@@ -777,6 +777,93 @@
   };
 
   // Sponsorenangebote für offene Kategorien
+  // ---------- Bandenwerbung: 20 einzeln vermietbare Banden ----------
+  // G = Gegengerade (TV-Seite, 6), H = Haupttribüne (6), L/R = hinter dem linken/rechten Tor (je 4: 2 links, 2 rechts vom Tor)
+  E.BANDE_SIDES = { G: 'Gegengerade (TV-Seite)', H: 'Haupttribünenseite', L: 'Hinter dem linken Tor', R: 'Hinter dem rechten Tor' };
+  E.BANDE_SLOTS = (function () {
+    var out = [], i;
+    for (i = 1; i <= 6; i++) out.push({ id: 'G' + i, side: 'G', w: i === 3 || i === 4 ? 1.45 : i === 2 || i === 5 ? 1.25 : 1.05 });
+    for (i = 1; i <= 6; i++) out.push({ id: 'H' + i, side: 'H', w: i === 3 || i === 4 ? 1.1 : i === 2 || i === 5 ? 1.0 : 0.85 });
+    ['L', 'R'].forEach(function (t) { for (var j = 1; j <= 4; j++) out.push({ id: t + j, side: t, w: j === 2 || j === 3 ? 0.85 : 0.7 }); });
+    return out;
+  })();
+  var BANDE_W = E.BANDE_SLOTS.reduce(function (n, s) { return n + s.w; }, 0);
+  E.bandeSlot = function (id) { return E.BANDE_SLOTS.filter(function (s) { return s.id === id; })[0]; };
+  E.bandeLabel = function (id) {
+    var s = E.bandeSlot(id); if (!s) return id;
+    var n = +id.slice(1);
+    if (s.side === 'L' || s.side === 'R') return E.BANDE_SIDES[s.side] + ' · ' + (n <= 2 ? 'links' : 'rechts') + ' vom Tor (' + id + ')';
+    return E.BANDE_SIDES[s.side] + ' · Bande ' + n + ' (' + id + ')';
+  };
+  E.bandeOf = function (club) { return club.sponsors.filter(function (s) { return s.cat === 'bande' && s.slot; }); };
+  E.bandeFree = function (club) {
+    var used = {}; E.bandeOf(club).forEach(function (s) { used[s.slot] = 1; });
+    return E.BANDE_SLOTS.filter(function (s) { return !used[s.id]; }).map(function (s) { return s.id; });
+  };
+  function bandeScale(s, slot, f) {
+    s.slot = slot; s.amount = Math.max(500, R.round(s.amount * f, 500));
+    ['bonusTop', 'bonusPromo', 'bonusTitle'].forEach(function (k) { s[k] = R.round((s[k] || 0) * f, 500); });
+    return s;
+  }
+  E.bandeOffer = function (st, club, slot, adminF) {
+    var sl = E.bandeSlot(slot), s = W.genSponsor(st, club, 'bande');
+    return bandeScale(s, slot, sl.w / BANDE_W * (adminF || 1) * R.randRange(0.9, 1.1));
+  };
+  E.bandeOffers = function (st, club, slot) {
+    var adminF = [0.95, 1, 1.06][club.budgets.admin] * [0.97, 1, 1.05][club.budgets.marketing], out = [];
+    for (var i = 0; i < 3; i++) out.push(E.bandeOffer(st, club, slot, adminF));
+    return out;
+  };
+  // Ältere Spielstände / Editor: ein Bandenvertrag ohne Platz wird auf alle freien Banden verteilt
+  E.ensureBande = function (st, club) {
+    if (!club || !club.sponsors) return;
+    var loose = club.sponsors.filter(function (s) { return s.cat === 'bande' && !s.slot; });
+    if (!loose.length) return;
+    club.sponsors = club.sponsors.filter(function (s) { return !(s.cat === 'bande' && !s.slot); });
+    var src = loose[0], free = E.bandeFree(club);
+    free.forEach(function (id) {
+      var sl = E.bandeSlot(id), f = sl.w / BANDE_W;
+      club.sponsors.push(bandeScale({ id: W.nextId(st, 'sponsor'), cat: 'bande', name: src.name, amount: src.amount, years: src.years, topN: src.topN, bonusTop: src.bonusTop, bonusPromo: src.bonusPromo, bonusTitle: src.bonusTitle }, id, f));
+    });
+  };
+  // Pakete: eine Firma mietet mehrere freie Banden (ganze Seite, Paare, alle freien) mit Mengenrabatt
+  E.bandeGroupName = function (ids) {
+    if (ids.length === 20) return 'Alle 20 Banden';
+    var sides = {}; ids.forEach(function (id) { (sides[id[0]] = sides[id[0]] || []).push(id); });
+    return Object.keys(sides).map(function (k) { var l = sides[k], full = E.BANDE_SLOTS.filter(function (s) { return s.side === k; }).length === l.length; return E.BANDE_SIDES[k] + (full ? ' komplett' : ' (' + l.join(', ') + ')'); }).join(' + ');
+  };
+  E.bandePackages = function (st, club) {
+    var free = E.bandeFree(club), cands = [], seen = {};
+    function add(ids) { if (ids.length < 2) return; var k = ids.join(','); if (seen[k]) return; seen[k] = 1; cands.push(ids); }
+    ['G', 'H', 'L', 'R'].forEach(function (side) {
+      var l = free.filter(function (id) { return id[0] === side; }); add(l);
+      for (var i = 0; i + 1 < l.length; i++) if (+l[i + 1].slice(1) === +l[i].slice(1) + 1 && !((side === 'L' || side === 'R') && l[i].slice(1) === '2')) add([l[i], l[i + 1]]);
+    });
+    var ends = free.filter(function (id) { return id[0] === 'L' || id[0] === 'R'; }); if (ends.length >= 4) add(ends);
+    if (free.length >= 4) add(free);
+    cands.sort(function (a, b) { return b.length - a.length; });
+    var pick = cands.slice(0, 2).concat(R.shuffle(cands.slice(2)).slice(0, 2)), adminF = [0.95, 1, 1.06][club.budgets.admin] * [0.97, 1, 1.05][club.budgets.marketing];
+    return pick.map(function (ids) {
+      var s = W.genSponsor(st, club, 'bande'), wsum = ids.reduce(function (n, id) { return n + E.bandeSlot(id).w; }, 0), disc = 1 - Math.min(0.12, ids.length * 0.012);
+      var total = Math.max(1000, R.round(s.amount * wsum / BANDE_W * adminF * disc * R.randRange(0.92, 1.08), 1000));
+      return { name: s.name, slots: ids, total: total, per: Math.round(total / ids.length), years: s.years, topN: s.topN, disc: Math.round((1 - disc) * 100) };
+    });
+  };
+  E.signBandePackage = function (st, club, pkg) {
+    var free = E.bandeFree(club); if (!pkg || !pkg.slots.every(function (id) { return free.indexOf(id) >= 0; })) return { ok: false, why: 'Banden nicht mehr frei' };
+    var wsum = pkg.slots.reduce(function (n, id) { return n + E.bandeSlot(id).w; }, 0), pid = W.nextId(st, 'sponsor');
+    pkg.slots.forEach(function (id) {
+      E.signBande(st, club, id, { id: W.nextId(st, 'sponsor'), cat: 'bande', name: pkg.name, amount: Math.round(pkg.total * E.bandeSlot(id).w / wsum), years: pkg.years, topN: pkg.topN, bonusTop: 0, bonusPromo: 0, bonusTitle: 0, pkg: pid, pkgN: pkg.slots.length, pkgTotal: pkg.total });
+    });
+    return { ok: true };
+  };
+  E.signBande = function (st, club, slot, offer) {
+    if (!E.bandeSlot(slot) || !offer) return { ok: false };
+    club.sponsors = club.sponsors.filter(function (s) { return !(s.cat === 'bande' && s.slot === slot); });
+    offer.slot = slot; offer.cat = 'bande'; club.sponsors.push(offer);
+    if (club.bandeOff) delete club.bandeOff[slot];
+    return { ok: true };
+  };
   E.sponsorOffers = function (st, club, cat) {
     var adminF = [0.95, 1, 1.06][club.budgets.admin] * [0.97, 1, 1.05][club.budgets.marketing];
     var out = [];

@@ -28,8 +28,8 @@
       if (o.type === 'offer') {
         var p = st.players[o.pid], b = st.clubs[o.from]; if (!p || !b) return;
         h += '<div class="msg"><div class="ic-tile">' + U.lc('arrow-left-right', 20) + '</div><div class="msg-b"><b>Angebot für ' + esc(W.playerName(p)) + ' <span class="muted">(' + p.pos + ', ' + p.ovr + ')</span></b><span>' + esc(b.name) + ' bietet <b class="pos">' + money(o.amount) + '</b> · Marktwert ' + money(p.value) + '</span></div>' +
-          (U.can('business') || U.can('sport') ? '<div class="row" style="gap:6px"><button class="sm primary" data-act="offerAccept" data-id="' + o.id + '">Annehmen</button><button class="sm" data-act="offerCounter" data-id="' + o.id + '">+15 % fordern</button><button class="sm danger" data-act="offerDecline" data-id="' + o.id + '">Ablehnen</button></div>' : '') + '</div>';
-      } else h += '<div class="msg"><div class="ic-tile ok">' + U.lc('handshake', 20) + '</div><div class="msg-b"><b>Sponsorenangebote: ' + D.sponsorCategories[o.cat] + '</b><span>' + o.offers.length + ' Angebote liegen vor.</span></div><button class="sm primary" data-act="nav" data-s="verein">Ansehen</button></div>';
+          (U.can('business') || U.can('sport') ? (T.canSell(st, c.id) ? '' : '<div class="small neg" style="flex-basis:100%">Kader am Minimum (' + T.MIN_SQUAD + ' Spieler) – erst verpflichten, dann verkaufen.</div>') + '<div class="row" style="gap:6px"><button class="sm primary" data-act="offerAccept" data-id="' + o.id + '"' + (T.canSell(st, c.id) ? '' : ' disabled') + '>Annehmen</button><button class="sm" data-act="offerCounter" data-id="' + o.id + '">+15 % fordern</button><button class="sm danger" data-act="offerDecline" data-id="' + o.id + '">Ablehnen</button></div>' : '') + '</div>';
+      } else h += '<div class="msg"><div class="ic-tile ok">' + U.lc('handshake', 20) + '</div><div class="msg-b"><b>Sponsorenangebote: ' + D.sponsorCategories[o.cat] + '</b><span>' + (o.cat === 'bande' ? (o.free || 0) + ' von 20 Banden frei – einzeln vermieten' : o.offers.length + ' Angebote liegen vor.') + '</span></div><button class="sm primary" data-act="' + (o.cat === 'bande' ? 'bandeOpen' : 'nav') + '" data-s="verein">Ansehen</button></div>';
     });
     if (!inbox.length && !(st.deal && st.deal.club === c.id)) h += U.empty('mail', 'Keine neuen Nachrichten. Angebote für Spieler und Sponsoren erscheinen hier.');
     if (c.construction.length || (c.stadium && c.stadium.jobs && c.stadium.jobs.length)) {
@@ -80,7 +80,10 @@
       return '<tr class="' + (r.id === hl ? 'me' : '') + '"><td class="num">' + n + '</td><td>' + U.crest(c, 16) + ' ' + esc(c.short) + '</td><td class="num">' + r.p + '</td><td class="num">' + (r.gf - r.ga) + '</td><td class="num"><b>' + r.pts + '</b></td></tr>';
     }).join('') + '</table>';
   };
-  U.acts.offerAccept = function (d) { var r = T.acceptOffer(U.st, d.id); if (!r.ok) U.toast(r.why || 'Nicht möglich'); else U.toast('Transfer abgeschlossen!'); U.render(); };
+  U.acts.offerAccept = function (d) {
+    var r; try { r = T.acceptOffer(U.st, d.id); } catch (e) { r = { ok: false, why: 'Fehler beim Transfer: ' + (e && e.message) }; if (window.console) console.error(e); }
+    if (!r.ok) U.toast(r.why || 'Angebot nicht mehr gültig', 5000); else U.toast('Transfer abgeschlossen!'); U.render();
+  };
   U.acts.offerDecline = function (d) { U.st.inbox = U.st.inbox.filter(function (o) { return o.id !== d.id; }); U.render(); };
   U.acts.offerCounter = function (d) {
     var st = U.st, o = st.inbox.filter(function (x) { return x.id === d.id; })[0]; if (!o) return;
@@ -119,7 +122,14 @@
     }
     return h;
   };
-  U.acts.tab = function (d) { U.go(d.s, Object.assign({}, U.p, { tab: d.tab })); };
+  U.acts.tab = function (d) {
+    // Reiterwechsel auf demselben Bildschirm: Scrollposition behalten; nur ein anderer Bildschirm ruft U.go auf
+    if (d.s !== U.screen) { U.go(d.s, Object.assign({}, U.p, { tab: d.tab })); return; }
+    var main = document.getElementById('main'), top = main ? main.scrollTop : 0, pageY = window.scrollY;
+    U.p = Object.assign({}, U.p, { tab: d.tab }); U.render();
+    if (main) main.scrollTop = top;
+    window.scrollTo(window.scrollX, pageY);
+  };
   U.acts.kaderPos = function (d) { U.p.kpos = d.v; U.render(); };
   U.acts.kaderAlt = function (d, el) { U.p.kalt = !U.p.kalt; U.render(); };
 

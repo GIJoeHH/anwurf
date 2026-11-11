@@ -661,8 +661,10 @@
     if (best) { E.startBuild(st, club, best.k); S.news(st, 'Automatischer Ausbau: ' + best.pv.name, 'Die Betriebsleitung investiert ' + R.fmtMoney(best.pv.cost) + ' (Amortisation ca. ' + best.pv.payback.toFixed(1) + ' Jahre).', 'bau'); }
   };
   S.aiSponsors = function (st, club) {
+    E.ensureBande(st, club);
     var have = {}; club.sponsors.forEach(function (s) { have[s.cat] = true; });
     Object.keys(D.sponsorCategories).forEach(function (cat) {
+      if (cat === 'bande') { E.bandeFree(club).forEach(function (id) { club.sponsors.push(E.bandeOffer(st, club, id)); }); return; }
       if (have[cat]) return;
       if (cat === 'namensrechte' && !club.userControlled && R.chance(0.5)) return;
       var offers = E.sponsorOffers(st, club, cat);
@@ -672,9 +674,11 @@
   };
   S.ensureSponsors = function (st, club) {
     // Offene Sponsorenkategorien → Angebote in den Posteingang
+    E.ensureBande(st, club); club.bandeOff = {};
     var have = {}; club.sponsors.forEach(function (s) { have[s.cat] = true; });
     st.inbox = st.inbox.filter(function (o) { return o.type !== 'sponsor'; });
     Object.keys(D.sponsorCategories).forEach(function (cat) {
+      if (cat === 'bande') { var fr = E.bandeFree(club).length; if (fr && st.manager.role !== 'trainer') st.inbox.push({ id: W.nextId(st, 'offer'), type: 'sponsor', cat: 'bande', offers: [], free: fr, season: st.season, week: st.week }); return; }
       if (have[cat]) return;
       if (st.manager.role === 'trainer') return;
       st.inbox.push({ id: W.nextId(st, 'offer'), type: 'sponsor', cat: cat, offers: E.sponsorOffers(st, club, cat), season: st.season, week: st.week });

@@ -109,6 +109,12 @@
   U.acts.setSpeed = function (d) { U.st.settings.matchSpeed = d.v; U.render(); };
 
   // ---------- Live-Spiel ----------
+  // Zuschauerzeile Heim/Gäste (Anzeigetafel, Vorschau)
+  U.attLine = function (att, H, A, cls) {
+    if (!att || att.guests == null) return '';
+    var home = Math.max(0, att.total - att.guests);
+    return '<div class="' + cls + '"><em>' + U.lc('users', 13) + ' <b>' + R.fmtNum(att.total) + '</b> Zuschauer' + (att.total >= (att.capacity || 1e9) * 0.98 ? ' · ausverkauft' : '') + '</em><span>' + esc(H.short) + ' ' + R.fmtNum(home) + ' · ' + esc(A.short) + ' ' + R.fmtNum(att.guests) + '</span></div>';
+  };
   U.startLive = function (fixtures) { U.live = { queue: fixtures, idx: 0, played: {} }; U.liveNext(); };
   U.liveNext = function () {
     var st = U.st, L = U.live, fx = L.queue[L.idx];
@@ -116,6 +122,7 @@
     m.userLive = true;
     var side = m.userSide;
     if (side >= 0 && U.can('sport')) { var sp = D.speeches.filter(function (s) { return s.id === U.speech; })[0]; if (sp) M.applySpeech(m, side, sp, false); }
+    L.att = fx.neutral ? null : E.attendance(st, st.clubs[m.clubs[0]], st.clubs[m.clubs[1]], fx.comp === 'friendly' ? 'friendly' : fx.comp);
     L.m = m; L.paused = false; L.halftimeDone = false; L.lastEv = m.events.length; L.shown = 0; L.anim = U.initAnim(m); L.flash = null;
     U.liveActive = true;
     U.go('match');
@@ -201,7 +208,7 @@
     var L = U.live; if (!L) return U.screens.spieltag();
     var st = U.st, m = L.m, H = st.clubs[m.clubs[0]], A = st.clubs[m.clubs[1]], K = L.kits = U.matchKits(H, A);
     var h = '<div class="match-grid"><div style="position:relative"><canvas id="pitchCv" class="match-canvas" width="680" height="1000"></canvas><div id="flashBox"></div></div><div class="grid" style="align-content:start">';
-    h += '<div class="scoreboard"><div class="sb-top"><span>' + esc(m.neutral ? 'Final Four · Hamburg' : H.stadiumName).toUpperCase() + '</span><span id="sbMin">0\'</span></div>' +
+    h += '<div class="scoreboard"><div class="sb-top"><span>' + esc(m.neutral ? 'Final Four · Hamburg' : H.stadiumName).toUpperCase() + '</span><span id="sbMin">0\'</span></div>' + U.attLine(L.att, H, A, 'sb-att') +
       '<div class="sb-row" style="background:' + K[0].fill + ';color:' + K[0].text + ';box-shadow:inset 6px 0 0 ' + K[0].stroke + '"><span>' + esc(H.short) + '</span><span class="g" id="sbH">0</span></div>' +
       '<div class="sb-row" style="background:' + K[1].fill + ';color:' + K[1].text + ';box-shadow:inset 6px 0 0 ' + K[1].stroke + '"><span>' + esc(A.short) + (K[1].alt ? ' <small style="opacity:.7;font-size:10px">Ausweichtrikot</small>' : '') + '</span><span class="g" id="sbA">0</span></div></div>';
     h += '<div class="panel" style="padding:10px"><div class="row" id="liveCtl"><button data-act="matchPause" id="pauseBtn">⏸ Pause</button><div class="seg">' + [['normal', 'Normal'], ['schnell', 'Schnell'], ['sofort', 'Sofort']].map(function (x) { return '<button class="sm ' + (st.settings.matchSpeed === x[0] ? 'on' : '') + '" data-act="matchSpeed" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div><button data-act="matchSkip">⏭ Überspringen</button>' + (m.userSide >= 0 && U.can('sport') ? '<button data-act="liveTactics">🔁 Wechsel/Taktik</button><button data-act="liveDrive" id="toBtn">⏱ Auszeit</button>' : '<span class="muted small">' + (m.userSide >= 0 ? 'Als Geschäftsführer verfolgen Sie das Spiel von der Tribüne.' : '') + '</span>') + '</div></div>';
@@ -500,7 +507,7 @@
     // Zeitung
     var article = U.articleText(lm);
     h += '<div class="newspaper"><div class="mast">DER KREISLÄUFER · SPORTTEIL</div><div class="head">' + esc(lm.headline) + '</div><p>' + esc(article) + '</p></div>';
-    if (lm.att) h += '<div class="panel"><h2>Zuschauer & Umsatz</h2><table class="t small"><tr><td>Zuschauer</td><td class="num">' + R.fmtNum(lm.att.total) + ' / ' + R.fmtNum(lm.att.capacity || 0) + '</td></tr>' + (lm.att.ticket != null && lm.h === st.manager.clubId ? '<tr><td>Ticketerlöse</td><td class="num">' + money(lm.att.ticket) + '</td></tr><tr><td>Gastronomie</td><td class="num">' + money(lm.att.cater) + '</td></tr><tr><td>Parken</td><td class="num">' + money(lm.att.parking) + '</td></tr><tr><td>Zufriedenheit</td><td class="num">' + lm.att.satisfaction + '/100</td></tr>' : '<tr><td colspan="2" class="muted">Auswärtsspiel – Einnahmen beim Gastgeber.</td></tr>') + '</table></div>';
+    if (lm.att) h += '<div class="panel"><h2>Zuschauer & Umsatz</h2><table class="t small"><tr><td>Zuschauer</td><td class="num">' + R.fmtNum(lm.att.total) + ' / ' + R.fmtNum(lm.att.capacity || 0) + '</td></tr>' + (lm.att.guests != null ? '<tr><td>' + U.lc('home', 13) + ' Heimfans (' + esc(H.short) + ')</td><td class="num">' + R.fmtNum(lm.att.total - lm.att.guests) + '</td></tr><tr><td>' + U.lc('bus', 13) + ' Gästefans (' + esc(A.short) + ')</td><td class="num">' + R.fmtNum(lm.att.guests) + '</td></tr>' : '') + (lm.att.ticket != null && lm.h === st.manager.clubId ? '<tr><td>Ticketerlöse</td><td class="num">' + money(lm.att.ticket) + '</td></tr><tr><td>Gastronomie</td><td class="num">' + money(lm.att.cater) + '</td></tr><tr><td>Parken</td><td class="num">' + money(lm.att.parking) + '</td></tr><tr><td>Zufriedenheit</td><td class="num">' + lm.att.satisfaction + '/100</td></tr>' : '<tr><td colspan="2" class="muted">Auswärtsspiel – Einnahmen beim Gastgeber.</td></tr>') + '</table></div>';
     // Weitere Ergebnisse
     var c = U.club();
     if (c && st.lastResults) {
@@ -511,7 +518,7 @@
   };
   U.articleText = function (lm) {
     var st = U.st, H = st.clubs[lm.h], A = st.clubs[lm.a], s = lm.sum, stt = lm.stats || {};
-    var t = 'Vor ' + R.fmtNum(lm.att ? lm.att.total : 0) + ' Zuschauern ' + (s.hg === s.ag ? 'trennten sich ' + H.short + ' und ' + A.short + ' ' + s.hg + ':' + s.ag + '. ' : 'setzte sich ' + (s.hg > s.ag ? H.short : A.short) + ' mit ' + Math.max(s.hg, s.ag) + ':' + Math.min(s.hg, s.ag) + ' durch. ');
+    var t = 'Vor ' + R.fmtNum(lm.att ? lm.att.total : 0) + ' Zuschauern ' + (lm.att && lm.att.guests > 0 ? '(davon ' + R.fmtNum(lm.att.guests) + ' Gästefans) ' : '') + (s.hg === s.ag ? 'trennten sich ' + H.short + ' und ' + A.short + ' ' + s.hg + ':' + s.ag + '. ' : 'setzte sich ' + (s.hg > s.ag ? H.short : A.short) + ' mit ' + Math.max(s.hg, s.ag) + ':' + Math.min(s.hg, s.ag) + ' durch. ');
     var top = (s.sc || [])[0], tp = top && st.players[top[0]]; if (tp) t += 'Bester Werfer war ' + W.playerName(tp) + ' mit ' + top[1] + ' Toren. ';
     var ht = (lm.events || []).filter(function (e) { return e.type === 'ht'; })[0]; if (ht) t += ht.text.replace('Halbzeit! Es steht', 'Zur Pause stand es').replace('.', '') + '. ';
     if (Math.abs(s.hg - s.ag) <= 1 && s.hg !== s.ag) t += 'Bis zur Schlusssirene blieb es eine Zitterpartie. ';

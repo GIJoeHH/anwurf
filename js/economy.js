@@ -203,7 +203,7 @@
       var lgF = { 1: 0.05, 2: 0.034, 3: 0.022 }[home.league] || 0.02;
       gDemand = away.fans * lgF * (0.55 + away.reputation / 110) * (1 + 1.2 * mu.derby) * (mu.friend ? 1.6 : 1) * (1.15 - Math.min(0.45, mu.km / 1600)) * (comp === 'cup' ? 1.25 : comp === 'releg' ? 1.6 : comp === 'friendly' ? 0.15 : 1) * (0.85 + E.sportFactor(st, away) * 0.15);
       var blocks = E.guestCap(home); if (home.blockedArea) blocks = Math.round(blocks * 0.8);
-      gType = plan(home) ? R.stadium.guestType(home) : 'steh';
+      gType = plan(home) ? R.stadium.guestType(home) : ((parts.steh || 0) > 0 ? 'steh' : 'sitz');
       var gk = gType === 'sitz' || gType === 'steh' ? gType : 'sitz';
       blocks = Math.min(blocks, parts[gk] || 0);
       var quota = Math.round((parts.steh + parts.sitz) * E.GUEST_QUOTA); // Pflichtkontingent 10 % für den Gastverein

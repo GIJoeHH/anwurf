@@ -136,6 +136,13 @@
     });
     S.drawCup(st, 0);
     st.releg = null; st.week = 0; st.phase = 'preseason'; st.prep = 1; st.winter = 0; st.campDone = false; st.winterCampDone = false;
+    // Abstiegs-/Ligaklausel: Gehälter über der Obergrenze der neuen Liga werden gekappt
+    if (W.capWage && !first) Object.keys(st.players).forEach(function (id) {
+      var p = st.players[id], c = p && p.clubId ? st.clubs[p.clubId] : null; if (!c || !p.wage) return;
+      var cap = W.wageCap(c); if (p.wage <= cap) return;
+      if (c.userControlled) S.news(st, 'Ligaklausel: Gehalt von ' + W.playerName(p) + ' angepasst', 'Wegen der Ligazugehörigkeit sinkt sein Jahresgehalt von ' + R.fmtMoney(p.wage) + ' auf ' + R.fmtMoney(cap) + '.', 'finanz');
+      p.wage = cap;
+    });
     var keep = {}; Object.keys(st.plan || {}).forEach(function (k) { if (k.charAt(0) === 'p' && !st.plan[k].done) keep[k] = st.plan[k]; }); st.plan = keep;
     // Saisonziele / Vorstandserwartung
     D.leagueKeys.forEach(function (l) {
@@ -703,7 +710,7 @@
     if (st.week !== 20) return;
     var squad = W.squad(st, club.id), avg = R.avg(squad, function (p) { return p.ovr; });
     W.youthOf(st, club.id).forEach(function (p) {
-      if ((p.ovr >= avg - 8 || p.pot >= avg + 8) && squad.length < 26) { p.youth = false; p.wage = Math.max(p.wage, Math.round(W.fairWage(p) * 0.7 / 1000) * 1000); }
+      if ((p.ovr >= avg - 8 || p.pot >= avg + 8) && squad.length < 26) { p.youth = false; p.wage = Math.max(p.wage, Math.round(W.capWage(W.fairWage(p) * 0.7, club) / 500) * 500); }
     });
   };
 
@@ -968,7 +975,7 @@
       if (net < -E.revenueEstimate(st, c) * 0.6) {
         c.pointsPenalty = 6;
         S.news(st, 'Lizenzauflagen: 6 Punkte Abzug für ' + c.short, 'Die Überschuldung hat Konsequenzen.', 'finanzen');
-        if (!c.userControlled) { var best = W.squad(st, c.id).sort(function (a, b) { return b.value - a.value; })[0]; var b = best && T.findAIBuyer(st, best, c); if (b) T.executeTransfer(st, best, b, best.value, best.wage, 3); }
+        if (!c.userControlled) { var best = W.squad(st, c.id).sort(function (a, b) { return b.value - a.value; })[0]; var b = best && T.findAIBuyer(st, best, c); if (b) T.executeTransfer(st, best, b, Math.min(T.feeCap(b), best.value), best.wage, 3); }
       }
     });
 

@@ -160,6 +160,10 @@ table.t td.num, table.t th.num { text-align: right; font-family: var(--mono); }
 .sb-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-family: var(--mono); font-weight: 900; font-size: 18px; letter-spacing: 1px; text-transform: uppercase; }
 .sb-row .g { font-size: 26px; min-width: 40px; text-align: right; }
 .sb-top { display: flex; justify-content: space-between; padding: 6px 12px; font-family: var(--mono); font-size: 13px; color: var(--amber); border-bottom: 2px solid var(--amber); }
+.sb-att { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 5px 12px; font-size: 12px; color: var(--amber); opacity: .9; border-bottom: 1px solid rgba(255,191,0,.25); }
+.sb-att em { font-style: normal; }
+.sb-att .lc { vertical-align: -2px; }
+.sb-att span { margin-left: auto; font-family: var(--mono); }
 .ticker { height: 300px; overflow-y: auto; background: #0a1324; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
 .ticker div { padding: 3px 0; border-bottom: 1px dashed #1a2846; }
 .ticker .goal { color: #7dffa8; font-weight: 800; }

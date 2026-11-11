@@ -96,7 +96,18 @@
     var st = U.st, c = U.club(), tab = U.p.tab || 'aufstellung';
     var h = '<h1>Mannschaft</h1>' + U.roleNote('sport') + '<div class="seg" style="margin-bottom:14px">' + [['aufstellung', 'Aufstellung'], ['kader', 'Kader'], ['vertraege', 'Verträge']].map(function (x) { return '<button class="' + (tab === x[0] ? 'on' : '') + '" data-act="tab" data-s="mannschaft" data-tab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
     if (tab === 'aufstellung') h += U.lineupView(c);
-    if (tab === 'kader') h += '<div class="panel tight"><div class="scroll" style="max-height:none">' + U.squadTable(W.squad(st, c.id), 'kader') + '</div></div>';
+    if (tab === 'kader') {
+      // Positionsfilter (mit Anzahl je Position) und durchnummerierte Liste
+      var sqAll = W.squad(st, c.id), kp = U.p.kpos && D.positions.indexOf(U.p.kpos) >= 0 ? U.p.kpos : 'alle';
+      var cnt = function (pos) { return sqAll.filter(function (p) { return p.pos === pos; }).length; };
+      h += '<div class="row kader-filter" style="gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px"><div class="seg">' +
+        [['alle', 'Alle', sqAll.length]].concat(D.positions.map(function (pos) { return [pos, D.posNames[pos], cnt(pos)]; })).map(function (x) {
+          return '<button class="sm ' + (kp === x[0] ? 'on' : '') + '" data-act="kaderPos" data-v="' + x[0] + '">' + esc(x[1]) + ' <span class="muted small">' + x[2] + '</span></button>';
+        }).join('') + '</div>' +
+        '<label class="small muted" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-chg="kaderAlt"' + (U.p.kalt ? ' checked' : '') + (kp === 'alle' ? ' disabled' : '') + '> auch Spieler mit Nebenposition</label></div>';
+      var list = kp === 'alle' ? sqAll : sqAll.filter(function (p) { return p.pos === kp || (U.p.kalt && (p.alt || []).indexOf(kp) >= 0); });
+      h += '<div class="panel tight"><div class="scroll" style="max-height:none">' + U.squadTable(list, 'kader', { numbered: true }) + '</div></div>';
+    }
     if (tab === 'vertraege') {
       var sq = W.squad(st, c.id).sort(function (a, b) { return a.contract - b.contract; });
       h += '<div class="help" style="margin-bottom:10px">Spieler mit auslaufendem Vertrag (0–1 Jahre) verlassen den Verein am Saisonende ablösefrei, wenn nicht verlängert wird.</div><div class="panel tight">' + U.table('vertr', [
@@ -109,6 +120,8 @@
     return h;
   };
   U.acts.tab = function (d) { U.go(d.s, Object.assign({}, U.p, { tab: d.tab })); };
+  U.acts.kaderPos = function (d) { U.p.kpos = d.v; U.render(); };
+  U.acts.kaderAlt = function (d, el) { U.p.kalt = !U.p.kalt; U.render(); };
 
   U.squadTable = function (players, id, opts) {
     opts = opts || {};
@@ -124,6 +137,7 @@
     cols.push({ k: 'value', l: 'Marktwert', num: true, f: function (p) { return money(p.value); } }, { k: 'wage', l: 'Gehalt', num: true, f: function (p) { return money(p.wage); } }, { k: 'contract', l: 'Vertr.', num: true });
     if (!opts.market) cols.push({ k: 'goals', l: 'Tore', num: true, v: function (p) { return p.stats.goals; }, f: function (p) { return p.stats.goals; } }, { k: 'apps', l: 'Sp.', num: true, v: function (p) { return p.stats.apps; }, f: function (p) { return p.stats.apps; } });
     cols.push({ k: 'status', l: 'Status', v: function (p) { return (p.inj ? 2 : 0) + (p.susp ? 1 : 0); }, f: function (p) { return U.statusTags(p); } });
+    if (opts.numbered) cols.unshift({ k: 'nr', l: '#', nosort: true, num: true, f: function (p, i) { return '<span class="muted">' + (i + 1) + '</span>'; } });
     return U.table(id, cols, players, { click: 'playerInfo', sort: { k: 'ovr', d: -1 } });
   };
   U.potText = function (p) {

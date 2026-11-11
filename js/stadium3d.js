@@ -370,7 +370,7 @@
         });
       } else if (p.kind === 'hall') {
         buildHallShell(B, p, m, o);
-      } else if (p.kind === 'trusses') {
+      } else if (p.kind === 'trusses' && !o.noRoof) {
         var th = p.h;
         p.xs.forEach(function (x0) { // Fachwerkträger quer über die Halle (Nord–Süd)
           beam(B, 'steel', [x0, th - 0.25, -p.y], [x0, th - 0.25, p.y], 0.35);
@@ -417,8 +417,8 @@
     }
     // Dachhaut als Decke (Front zeigt nach unten → von oben unsichtbar = Schnittansicht) und Attika-Kante oben
     var c = p.outline, ctr = [0, 0];
-    for (var k = 0; k < c.length; k++) { var n = c[(k + 1) % c.length]; B.tri('ceiling', [ctr[0], H, ctr[1]], [c[k][0], H, c[k][1]], [n[0], H, n[1]], [0, 0], [1, 0], [0, 1]); }
-    for (k = 0; k < c.length; k++) { var a2 = c[k], b2 = c[(k + 1) % c.length], ia = [a2[0] * 0.985, a2[1] * 0.985], ib = [b2[0] * 0.985, b2[1] * 0.985]; B.quad('steelDark', P3(a2, H + 0.9), P3(b2, H + 0.9), P3(ib, H + 0.9), P3(ia, H + 0.9)); }
+    if (!o.noRoof) for (var k = 0; k < c.length; k++) { var n = c[(k + 1) % c.length]; B.tri('ceiling', [ctr[0], H, ctr[1]], [c[k][0], H, c[k][1]], [n[0], H, n[1]], [0, 0], [1, 0], [0, 1]); }
+    for (var k = 0; k < c.length; k++) { var a2 = c[k], b2 = c[(k + 1) % c.length], ia = [a2[0] * 0.985, a2[1] * 0.985], ib = [b2[0] * 0.985, b2[1] * 0.985]; B.quad('steelDark', P3(a2, H + 0.9), P3(b2, H + 0.9), P3(ib, H + 0.9), P3(ia, H + 0.9)); }
     // Foyer (Süden) mit Vordach und Schriftzug
     var fw = p.x * 1.24, fd = p.foyer, fh = p.foyerH;
     B.box(p.stage >= 2 ? 'glassFacade' : 'glassWarm', 0, p.y + fd / 2, fw, fd, 0, fh, 0, { topKey: 'roofTop', tw: 20, th: fh });
@@ -811,7 +811,7 @@
     var I = new Inst();
     if (cfg.kind === 'bank') { var hb = buildBank(group, m, M, I, r, cfg); flushInst(group, I, m, hq()); return { scene: scene, heights: hb }; }
     if (cfg.kind === 'focus') { var hf = buildFocus(group, m, M, I, r, cfg.focus); flushInst(group, I, m, hq()); return { scene: scene, heights: hf }; }
-    var o = { highlight: cfg.highlight || [], lamps: [] }, info = buildStadium(group, m, M, o);
+    var o = { highlight: cfg.highlight || [], lamps: [], noRoof: !!cfg.noRoof }, info = buildStadium(group, m, M, o);
     buildPlaza(group, m, M, I, r, big);
     var heights = big ? buildCity(group, m, M, I, r, cfg.buildings || []) : {};
     flushInst(group, I, m, hq());
@@ -827,16 +827,17 @@
     if (cam === 'stadt') return { az: -22, el: 34, dist: 760, tx: 0, ty: 0, tz: 25, fov: 34 };
     if (cam === 'bank') return { az: -22, el: 12, dist: 128, tx: -4, ty: 17, tz: 6, fov: 36 };
     if (cam === 'focus' && cfg.focus) { var sl = SM.CITY_SLOTS[cfg.focus.key]; return { az: -32, el: 30, dist: Math.max(sl.w, sl.d) * 1.55 + 50, tx: sl.x, ty: 4, tz: sl.y + 4, fov: 34 }; }
-    if (cam === 'innen') return { az: 0, el: 0, dist: 0, fov: 56, inside: true, yaw: 0, pitch: -16 };
+    if (cam === 'innen') return { az: 0, el: 0, dist: 0, fov: 66, inside: true, yaw: 0, pitch: 8 }; // Standpunkt Mittelkreis, Rundumblick
+    if (cam === 'vorschau' && cfg.noRoof) { var dv = Math.max(ex.x * 1.25, ex.y * 1.6) * 1.6 + (m.roofH || 8) * 0.6; return { az: -24, el: 56, dist: dv, tx: -12, ty: 2, tz: 3, fov: 34 }; } // Ausbauvorschau ohne Dach: steiler von oben
     // Halle schräg von oben (Schnittansicht): Blick durch das Dachtragwerk auf Feld und Tribünen
     var d = Math.max(ex.x * 1.25, ex.y * 1.6) * (cfg.kind === 'world' ? 2.3 : 1.85) + (m.roofH || 8) * 0.8;
     return { az: -24, el: 42, dist: d, tx: cfg.kind === 'world' ? -6 : 0, ty: 2, tz: 3, fov: 34 };
   }
   function placeCamera(camera, v, cfg) {
-    camera.fov = v.fov; camera.near = 1; camera.far = 4000;
+    camera.fov = v.fov; camera.near = v.inside ? 0.2 : 1; camera.far = 4000;
     if (v.inside) {
-      var m = cfg.model, S = m.areas.S, d = S.depth || 0, y = (S.top || 2) + 1.8, z = SM.GEO.Iy + Math.max(2, d * 0.75);
-      if (!S.tiers) { y = 9; z = SM.GEO.Iy - 2; }
+      // Am Mittelkreis in Augenhöhe stehen und sich frei um 360° umsehen
+      var y = 1.75, z = 0;
       camera.position.set(0, y, z);
       var yaw = v.yaw * DEG, pitch = v.pitch * DEG;
       camera.lookAt(Math.sin(yaw) * 100, y + Math.tan(pitch) * 100, z - Math.cos(yaw) * 100);
@@ -864,7 +865,7 @@
     Object.keys(TEX).forEach(function (k) { TEX[k].dispose(); }); TEX = {}; S3._env = null; SNAPS = {};
     if (renderer) { renderer.dispose(); if (renderer.forceContextLoss) renderer.forceContextLoss(); renderer = null; }
   };
-  function hashOf(cfg) { var m = cfg.model; return cfg.kind + '|' + (cfg.plaque || '') + '|' + (cfg.city || '') + '|' + hq() + '|' + JSON.stringify(m.parts) + '|' + JSON.stringify(m.levels) + '|' + m.colors + '|' + Math.round(m.attendance * 4) + '|' + JSON.stringify((cfg.buildings || []).map(function (b) { return b.level; })) + '|' + (cfg.highlight || []).join() + '|' + (cfg.kind === 'focus' && cfg.focus ? cfg.focus.key + cfg.focus.level : ''); }
+  function hashOf(cfg) { var m = cfg.model; return cfg.kind + '|' + (cfg.noRoof ? 'nr|' : '') + (cfg.plaque || '') + '|' + (cfg.city || '') + '|' + hq() + '|' + JSON.stringify(m.parts) + '|' + JSON.stringify(m.levels) + '|' + m.colors + '|' + Math.round(m.attendance * 4) + '|' + JSON.stringify((cfg.buildings || []).map(function (b) { return b.level; })) + '|' + (cfg.highlight || []).join() + '|' + (cfg.kind === 'focus' && cfg.focus ? cfg.focus.key + cfg.focus.level : ''); }
   function getScene(cfg) {
     var h = hashOf(cfg), k = cfg.kind + ':' + h.length + ':' + hsh(h);
     if (!CACHE[k]) {
@@ -883,7 +884,7 @@
     pending[key] = cfg;
     return '<div class="s3d-wrap"><div class="s3d s3d-' + cfg.kind + '" data-s3d="' + key + '" style="aspect-ratio:' + (cfg.ratio || '16/9') + '">' +
       '<canvas class="s3d-cv"></canvas><div class="s3d-labels"></div>' +
-      (cfg.interactive ? '<div class="s3d-hint">' + (cfg.cam === 'innen' ? 'Ziehen zum Umschauen' : 'Ziehen zum Drehen · Zoom mit Mausrad/zwei Fingern') + '</div>' : '') + '</div>' + (cfg.overlay || '') + '</div>';
+      (cfg.interactive ? '<div class="s3d-hint">' + (cfg.cam === 'innen' ? 'Ziehen zum Umsehen – 360° vom Mittelkreis · Zoom mit Mausrad/zwei Fingern' : 'Ziehen zum Drehen · Zoom mit Mausrad/zwei Fingern') + '</div>' : '') + '</div>' + (cfg.overlay || '') + '</div>';
   };
   S3.mountAll = function (root) {
     var keys = Object.keys(pending); live = {};
@@ -927,7 +928,7 @@
       var ids = Object.keys(pts);
       if (ids.length === 2 && pinch) { var d = dist2(); zoom(pinch / d); pinch = d; return; }
       var dx = e.clientX - last[0], dy = e.clientY - last[1]; last = [e.clientX, e.clientY];
-      if (v.inside) { v.yaw = Math.max(-75, Math.min(75, v.yaw + dx * 0.15)); v.pitch = Math.max(-40, Math.min(10, v.pitch - dy * 0.12)); }
+      if (v.inside) { v.yaw = ((v.yaw - dx * 0.22) % 360 + 360) % 360; v.pitch = Math.max(-35, Math.min(50, v.pitch + dy * 0.15)); }
       else { v.az -= dx * 0.25; v.el = Math.max(14, Math.min(72, v.el + dy * 0.18)); }
       schedule(key);
     });

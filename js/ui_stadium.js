@@ -48,7 +48,7 @@
     var h = '<div class="stage3d"><div class="stage-bar"><div class="seg">' + cams.map(function (x) { return '<button class="sm ' + (cam === x[0] ? 'on' : '') + '" data-act="s3dCam" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
       (note ? '<span class="stage-note">' + note + '</span>' : '<span class="stage-note muted">' + esc(c.stadiumName) + ' · ' + SM.STAGES[m.stage] + '</span>') +
       '<button class="sm ghost" data-act="gfxToggle" title="Grafikdetails umschalten">Grafik: ' + (S3.quality() === 'reduziert' ? 'reduziert' : 'hoch') + '</button></div>';
-    h += S3.host('stadium', { kind: 'world', model: m, buildings: SM.city(c), cam: cam === 'vorschau' ? 'vorschau' : cam, labels: stadiumCallouts(m, c), interactive: true, ratio: '16/9',
+    h += S3.host('stadium', { kind: 'world', model: m, buildings: SM.city(c), cam: cam === 'vorschau' ? 'vorschau' : cam, noRoof: prev, labels: stadiumCallouts(m, c), interactive: true, ratio: '16/9',
       highlight: prev && U.p.sec ? [U.p.sec] : m.jobs.length ? [] : [], overlay: stagePanel(m, c),
       fallback: '<div class="splan-wrap">' + SM.planSVG(m) + '</div>' });
     return h + '</div>';

@@ -27,17 +27,39 @@
   W.moneyOvr = function (p) { return p.rs ? W.REAL_SCALE[0] * p.ovr + W.REAL_SCALE[1] : p.ovr; };
   W.fromMoneyScale = function (st, x) { return st && st.world === 'real' ? (x - W.REAL_SCALE[1]) / W.REAL_SCALE[0] : x; };
   W.marketValue = function (p) {
-    var v = 25000 * Math.exp((W.moneyOvr(p) - 50) / 8); // Handball: flachere Kurve (Topspieler ~2 Mio. €)
+    // Handball-Ablösen sind klein: die meisten Wechsel sind ablösefrei, Bundesliga-Stammspieler ~100–200 Tsd. €,
+    // Weltstars ~1–1,5 Mio. € (Rekordablösen knapp 2 Mio. €), 2. Liga meist 10–80 Tsd. €, 3. Liga wenige Tausend
+    var v = 105000 * Math.exp((W.moneyOvr(p) - 70) / 7.8);
     var ageF = p.age <= 21 ? 1 + (p.pot - p.ovr) / 30 : p.age <= 27 ? 1 + Math.max(0, p.pot - p.ovr) / 50 : p.age <= 30 ? 0.85 : p.age <= 32 ? 0.55 : 0.3;
     v *= ageF;
     if (p.contract <= 1) v *= 0.75;
     if (p.inj && p.inj.weeks > 8) v *= 0.8;
     return Math.max(1000, R.round(v, v > 1e6 ? 50000 : v > 1e5 ? 5000 : 1000));
   };
+  // Jahresgehalt (brutto) nach realen Größenordnungen im deutschen Männerhandball:
+  // Weltstars bei Top-Klubs ~400–500 Tsd. €, Bundesliga-Stammspieler ~60–80 Tsd. € (Schnitt ~70–100 Tsd. €),
+  // 2. Liga meist 15–50 Tsd. € (Spitze knapp unter 100 Tsd. €), 3. Liga Halbprofis/Amateure ~5–25 Tsd. €.
   W.fairWage = function (p) {
-    var w = 12000 * Math.exp((W.moneyOvr(p) - 50) / 9); // Handball: Topspieler ~600 Tsd. €, Bundesliga-Schnitt ~110 Tsd. €, 3. Liga ~15 Tsd. €
+    var w = 62000 * Math.exp((W.moneyOvr(p) - 70) / 10.2);
     if (p.age >= 31) w *= 0.9;
     return Math.max(3000, R.round(w, 500));
+  };
+  W.WAGE_CAP = { 1: 600000, 2: 95000, 3: 40000 }; // Obergrenzen je Liga (3 = alle Staffeln der 3. Liga)
+  W.wageCap = function (club) { return club ? (W.WAGE_CAP[club.league] || W.WAGE_CAP[3]) : W.WAGE_CAP[1]; };
+  W.capWage = function (wage, club) { return Math.min(wage, W.wageCap(club)); };
+  // Alte Spielstände: Gehälter einmalig auf das neue Gefüge umrechnen (Verhältnis neue/alte Formel, Ligaobergrenze)
+  W.WAGE_V = 2;
+  W.migrateWages = function (st) {
+    if ((st.wageV || 1) >= W.WAGE_V) return 0;
+    var n = 0;
+    Object.keys(st.players).forEach(function (id) {
+      var p = st.players[id]; if (!p || !p.wage) return;
+      var o = W.moneyOvr(p), f = (62000 * Math.exp((o - 70) / 10.2)) / Math.max(1, 12000 * Math.exp((o - 50) / 9));
+      var c = p.clubId ? st.clubs[p.clubId] : null;
+      p.wage = Math.max(1500, R.round(W.capWage(p.wage * f, c), 500)); p.value = W.marketValue(p); if (p.asking) p.asking = R.round(p.value * 1.25, 5000); n++;
+    });
+    st.wageV = W.WAGE_V;
+    return n;
   };
 
   var nextId = function (st, kind) { st.nextIds[kind] = (st.nextIds[kind] || 0) + 1; return kind.charAt(0) + st.nextIds[kind]; };
@@ -77,7 +99,7 @@
     W.recalc(p);
     var potAdd = age <= 18 ? R.randInt(6, 28) : age <= 21 ? R.randInt(3, 18) : age <= 24 ? R.randInt(0, 9) : age <= 27 ? R.randInt(0, 3) : 0;
     p.pot = R.clamp(p.ovr + potAdd, p.ovr, 95);
-    p.wage = Math.round(W.fairWage(p) * R.randRange(0.85, 1.15) / 1000) * 1000;
+    p.wage = Math.round(W.capWage(W.fairWage(p) * R.randRange(0.85, 1.15), clubId ? st.clubs[clubId] : null) / 500) * 500;
     p.value = W.marketValue(p);
     st.players[p.id] = p;
     return p;
@@ -244,7 +266,7 @@
     potAdd *= R.clamp((95 - ovr) / 25, 0.3, 1);
     p.pot = R.clamp(Math.round(ovr + potAdd), ovr, Math.max(ovr, 95));
     p.contract = age <= 22 ? 2 + Math.floor(r2 * 3) : age <= 29 ? 1 + Math.floor(r2 * 3) : age <= 32 ? 1 + Math.floor(r2 * 2) : 1;
-    p.wage = Math.max(1500, Math.round(W.fairWage(p) * (0.85 + r3 * 0.3) / 500) * 500);
+    p.wage = Math.max(1500, Math.round(W.capWage(W.fairWage(p) * (0.85 + r3 * 0.3), clubId ? st.clubs[clubId] : null) / 500) * 500);
     p.value = W.marketValue(p);
     st.players[p.id] = p;
     return p;
@@ -294,7 +316,7 @@
     var seed = opts.seed || (Date.now() % 2147483647);
     R.rng.seed(seed);
     var st = {
-      version: 1, seed: seed, rngState: 0, season: 2026, week: 0, phase: 'preseason',
+      version: 1, wageV: 2, seed: seed, rngState: 0, season: 2026, week: 0, phase: 'preseason',
       settings: { difficulty: opts.difficulty || 'normal', cheatEnabled: true, matchSpeed: 'schnell', sound: false, autoBest: true },
       clubs: {}, players: {}, leagues: {}, cup: null, nextIds: {}, news: [], inbox: [], achievements: {}, cheatUsed: false, cheatClicks: 0,
       market: { stocks: {}, crypto: {} }, savingsRate: 0.02, history: [], hall: { champions: [], cups: [], topScorers: [], records: {} },

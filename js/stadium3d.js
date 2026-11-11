@@ -838,7 +838,7 @@
     if (cam === 'stadt') return { az: -22, el: 34, dist: 760, tx: 0, ty: 0, tz: 25, fov: 34 };
     if (cam === 'bank') return { az: -22, el: 12, dist: 128, tx: -4, ty: 17, tz: 6, fov: 36 };
     if (cam === 'focus' && cfg.focus) { var sl = SM.CITY_SLOTS[cfg.focus.key]; return { az: -32, el: 30, dist: Math.max(sl.w, sl.d) * 1.55 + 50, tx: sl.x, ty: 4, tz: sl.y + 4, fov: 34 }; }
-    if (cam === 'innen') return { az: 0, el: 0, dist: 0, fov: 60, inside: true, yaw: 0, pitch: -4 }; // Erhöhter Zuschauerblick auf Spielfeld und Tribünen
+    if (cam === 'innen') return { az: 0, el: 0, dist: 0, fov: 60, inside: true, yaw: 0, pitch: 4 }; // Erhöhter Zuschauerblick auf Spielfeld und Tribünen
     if (cam === 'vorschau' && cfg.noRoof) { var dv = Math.max(ex.x * 1.25, ex.y * 1.6) * 1.6 + (m.roofH || 8) * 0.6; return { az: -24, el: 56, dist: dv, tx: -12, ty: 2, tz: 3, fov: 34 }; } // Ausbauvorschau ohne Dach: steiler von oben
     // Halle schräg von oben (Schnittansicht): Blick durch das Dachtragwerk auf Feld und Tribünen
     var d = Math.max(ex.x * 1.25, ex.y * 1.6) * (cfg.kind === 'world' ? 2.3 : 1.85) + (m.roofH || 8) * 0.8;
@@ -852,7 +852,8 @@
       if (Sa && Sa.tiers) { var dd = Math.min(Sa.depth * 0.55, G0.TD[0] * 0.8); z = G0.Iy + dd; y = G0.HIN[0] + dd * G0.rake + 1.3; }
       else { z = G0.Iy - 1; y = 9; }
       camera.position.set(0, y, z);
-      var yaw = v.yaw * DEG, pitch = v.pitch * DEG;
+      // Grundblick auf den Anwurfpunkt (Feldmitte); Ziehen verändert Gier/Neigung relativ dazu
+      var yaw = v.yaw * DEG, pitch = v.pitch * DEG - Math.atan2(y, z);
       camera.lookAt(Math.sin(yaw) * 100, y + Math.tan(pitch) * 100, z - Math.cos(yaw) * 100);
     } else {
       var az = v.az * DEG, el = v.el * DEG;

@@ -183,7 +183,7 @@
     for (var i2 = 1; i2 < n; i2++) span.push(r1(-hb.x + i2 * 2 * hb.x / n));
     P.push({ kind: 'trusses', xs: span, y: hb.y, h: hb.h, light: m.levels.licht, led: m.flood.led });
     // Anzeige: Anzeigetafel an der Westwand, elektronische Tafel bzw. Videowürfel unter dem Hallendach
-    if (m.video.cube) P.push({ kind: 'screen', area: 'C', cube: true, x: 0, y: 0, z: r1(hb.h - 7.5), w: 6, hgt: 3.6, rot: 0, live: true });
+    if (m.video.cube) P.push({ kind: 'screen', area: 'C', cube: true, x: 0, y: 0, z: r1(hb.h - 6), w: 3.6, hgt: 2.2, rot: 0, live: true }); // Videowürfel ca. 3,6 × 2,2 m
     else { var dW = m.areas.W.depth, topW = m.areas.W.top; P.push({ kind: 'screen', area: 'W', cube: false, x: -r1(Math.min(hb.x - 0.6, G.Ix + dW + 0.6)), y: 0, z: r1(Math.max(3, topW + 1.2)), w: m.video.screens ? 8 : 4, hgt: m.video.screens ? 3.4 : 1.8, rot: -1, live: m.video.screens > 0 }); }
     // Werbebanden (hinter den Toren und an der Gegengerade), Bänke und Kampfgericht an der Nordseite
     P.push({ kind: 'boards', x: G.pitchL / 2 + 2.4, y: G.pitchW / 2 + 1.8, h: 0.9, led: m.led });
@@ -337,7 +337,7 @@
     // Anzeigetafel bzw. Videowürfel
     m.parts.forEach(function (p) {
       if (p.kind !== 'screen') return;
-      if (p.cube) s += '<rect x="-3" y="-3" width="6" height="6" rx=".6" fill="rgba(56,189,248,.35)" stroke="#38bdf8" stroke-width=".35"><title>Videowürfel unter dem Hallendach</title></rect>';
+      if (p.cube) s += '<rect x="-1.8" y="-1.8" width="3.6" height="3.6" rx=".4" fill="rgba(56,189,248,.35)" stroke="#38bdf8" stroke-width=".35"><title>Videowürfel unter dem Hallendach</title></rect>';
       else s += '<rect x="' + r1(p.x - 0.5) + '" y="' + r1(p.y - p.w / 2) + '" width="1" height="' + p.w + '" fill="' + (p.live ? '#38bdf8' : '#475569') + '" stroke="#0b1424" stroke-width=".2"><title>' + (p.live ? 'Elektronische Anzeigetafel' : 'Anzeigetafel') + '</title></rect>';
     });
     var fsz = 2.2;

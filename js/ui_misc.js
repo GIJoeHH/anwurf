@@ -16,15 +16,16 @@
     var h = '<h1>Liga & Statistiken</h1><div class="row" style="margin-bottom:12px"><div class="seg">' + tabs.map(function (x) { return '<button class="sm ' + (tab === x[0] ? 'on' : '') + '" data-act="ligaTab" data-tab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div></div>';
     var lsel = '<div class="seg" style="margin-bottom:10px;flex-wrap:wrap">' + D.leagueKeys.map(function (l) { return '<button class="sm ' + (lvl === l ? 'on' : '') + '" data-act="ligaLvl" data-l="' + l + '">' + (l < 3 ? D.leagueNames[l] : '3. Liga ' + D.leagueShort[l]) + '</button>'; }).join('') + '</div>';
     if (tab === 'tabelle') {
-      var mode = U.p.mode || '';
-      h += lsel + ' <div class="seg" style="margin-bottom:10px">' + [['', 'Gesamt'], ['home', 'Heim'], ['away', 'Auswärts'], ['form', 'Form (5 Spiele)']].map(function (x) { return '<button class="sm ' + (mode === x[0] ? 'on' : '') + '" data-act="ligaMode" data-m="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
-      var t = S.table(st, lvl, mode || null);
-      h += '<div class="panel tight">' + U.table('tab' + lvl + mode, [
-        { k: 'n', l: '#', num: true, nosort: true, f: function (r, i) { return i + 1; } },
+      var mode = U.p.mode || '', t = S.table(st, lvl, mode || null), played = t.length ? Math.max.apply(null, t.map(function (r) { return r.p; })) : 0;
+      function fl(arr) { return '<span class="form-letters">' + (arr || []).slice(-5).map(function (f) { return '<b class="' + (f === 'S' ? 'pos' : f === 'N' ? 'neg' : 'warn') + '">' + f + '</b>'; }).join('') + '</span>'; }
+      h += lsel + '<div class="panel lt-hero"><div><div class="vg-kicker">' + esc((lvl < 3 ? D.leagueNames[lvl] : '3. Liga ' + D.leagueShort[lvl]).toUpperCase()) + ' · ' + (played ? played + '. SPIELTAG' : 'SAISONSTART') + '</div><h2>Jeder Punkt erzählt eine Geschichte.</h2></div>' +
+        '<div class="seg">' + [['', 'Gesamt'], ['home', 'Heim'], ['away', 'Auswärts'], ['form', 'Form']].map(function (x) { return '<button class="sm ' + (mode === x[0] ? 'on' : '') + '" data-act="ligaMode" data-m="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div></div>';
+      h += '<div class="panel tight lt-table">' + U.table('tab' + lvl + mode, [
+        { k: 'n', l: 'Pl.', num: true, nosort: true, f: function (r, i) { return '<b>' + (i + 1) + '</b>'; } },
         { k: 'club', l: 'Verein', nosort: true, f: function (r) { return U.clubLink(st.clubs[r.id], true) + (r.pen ? ' <span class="tag red">−' + r.pen + '</span>' : ''); } },
-        { k: 'p', l: 'Sp', num: true, nosort: true }, { k: 'w', l: 'S', num: true, nosort: true }, { k: 'd', l: 'U', num: true, nosort: true }, { k: 'l', l: 'N', num: true, nosort: true },
-        { k: 'g', l: 'Tore', num: true, nosort: true, f: function (r) { return r.gf + ':' + r.ga; } }, { k: 'gd', l: 'Diff', num: true, nosort: true, f: function (r) { return r.gf - r.ga; } },
-        { k: 'pts', l: 'Punkte', num: true, nosort: true, f: function (r) { return '<b>' + r.pts + '</b>:' + Math.max(0, 2 * r.p - r.pts - (r.pen || 0)); } }, { k: 'form', l: 'Form', nosort: true, f: function (r) { return U.formDots(r.form); } }
+        { k: 'p', l: 'Sp.', num: true, nosort: true },
+        { k: 'g', l: 'Tore', num: true, nosort: true, f: function (r) { return r.gf + ':' + r.ga; } }, { k: 'gd', l: 'Diff.', num: true, nosort: true, f: function (r) { var d = r.gf - r.ga; return '<span class="' + (d > 0 ? 'pos' : d < 0 ? 'neg' : '') + '">' + (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + '</span>'; } },
+        { k: 'pts', l: 'Pkt.', num: true, nosort: true, f: function (r) { return '<b>' + r.pts + '</b><span class="muted">:' + Math.max(0, 2 * r.p - r.pts - (r.pen || 0)) + '</span>'; } }, { k: 'form', l: 'Form', nosort: true, f: function (r) { return fl(r.form); } }
       ], t, { rowClass: function (r, i) { var z = !mode ? (lvl === 2 && i < 2 ? 'zone-up' : lvl >= 3 && i === 0 ? 'zone-rel' : lvl < 3 && i >= t.length - 2 ? 'zone-down' : '') : ''; return z + (c && r.id === c.id ? ' me' : ''); } }) + '</div><p class="muted small">Grün = Aufstieg, Gelb = Aufstiegsrunde (die vier Staffelsieger spielen zwei Aufsteiger aus), Rot = Abstieg. Sieg 2 Punkte, Unentschieden 1 Punkt. Aus der 3. Liga steigt niemand ab.</p>';
     }
     if (tab === 'spielplan') {
@@ -91,6 +92,40 @@
         '<div class="panel"><h2>Torschützenkönige 1. Liga</h2>' + (st.hall.topScorers.filter(function (x) { return x.league === 1; }).slice().reverse().map(function (x) { return '<div>' + x.season + ': <b>' + esc(x.name) + '</b> (' + esc(x.club) + ', ' + x.goals + ')</div>'; }).join('') || '<p class="muted">–</p>') + '</div></div>' + U.hallOfFame();
     }
     return h;
+  };
+  // ---------- Vereinsgeschichte (ewige Tabelle, Erfolge, Bilanz) ----------
+  var GOLD = '<defs><linearGradient id="vgGold" x2="1" y2="1"><stop stop-color="#f5e1a5"/><stop offset=".4" stop-color="#a6803d"/><stop offset=".65" stop-color="#efd58d"/><stop offset="1" stop-color="#705425"/></linearGradient></defs>';
+  var TROPHY = {
+    meister: '<circle cx="55" cy="49" r="38" fill="url(#vgGold)"/><circle cx="55" cy="49" r="29" fill="none" stroke="#f5dc95"/><circle cx="55" cy="49" r="14" fill="#8c703b"/>' + (function () { var s = ''; for (var i = 0; i < 12; i++) { var a = i / 12 * Math.PI * 2; s += '<circle cx="' + (55 + Math.cos(a) * 23).toFixed(1) + '" cy="' + (49 + Math.sin(a) * 23).toFixed(1) + '" r="2.5" fill="#ebd394"/>'; } return s; })(),
+    pokal: '<path d="M30 12H80L75 52Q72 69 55 73Q38 69 35 52Z" fill="url(#vgGold)"/><path d="M31 21H14V36Q14 55 37 55M79 21H96V36Q96 55 73 55" fill="none" stroke="#b8964d" stroke-width="6"/><path d="M50 72H60V93H77V101H33V93H50Z" fill="url(#vgGold)"/>',
+    aufstieg: '<path d="M35 88V51H15L55 12L95 51H75V88Z" fill="url(#vgGold)"/>'
+  };
+  function trophy(kind, n, label) {
+    return '<div class="vg-trophy"><svg viewBox="0 0 110 112" width="110" height="112">' + GOLD + '<ellipse cx="55" cy="106" rx="38" ry="5" fill="#070f1b" opacity=".6"/>' + TROPHY[kind] + '</svg><b>' + n + '</b><span>' + label + '</span><small>' + (n ? 'Teil unserer Geschichte' : 'Noch nicht erreicht') + '</small></div>';
+  }
+  U.screens.geschichte = function () {
+    var st = U.st, c = U.club();
+    var rows = Object.keys(st.allTime).filter(function (k) { return st.clubs[k]; }).map(function (k) { var r = st.allTime[k]; return { id: k, pts: r.pts || 0, p: r.l1 || 0 }; }).filter(function (r) { return r.pts > 0; }).sort(function (a, b) { return b.pts - a.pts || b.p - a.p; });
+    var top = rows.slice(0, 12), mine = rows.filter(function (r) { return r.id === c.id; })[0], myIdx = rows.indexOf(mine);
+    var h = '<div class="page-h"><div><h1>Vereinsgeschichte</h1><div class="page-sub">Ewige Tabelle, Titel und Bilanz von ' + esc(c.name) + '</div></div></div><div class="vg-grid">';
+    h += '<div class="panel vg-table"><div class="vg-kicker">EWIGE TABELLE</div><h2>Die großen Geschichten</h2><div class="muted small">Punkte aller abgeschlossenen Bundesliga-Saisons</div>';
+    if (!rows.length) h += U.empty('history', 'Die ewige Tabelle füllt sich nach der ersten abgeschlossenen Bundesliga-Saison.');
+    else {
+      var list = top.slice(); if (mine && myIdx >= 12) list.push(mine);
+      var noBL = !mine;
+      h += '<div class="vg-rows">' + list.map(function (r) { var i = rows.indexOf(r), cl = st.clubs[r.id]; return '<div class="vg-row' + (r.id === c.id ? ' me' : '') + '"><span class="n">' + (i + 1) + '</span>' + U.crest(cl, 26) + '<span class="nm">' + esc(cl.name) + '</span><b>' + r.pts + '</b></div>'; }).join('') + '</div>';
+      if (noBL) h += '<p class="muted small" style="margin-top:10px">' + esc(c.name) + ' hat noch keine Bundesliga-Saison abgeschlossen.</p>';
+    }
+    h += '</div>';
+    var at = st.allTime[c.id] || { p: 0, w: 0, d: 0, l: 0 }, seasons = c.history.filter(function (x) { return x.type === 'saison'; });
+    var best = seasons.slice().sort(function (a, b) { return a.league - b.league || a.pos - b.pos; })[0];
+    h += '<div class="panel vg-club"><div class="vg-kicker">' + esc(c.name).toUpperCase() + '</div><h2 class="vg-h">Erfolge, die bleiben.</h2>' +
+      '<div class="vg-trophies">' + trophy('meister', c.titles.league, 'Meisterschaften') + trophy('pokal', c.titles.cup, 'DHB-Pokale') + trophy('aufstieg', c.titles.promo, 'Aufstiege') + '</div>' +
+      '<div class="vg-label">BILANZ ABGESCHLOSSENER SAISONS</div><div class="vg-bil"><div><span>Spiele</span><b>' + at.p + '</b></div><div><span>Siege</span><b>' + at.w + '</b></div><div><span>Unentschieden</span><b>' + at.d + '</b></div><div><span>Niederlagen</span><b>' + at.l + '</b></div></div>' +
+      '<div class="vg-record"><span>Vereinsrekord</span><b>' + (best ? 'Beste Saison: Platz ' + best.pos + ' in der ' + esc(D.leagueNames[best.league] || '') + ' (' + best.season + '/' + String(best.season + 1).slice(2) + ', ' + best.pts + ' Punkte)' : 'Die beste Saison bleibt unser nächstes Ziel.') + '</b>' +
+      (c.records.attendance ? '<small>Zuschauerrekord: ' + R.fmtNum(c.records.attendance) + '</small>' : '') + '</div>' +
+      (c.legends.length ? '<div class="vg-label" style="margin-top:14px">VEREINSLEGENDEN</div><div class="vg-leg">' + c.legends.slice(-6).map(function (l) { return '<span>' + U.lc('star', 13) + esc(l.name) + ' <small>' + l.apps + ' Spiele · ' + l.goals + ' Tore</small></span>'; }).join('') + '</div>' : '') + '</div>';
+    return h + '</div>';
   };
   U.hallOfFame = function () {
     var st = U.st;

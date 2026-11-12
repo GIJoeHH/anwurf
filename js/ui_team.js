@@ -487,6 +487,9 @@
   U.screens.training = function () {
     var st = U.st, c = U.club(), gf = st.manager.role === 'gf', can = U.can('sport') || gf;
     var h = '<div class="page-h"><div><h1>Training</h1><div class="page-sub">Trainingszentrum: ' + esc(E.level(c, 'training').n) + ' · Trainingsorganisation: ' + D.budgetLevels[c.budgets.trainorg] + ' · Trainer: ' + esc(U.coachName(c)) + (E.staffLvl(c, 'co') ? ' · Co-Trainer ' + U.stars(E.staffLvl(c, 'co'), 3) : '') + (E.staffLvl(c, 'fitness') ? ' · Fitnesstrainer ' + U.stars(E.staffLvl(c, 'fitness'), 3) : '') + '</div></div></div>';
+    var tf = D.training[c.training] || { n: c.training, d: '' };
+    h += '<div class="panel tr-hero"><div class="vg-kicker" style="color:#18B979">DIE WOCHE GEHÖRT UNS.</div><h2>Tempo. Präzision. Zusammenspiel.</h2><p class="muted">Belastung und Erholung ausbalancieren. Als Mannschaft besser werden.</p>' +
+      '<div class="tr-focus"><span>Wochenfokus: <b>' + esc(tf.n) + '</b></span>' + (tf.d ? '<small>' + esc(tf.d) + '</small>' : '') + '</div></div>';
     if (gf) h += '<div class="help" style="margin-bottom:12px">' + U.lc('handshake', 16) + ' <b>Mitspracherecht des Geschäftsführers:</b> ' + (c.trainingByUser ? 'Sie geben den Trainingsschwerpunkt vor – ' + esc(U.coachName(c)) + ' und sein Stab setzen ihn um.' : esc(U.coachName(c)) + ' wählt den Schwerpunkt selbst. Tippen Sie auf eine Karte, um ihn vorzugeben.') +
       (c.trainingByUser ? ' <button class="sm" data-act="trainingToCoach">Wieder dem Trainer überlassen</button>' : '') + '</div>';
     var sq = W.squad(st, c.id), avgFit = Math.round(R.avg(sq, function (p) { return p.fitness; })), avgMor = Math.round(R.avg(sq, function (p) { return p.morale; })), injN = sq.filter(function (p) { return p.inj; }).length, suspN = sq.filter(function (p) { return p.susp > 0; }).length;

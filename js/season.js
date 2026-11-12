@@ -408,9 +408,10 @@
       zaun: 'Gästefans von ' + A + ' haben den Zaun im Gästeblock niedergerissen und Pyrotechnik gezündet. Schaden: ' + R.fmtMoney(dmg) + '.',
       sitze: 'Im Gästeblock wurden nach dem Spiel gegen ' + A + ' reihenweise Sitzschalen herausgerissen. Schaden: ' + R.fmtMoney(dmg) + '.'
     };
-    st.pendingEvent = { custom: { t: texts[type], ic: type === 'wc' ? '🚽' : type === 'zaun' ? '🚧' : '💺', o: [
+    st.pendingEvent = { custom: { t: texts[type], legal: true, ic: type === 'wc' ? '🚽' : type === 'zaun' ? '🚧' : '💺', o: [
       { l: 'Sofort reparieren lassen', cash: -dmg, wear: -15 },
-      { l: 'Rechnung an ' + A + ' schicken', lottery: [[0.55, 0, A + ' übernimmt die Kosten zähneknirschend.'], [0.45, -Math.round(dmg * 1.15), A + ' weigert sich – Sie zahlen plus Anwaltskosten.']] },
+      { l: 'Rechnung an ' + A + ' schicken (ohne Anwalt)', hint: 'Erfolgsaussicht 45 %', book: 'Rechtskosten', lottery: [[0.45, 0, A + ' übernimmt die Kosten zähneknirschend.', { legal: 'won' }], [0.55, -Math.round(dmg * 1.1), A + ' weigert sich – Sie bleiben auf dem Schaden sitzen.', { legal: 'lost' }]] },
+      { l: 'Reparieren und ' + A + ' mit Anwalt auf Schadenersatz verklagen', hint: 'Reparatur ' + R.fmtMoney(dmg) + ', dann Verfahren mit Eskalationsstufen', cash: -dmg, wear: -15, legalOpen: { ic: '⚖️', kind: 'claim', title: 'Schadenersatz von ' + A, opp: away.name, oppClub: away.id, t: 'Sie fordern von ' + away.name + ' Ersatz für den Schaden im Gästeblock: ' + R.fmtMoney(dmg) + '.', stake: dmg, merit: 0.55, self: false, winBook: 'Rechtskosten', dropL: 'Doch verzichten', winTxt: A + ' ersetzt den Schaden vollständig.', loseTxt: 'Die Täter sind nicht zu ermitteln – ' + A + ' haftet nicht.' } },
       { l: type === 'wc' ? 'Dixi-Klos aufstellen, später sanieren' : 'Notdürftig flicken', cash: -Math.round(dmg * 0.3), fans: -0.3, wear: 10 }
     ] } };
     S.news(st, (type === 'wc' ? 'Toiletten zerstört! ' : 'Randale im Gästeblock! ') + A + '-Anhang wütet', texts[type], 'event');
@@ -436,6 +437,7 @@
     if (R.deals) R.deals.weekly(st);
     if (uc) {
       T.generateOffersForUser(st, uc);
+      S.maybeLegal(st, uc);
       S.maybeEvent(st, uc);
       S.checkAchievements(st, uc);
       if (st.manager.role !== 'manager') S.autoDelegate(st, uc);
@@ -523,6 +525,7 @@
     });
     if (uc) {
       T.generateOffersForUser(st, uc);
+      S.maybeLegal(st, uc);
       S.maybeEvent(st, uc);
       S.checkAchievements(st, uc);
       if (!light) S.boardCheck(st, uc);
@@ -726,22 +729,220 @@
     var pool = chaos ? D.chaosEvents : D.events;
     st.pendingEvent = { chaos: chaos, idx: R.randInt(0, pool.length - 1) };
   };
+  // ---------- Rechtsfälle: Verfahren mit Eskalationsstufen und Rechtsruf ----------
+  // Ablauf: Anwaltsschreiben → Klage (1. Instanz) → Berufung (2. Instanz) → höchste Instanz; dazwischen Druck aufbauen
+  // (Presse, Verband, Pfändung), Vergleich anbieten oder aufgeben. Gewonnene Verfahren bauen einen Rechtsruf auf, der
+  // Gegner abschreckt: Sie lenken schneller ein, gehen seltener in Berufung, und es gibt insgesamt weniger Ärger.
+  var HALLE = /Halle/.test(D.sponsorCategories.namensrechte), ARENA = HALLE ? 'Halle' : 'Stadion', VERBAND = HALLE ? 'das Sportgericht der Liga' : 'das DFB-Sportgericht';
+  var TOP = HALLE ? 'das Bundesgericht des Verbands' : 'den Internationalen Sportgerichtshof (CAS)';
+  function lgF(club) { return ({ 1: 1, 2: 0.4, 3: 0.15 }[club.league] || 0.15) * (D.MONEY || 1); }
+  function rnd(v) { return R.round(v, D.MONEY ? 100 : 1000); }
+  function minFee() { return D.MONEY ? 100 : 1000; }
+  function pct(p) { return Math.round(p * 100) + ' %'; }
+  S.LEGAL_STAGES = ['Neuer Fall', 'Anwaltsschreiben verschickt', '1. Instanz', '2. Instanz (Berufung)', 'Höchste Instanz'];
+  S.LEGAL_REP_TIERS = [[0, 'Unbeschriebenes Blatt'], [20, 'Wehrhaft'], [40, 'Respektiert'], [60, 'Gefürchtet'], [80, 'Legendär – Gegner zahlen lieber']];
+  S.legalRepTier = function (club) { var r = club.legalRep || 0, t = S.LEGAL_REP_TIERS[0][1]; S.LEGAL_REP_TIERS.forEach(function (x) { if (r >= x[0]) t = x[1]; }); return t; };
+  S.addLegalRep = function (st, club, d) {
+    var before = S.legalRepTier(club);
+    club.legalRep = R.clamp(Math.round(((club.legalRep || 0) + d) * 10) / 10, 0, 100);
+    var after = S.legalRepTier(club);
+    if (after !== before && d > 0) S.news(st, 'Rechtsruf: ' + club.short + ' gilt jetzt als „' + after + '“', 'Wer sich mit ' + club.name + ' anlegt, bekommt es mit der Rechtsabteilung zu tun. Gegner lenken künftig schneller ein.', 'verein');
+  };
+  S.legalPrev = function (club) { return E.LAWYERS[E.lawyerLvl(club)].prev + (club.legalRep || 0) / 250; }; // Vertragsprüfung + Abschreckung
+  function law(club) { var L = E.lawyerLvl(club); return L ? E.LAWYERS[L] : E.LAWYER_ADHOC; }
+  function lawName(club) { return E.lawyerLvl(club) ? club.lawyer.name : 'die kurzfristig beauftragte Kanzlei'; }
+  // Chancen
+  S.caseChance = function (st, club, cs, what) {
+    var lw = law(club), rep = (club.legalRep || 0) / 100, pr = cs.pressure || 0;
+    if (what === 'cave') return R.clamp(0.15 + lw.win * 0.6 + rep * 0.4 + pr * 0.08 + (cs.caveBonus || 0), 0.05, 0.9); // Gegner lenkt ein
+    if (what === 'settle') return R.clamp(0.45 + rep * 0.3 + pr * 0.1, 0.1, 0.95); // Gegner nimmt Vergleich an
+    if (what === 'appeal') return R.clamp(0.35 - rep * 0.25 - pr * 0.05, 0.05, 0.6); // Gegner geht nach Niederlage in Berufung
+    if (S.forceCourt) return S.forceCourt === 'win' ? 1 : 0;
+    var p = cs.merit + (what === 'self' ? -0.15 : lw.win) + rep * 0.1 + pr * 0.03 - (cs.stage >= 3 ? 0.03 : 0);
+    return R.clamp(p, 0.05, 0.95);
+  };
+  S.caseFee = function (club, cs, what) {
+    var lw = law(club), s = cs.stake;
+    var f = what === 'letter' ? s * (E.lawyerLvl(club) ? 0.01 : 0.04) : what === 'press' ? s * 0.02 : what === 'verband' ? s * 0.015 : what === 'seize' ? s * 0.03 :
+      s * lw.caseF * [1, 1, 1, 1.4, 1.8][Math.min(4, (cs.stage || 0) + (what === 'court' ? 1 : 0))];
+    return Math.max(minFee(), rnd(f));
+  };
+  // Geldfluss eines Falls (für Bilanz und Ersparnis)
+  function pay(st, club, cs, amount, book) { if (!amount) return; club.cash += amount; E.book(club, book || 'Rechtskosten', amount); cs.flow = (cs.flow || 0) + amount; }
+  function finish(st, club, cs, res, msg) {
+    var lg = club.legal = club.legal || { won: 0, lost: 0, settled: 0, balance: 0 };
+    lg[res] = (lg[res] || 0) + 1; lg.balance = (lg.balance || 0) + (cs.flow || 0);
+    lg.saved = (lg.saved || 0) + (cs.flow || 0) - (cs.kind === 'defend' ? -cs.payBase : 0);
+    lg.log = [{ s: st.season, w: st.week, t: cs.title, res: res, flow: cs.flow || 0, stage: cs.stage }].concat(lg.log || []).slice(0, 12);
+    S.addLegalRep(st, club, res === 'won' ? 4 + cs.stage * 2 + (cs.pressure || 0) : res === 'lost' ? -3 : -1);
+    st.legalCase = null;
+    S.news(st, (res === 'won' ? 'Rechtsstreit gewonnen: ' : res === 'lost' ? 'Rechtsstreit verloren: ' : 'Rechtsstreit beendet: ') + cs.title, msg, 'event');
+    return msg;
+  }
+  // Fall eröffnen (spec aus den Szenarien) und erste Karte zeigen
+  S.openCase = function (st, club, spec) {
+    var cs = Object.assign({ stage: 0, pressure: 0, flow: 0, kind: 'defend', merit: 0.5, press: 0 }, spec);
+    cs.payBase = cs.kind === 'defend' ? (cs.payCash != null ? -cs.payCash : cs.stake) : 0;
+    st.legalCase = cs; S.caseCard(st, club, cs, cs.t); return cs;
+  };
+  function O(label, act, hint, extra) { return Object.assign({ l: label, legalAct: act, hint: hint }, extra || {}); }
+  S.caseCard = function (st, club, cs, text) {
+    var o = [], lw = E.lawyerLvl(club), who = lw ? 'Hausanwalt (' + club.lawyer.name + ')' : 'kurzfristige Kanzlei';
+    var status = 'Stand: ' + S.LEGAL_STAGES[cs.stage] + ' · Streitwert ' + R.fmtMoney(cs.stake) + (cs.flow ? ' · bisher ' + R.fmtMoney(cs.flow) : '') + (cs.pressure ? ' · Druck ' + cs.pressure : '') + ' · Rechtsruf: ' + S.legalRepTier(club);
+    var giveL = cs.kind === 'defend' ? (cs.stage ? 'Nachgeben und zahlen' : cs.payL || 'Zahlen') : (cs.stage ? 'Fall aufgeben' : cs.dropL || 'Auf sich beruhen lassen');
+    var giveH = cs.kind === 'defend' ? R.fmtMoney(-(cs.stage ? rnd(cs.stake * (1 + 0.1 * Math.max(0, cs.stage - 1))) : cs.payBase)) : 'kein Geld';
+    if (cs.appealBy) {
+      o.push(O('Berufung abwehren – ' + who, 'court', 'Erfolgsaussicht ' + pct(S.caseChance(st, club, cs, 'court')) + ' · Honorar ' + R.fmtMoney(S.caseFee(club, cs, 'court'))));
+      if (cs.kind === 'claim' && !cs.seized) o.push(O('Urteil vorläufig vollstrecken (Konten pfänden)', 'seize', 'Gegner zahlt sofort: ' + pct(Math.min(0.9, S.caseChance(st, club, cs, 'cave') + 0.15)) + ' · ' + R.fmtMoney(S.caseFee(club, cs, 'seize'))));
+      o.push(O('Vergleich anbieten (50 %)', 'settle', 'Annahme ' + pct(S.caseChance(st, club, cs, 'settle'))));
+      o.push(O('Nachgeben', 'give', giveH));
+    } else if (cs.stage === 0) {
+      o.push(O(giveL, 'give', giveH));
+      if (cs.extra) cs.extra.forEach(function (x) { o.push(x); });
+      o.push(O('Anwaltsschreiben schicken – ' + who, 'letter', 'Gegner lenkt ein: ' + pct(S.caseChance(st, club, cs, 'cave')) + ' · ' + R.fmtMoney(S.caseFee(club, cs, 'letter'))));
+      o.push(O('Sofort klagen – ' + who, 'court', 'Erfolgsaussicht ' + pct(S.caseChance(st, club, cs, 'court')) + ' · Honorar ' + R.fmtMoney(S.caseFee(club, cs, 'court'))));
+      if (cs.self !== false) o.push(O('Ohne Anwalt vor Gericht', 'self', 'Erfolgsaussicht ' + pct(S.caseChance(st, club, cs, 'self')) + ' · kein Honorar'));
+    } else {
+      var next = cs.stage === 1 ? 'Klage einreichen (1. Instanz)' : cs.stage === 2 ? 'In Berufung gehen (2. Instanz)' : cs.stage === 3 ? 'Vor ' + TOP + ' ziehen' : null;
+      if (next) o.push(O(next + ' – ' + who, 'court', 'Erfolgsaussicht ' + pct(S.caseChance(st, club, cs, 'court')) + ' · Honorar ' + R.fmtMoney(S.caseFee(club, cs, 'court'))));
+      if (cs.press < 2) o.push(O('Öffentlich Druck machen (Presse, soziale Medien)', 'press', 'Druck +1 · ' + R.fmtMoney(S.caseFee(club, cs, 'press')) + ' · Risiko für das Image'));
+      if (cs.oppClub && !cs.verband) o.push(O('Verband einschalten (Lizenz-/Punktabzug androhen)', 'verband', 'Druck +2 · ' + R.fmtMoney(S.caseFee(club, cs, 'verband'))));
+      if (!cs.settleTried) o.push(O('Vergleich anbieten (50 %)', 'settle', 'Annahme ' + pct(S.caseChance(st, club, cs, 'settle'))));
+      o.push(O(giveL, 'give', giveH));
+    }
+    st.pendingEvent = { custom: { t: text, st: status, ic: cs.ic || '⚖️', legal: true, o: o } };
+  };
+  // Aktion ausführen → Folgekarte oder Abschluss
+  S.legalAct = function (st, club, o) {
+    var cs = st.legalCase; if (!cs) return null;
+    var act = o.legalAct, opp = cs.opp || 'Die Gegenseite';
+    if (act === 'give') {
+      if (cs.kind === 'defend') pay(st, club, cs, -(cs.stage ? rnd(cs.stake * (1 + 0.1 * Math.max(0, cs.stage - 1))) : cs.payBase), cs.payBook);
+      if (cs.payFans) club.fans = Math.round(club.fans * (1 + cs.payFans / 100));
+      return finish(st, club, cs, 'settled', cs.kind === 'defend' ? 'Sie zahlen – der Streit ist beendet.' : 'Sie verzichten auf die Forderung.');
+    }
+    if (act === 'settle') {
+      cs.settleTried = true;
+      if (R.chance(S.caseChance(st, club, cs, 'settle'))) { pay(st, club, cs, cs.kind === 'defend' ? -rnd(cs.stake * 0.5) : rnd(cs.stake * 0.5)); return finish(st, club, cs, 'settled', opp + ' akzeptiert den Vergleich über 50 % (' + R.fmtMoney(rnd(cs.stake * 0.5)) + ').'); }
+      S.caseCard(st, club, cs, opp + ' lehnt den Vergleich ab und will es auf die harte Tour.'); return 'Vergleich abgelehnt.';
+    }
+    if (act === 'letter') {
+      pay(st, club, cs, -S.caseFee(club, cs, 'letter')); cs.stage = 1;
+      if (R.chance(S.caseChance(st, club, cs, 'cave'))) { if (cs.kind === 'claim') pay(st, club, cs, cs.stake, cs.winBook); return finish(st, club, cs, 'won', 'Das Schreiben von ' + lawName(club) + ' wirkt: ' + opp + ' lenkt ein. ' + (cs.winTxt || '')); }
+      S.caseCard(st, club, cs, opp + ' reagiert nicht auf das Anwaltsschreiben. Wie geht es weiter?'); return 'Anwaltsschreiben verschickt – keine Reaktion.';
+    }
+    if (act === 'press' || act === 'verband' || act === 'seize') {
+      pay(st, club, cs, -S.caseFee(club, cs, act));
+      if (act === 'press') { cs.press++; cs.pressure++; if (R.chance(0.7)) { club.fans = Math.round(club.fans * 1.002); S.addLegalRep(st, club, 1); } else { club.reputation = R.clamp(club.reputation - 1, 1, 100); } }
+      if (act === 'verband') { cs.verband = true; cs.pressure += 2; }
+      if (act === 'seize') { cs.seized = true; cs.caveBonus = 0.15; }
+      if (R.chance(S.caseChance(st, club, cs, 'cave'))) { if (cs.kind === 'claim') pay(st, club, cs, cs.stake, cs.winBook); return finish(st, club, cs, 'won', (act === 'press' ? 'Der öffentliche Druck ist zu groß' : act === 'verband' ? 'Nach dem Brief des Verbands knickt ' + opp + ' ein' : 'Der Gerichtsvollzieher steht vor der Tür') + ' – ' + opp + ' gibt nach. ' + (cs.winTxt || '')); }
+      S.caseCard(st, club, cs, act === 'press' ? 'Die Geschichte ist in allen Zeitungen. ' + opp + ' gerät unter Druck, bleibt aber noch hart.' : act === 'verband' ? 'Der Verband hat ' + opp + ' angeschrieben. Noch keine Zahlung.' : 'Die Pfändung läuft ins Leere – die Konten sind fast leer. Das Berufungsverfahren läuft weiter.'); return 'Druck erhöht.';
+    }
+    if (act === 'court' || act === 'self') {
+      var self = act === 'self', p = S.caseChance(st, club, cs, self ? 'self' : 'court'), wasAppeal = !!cs.appealBy;
+      if (!self) pay(st, club, cs, -S.caseFee(club, cs, 'court'));
+      if (!wasAppeal) cs.stage = Math.max(2, cs.stage + 1); else cs.stage = Math.min(4, cs.stage + 1);
+      cs.appealBy = null;
+      var inst = ['', '', '1. Instanz', '2. Instanz', 'höchsten Instanz'][cs.stage];
+      if (R.chance(p)) {
+        // Gewonnen – Gegner kann noch in Berufung gehen
+        if (cs.stage < 4 && !self && R.chance(S.caseChance(st, club, cs, 'appeal'))) { cs.appealBy = true; S.caseCard(st, club, cs, 'Sieg in der ' + inst + '! Doch ' + opp + ' geht in Berufung.'); return 'Gewonnen – Gegner geht in Berufung.'; }
+        if (cs.kind === 'claim') pay(st, club, cs, rnd(cs.stake * (1 + 0.03 * (cs.stage - 1))), cs.winBook);
+        if (cs.winFx) { if (cs.winFx.fans) club.fans = Math.round(club.fans * (1 + cs.winFx.fans / 100)); if (cs.winFx.rep) club.reputation = R.clamp(club.reputation + cs.winFx.rep, 1, 100); }
+        return finish(st, club, cs, 'won', 'Urteil der ' + inst + ': Recht bekommen! ' + (cs.winTxt || ''));
+      }
+      if (cs.stage < 4 && !self) { S.caseCard(st, club, cs, 'Niederlage in der ' + inst + '. ' + (cs.loseTxt || '') + ' Sie können in die nächste Instanz gehen.'); return 'Verloren in der ' + inst + '.'; }
+      if (cs.kind === 'defend') pay(st, club, cs, -rnd(cs.stake * (1 + 0.1 * (cs.stage - 1)) * (self ? 1.15 : 1)), cs.payBook); else pay(st, club, cs, -rnd(cs.stake * 0.1));
+      if (cs.loseFx) { if (cs.loseFx.fans) club.fans = Math.round(club.fans * (1 + cs.loseFx.fans / 100)); if (cs.loseFx.mor) W.squad(st, club.id).forEach(function (p) { p.morale = R.clamp(p.morale + cs.loseFx.mor, 0, 100); }); }
+      return finish(st, club, cs, 'lost', 'Endgültig verloren in der ' + inst + '. ' + (cs.loseTxt || ''));
+    }
+    return null;
+  };
+  // Vormerkungen aus dem Spielgeschehen (Ablöse nicht gezahlt, Kündigungsklage) – werden in den Folgewochen zum Fall
+  S.legalQueue = function (st, item) { st.legalQueue = (st.legalQueue || []).concat([Object.assign({ season: st.season, week: st.week }, item)]); };
+  function anyOther(st, club, f) { var ks = Object.keys(st.clubs).filter(function (k) { var c = st.clubs[k]; return k !== club.id && (!f || f(c)); }); return ks.length ? st.clubs[R.pick(ks)] : null; }
+  // ---------- Einsatzmöglichkeiten des Anwalts (Zufallsfälle) ----------
+  S.LEGAL_CASES = {
+    anwohner: function (st, club, f) { var s = rnd(250000 * f); return { ic: '🏘️', title: 'Anwohnerklage', opp: 'Die Anwohner-Initiative', t: 'Anwohner rund um das ' + ARENA + ' klagen wegen Lärm, Parkchaos und Müll an Spieltagen und fordern ' + R.fmtMoney(s) + ' für Schutzmaßnahmen.', stake: s, merit: 0.5, payL: 'Lärmschutz und Ordner bezahlen', payCash: -rnd(s * 0.6), payFans: 0.2, winTxt: 'Die Klage der Anwohner ist vom Tisch.', loseTxt: 'Das Gericht sieht die Ruhestörung als erwiesen an.' }; },
+    berater: function (st, club, f) { var s = rnd(400000 * f); return { ic: '💼', title: 'Beraterprovision', opp: 'Der Spielerberater', t: 'Ein Spielerberater behauptet, ihm sei für einen früheren Transfer mündlich eine Provision zugesagt worden. Er fordert ' + R.fmtMoney(s) + '.', stake: s, merit: 0.55, payL: 'Halbe Summe zahlen', payCash: -rnd(s * 0.5), winTxt: 'Eine schriftliche Zusage gibt es nicht.', loseTxt: 'Ein Zeuge bestätigt die Zusage.' }; },
+    sponsor: function (st, club, f) {
+      var sp = club.sponsors.filter(function (s) { return s.cat !== 'bande'; }).sort(function (a, b) { return b.amount - a.amount; })[0]; if (!sp) return null; var s = rnd(sp.amount * 0.25);
+      return { ic: '🧾', kind: 'claim', title: sp.name + ' zahlt nicht', opp: sp.name, t: sp.name + ' hat die fällige Sponsorenrate über ' + R.fmtMoney(s) + ' nicht überwiesen und verweist auf „interne Prüfungen“.', stake: s, merit: 0.65, winBook: 'Sponsoren', self: false, dropL: 'Abschreiben', extra: [{ l: 'Abwarten und nachfragen', hint: 'Zahlt vielleicht noch: 40 %', book: 'Sponsoren', lottery: [[0.4, s, sp.name + ' zahlt nach ein paar Wochen doch.'], [0.6, 0, 'Die Rate bleibt aus.']] }], winTxt: sp.name + ' zahlt samt Verzugszinsen.', loseTxt: 'Eine Klausel erlaubt den Zahlungsaufschub.' };
+    },
+    faelscher: function (st, club, f) { var s = rnd(150000 * f); return { ic: '👕', kind: 'claim', title: 'Gefälschte Fanartikel', opp: 'Der Online-Händler', t: 'Ein Online-Händler verkauft gefälschte Trikots und Schals mit dem Vereinswappen. Geschätzter Schaden für den Fanshop: ' + R.fmtMoney(s) + '.', stake: s, merit: 0.6, self: false, dropL: 'Ignorieren', payFans: -0.2, winFx: { fans: 0.2 }, winTxt: 'Schadenersatz und Verkaufsverbot.', loseTxt: 'Der Händler sitzt im Ausland.' }; },
+    exspieler: function (st, club, f) { var s = rnd(200000 * f); return { ic: '⚖️', title: 'Prämienklage', opp: 'Der Ex-Spieler', t: 'Ein ehemaliger Spieler klagt auf ausstehende Punkt- und Einsatzprämien: ' + R.fmtMoney(s) + '.', stake: s, merit: 0.45, payL: 'Vergleich zu 70 % zahlen', payCash: -rnd(s * 0.7), loseFx: { mor: -2 }, winTxt: 'Die Prämienbedingungen waren nicht erfüllt.', loseTxt: 'Das Arbeitsgericht gibt dem Spieler recht.' }; },
+    verband: function (st, club, f) { var s = rnd(120000 * f); return { ic: '🧨', title: 'Pyro-Strafe', opp: VERBAND.replace(/^das /, 'Das '), t: 'Wegen Pyrotechnik der eigenen Fans verhängt ' + VERBAND + ' eine Geldstrafe von ' + R.fmtMoney(s) + '.', stake: s, merit: 0.35, payL: 'Strafe akzeptieren', self: false, winTxt: 'Die Strafe wird aufgehoben – die Pyros kamen nachweislich aus dem Gästeblock.', loseTxt: 'Der Einspruch wird zurückgewiesen.' }; },
+    tickets: function (st, club, f) { var s = rnd(80000 * f); return { ic: '🎟️', kind: 'claim', title: 'Ticket-Schwarzhandel', opp: 'Die Ticketbörse', t: 'Eine Ticketbörse verkauft Karten für Heimspiele zum Vielfachen des Preises. Der Verein verliert geschätzt ' + R.fmtMoney(s) + '.', stake: s, merit: 0.7, self: false, dropL: 'Nichts unternehmen', payFans: -0.3, winFx: { fans: 0.4 }, winTxt: 'Einstweilige Verfügung durchgesetzt, Schadenersatz gezahlt.', loseTxt: 'Kein Verstoß gegen die AGB.' }; },
+    unfall: function (st, club, f) { var s = rnd(120000 * f); return { ic: '🚑', title: 'Schmerzensgeld', opp: 'Der verletzte Zuschauer', t: 'Ein Zuschauer ist im ' + ARENA + ' auf einer nassen Treppe gestürzt und fordert ' + R.fmtMoney(s) + ' Schmerzensgeld.', stake: s, merit: 0.5, payL: 'Kulant zahlen', payCash: -rnd(s * 0.8), payFans: 0.2, loseFx: { fans: -0.2 }, winTxt: 'Die Treppe war ordnungsgemäß gesichert.', loseTxt: 'Der Verein haftet.' }; },
+    abwerbung: function (st, club, f) {
+      var o = anyOther(st, club, function (c) { return c.league <= club.league; }), pl = W.squad(st, club.id).sort(function (a, b) { return b.ovr - a.ovr; })[0]; if (!o || !pl) return null; var s = rnd(500000 * f);
+      return { ic: '🕵️', kind: 'claim', title: 'Unerlaubte Abwerbung', opp: o.name, oppClub: o.id, t: o.name + ' hat hinter Ihrem Rücken mit ' + W.playerName(pl) + ' über einen Wechsel verhandelt – ein klarer Verstoß gegen die Transferregeln. Sie können ' + R.fmtMoney(s) + ' Entschädigung fordern.', stake: s, merit: 0.55, dropL: 'Schwamm drüber', winTxt: o.short + ' zahlt Entschädigung und lässt künftig die Finger von Ihren Spielern.', loseTxt: 'Die Gespräche lassen sich nicht beweisen.' };
+    },
+    ausbildung: function (st, club, f) {
+      var hp = Object.keys(st.players).map(function (k) { return st.players[k]; }).filter(function (p) { return p.homeClub === club.id && p.clubId && p.clubId !== club.id; })[0];
+      var o = hp ? st.clubs[hp.clubId] : anyOther(st, club); if (!o) return null; var s = rnd(180000 * f);
+      return { ic: '🎓', kind: 'claim', title: 'Ausbildungsentschädigung', opp: o.name, oppClub: o.id, t: (hp ? W.playerName(hp) + ', ein Eigengewächs aus Ihrer Jugend,' : 'Ein ehemaliger Nachwuchsspieler') + ' spielt inzwischen bei ' + o.name + '. Laut Statuten steht Ihnen eine Ausbildungsentschädigung von ' + R.fmtMoney(s) + ' zu – ' + o.short + ' will davon nichts wissen.', stake: s, merit: 0.7, dropL: 'Verzichten', winTxt: o.short + ' überweist die Ausbildungsentschädigung.', loseTxt: 'Die Ausbildungszeit war zu kurz für einen Anspruch.' };
+    },
+    vertragsbruch: function (st, club, f) {
+      var pl = W.squad(st, club.id).sort(function (a, b) { return b.value - a.value; })[1]; if (!pl) return null; var s = rnd(Math.max(300000 * f, pl.value * 0.3));
+      return { ic: '✍️', title: 'Streit um Ausstiegsklausel', opp: 'Das Lager von ' + W.playerName(pl), t: W.playerName(pl) + ' und sein Berater behaupten, eine Klausel erlaube ihm einen Wechsel für wenig Geld. Ihnen drohen ' + R.fmtMoney(s) + ' Verlust an Ablöse, falls das Gericht folgt.', stake: s, merit: 0.55, payL: 'Gehaltserhöhung als Kompromiss', payCash: -rnd(s * 0.4), loseFx: { mor: -3 }, winTxt: 'Die Klausel ist unwirksam – der Spieler bleibt zu den alten Bedingungen.', loseTxt: 'Das Gericht legt die Klausel zugunsten des Spielers aus.' };
+    },
+    presse: function (st, club, f) { var s = rnd(100000 * f); return { ic: '📰', kind: 'claim', title: 'Falschmeldung in der Presse', opp: 'Das Boulevardblatt', t: 'Ein Boulevardblatt berichtet frei erfunden über angebliche Finanzprobleme des Vereins. Sponsoren werden nervös. Sie können Gegendarstellung und ' + R.fmtMoney(s) + ' Schadenersatz verlangen.', stake: s, merit: 0.6, self: false, dropL: 'Aussitzen', payFans: -0.3, winFx: { fans: 0.3, rep: 1 }, winTxt: 'Gegendarstellung auf Seite 1 und Schadenersatz.', loseTxt: 'Das Gericht wertet den Artikel als zulässige Meinungsäußerung.' }; },
+    stream: function (st, club, f) { var s = rnd(160000 * f); return { ic: '📺', kind: 'claim', title: 'Illegale Live-Streams', opp: 'Das Streamingportal', t: 'Ein Streamingportal überträgt Ihre Heimspiele illegal und verdient an Werbung. Entgangene Einnahmen: ' + R.fmtMoney(s) + '.', stake: s, merit: 0.6, self: false, dropL: 'Ignorieren', winTxt: 'Das Portal wird abgeschaltet und zahlt Lizenzgebühren nach.', loseTxt: 'Die Betreiber sind nicht zu fassen.' }; },
+    marke: function (st, club, f) { var s = rnd(140000 * f); return { ic: '®️', title: 'Markenstreit', opp: 'Die Getränkefirma', t: 'Eine Getränkefirma hat sich eine Marke schützen lassen, die Ihrem Vereinsnamen verdächtig ähnelt, und verlangt nun ' + R.fmtMoney(s) + ' Lizenzgebühren für Ihre eigenen Fanartikel.', stake: s, merit: 0.6, payL: 'Lizenz zahlen', winTxt: 'Die Marke wird gelöscht – Sie hatten ältere Rechte.', loseTxt: 'Die Marke bleibt bestehen.' }; },
+    caterer: function (st, club, f) { var s = rnd(90000 * f); return { ic: '🍽️', kind: 'claim', title: 'Caterer liefert schlecht', opp: 'Der Caterer', t: 'Der Caterer liefert kalte Würstchen, zu wenig Bier und kommt zu spät. Laut Vertrag steht Ihnen eine Vertragsstrafe von ' + R.fmtMoney(s) + ' zu.', stake: s, merit: 0.65, dropL: 'Schwamm drüber', winTxt: 'Der Caterer zahlt die Vertragsstrafe und bessert nach.', loseTxt: 'Die Mängel seien „branchenüblich“.' }; },
+    steuer: function (st, club, f) { var s = rnd(350000 * f); return { ic: '🏛️', title: 'Steuernachforderung', opp: 'Das Finanzamt', t: 'Nach einer Betriebsprüfung fordert das Finanzamt ' + R.fmtMoney(s) + ' nach – angeblich wurden Spielerprämien falsch versteuert.', stake: s, merit: 0.45, payL: 'Nachzahlen', self: false, winTxt: 'Der Steuerbescheid wird aufgehoben.', loseTxt: 'Das Finanzgericht bestätigt die Nachforderung.' }; },
+    namensrecht: function (st, club, f) { var sp = club.sponsors.filter(function (s) { return s.cat === 'namensrechte'; })[0]; if (!sp) return null; var s = rnd(sp.amount * 0.3);
+      return { ic: '🏷️', kind: 'claim', title: 'Namenssponsor will raus', opp: sp.name, t: sp.name + ' will den Vertrag über die ' + ARENA + 'nnamensrechte vorzeitig kündigen und die letzte Rate über ' + R.fmtMoney(s) + ' nicht mehr zahlen.', stake: s, merit: 0.6, winBook: 'Sponsoren', dropL: 'Kündigung akzeptieren', winTxt: sp.name + ' muss den Vertrag erfüllen.', loseTxt: 'Eine Sonderkündigungsklausel greift.' }; }
+  };
+  // Baustreit: nur während Bauarbeiten
+  S.legalBuild = function (st, club, f) {
+    var jobs = (club.construction || []).concat(club.stadium && club.stadium.jobs || []); if (!jobs.length) return null;
+    var job = R.pick(jobs), base = job.cost || 2000000 * f;
+    if (R.chance(0.5)) { var s = rnd(base * R.randRange(0.08, 0.15)); return { ic: '🏗️', title: 'Nachtrag der Baufirma', opp: 'Die Baufirma', t: 'Die Baufirma stellt für die laufenden Bauarbeiten eine Nachtragsrechnung über ' + R.fmtMoney(s) + ' – angeblich wegen „unvorhersehbarer Bodenverhältnisse“.', stake: s, merit: 0.5, payL: 'Nachtrag bezahlen', payBook: 'Bauprojekte', winTxt: 'Der Nachtrag entfällt – die Bodenverhältnisse waren bekannt.', loseTxt: 'Der Gutachter gibt der Baufirma recht.' }; }
+    var s2 = rnd(base * R.randRange(0.06, 0.12));
+    return { ic: '🚧', title: 'Pfusch am Bau', opp: 'Die Baufirma', t: 'Bei der Abnahme fallen Mängel auf: Risse, undichte Stellen, schiefe Geländer. Nachbesserung: ' + R.fmtMoney(s2) + ' – die Baufirma lehnt die Verantwortung ab.', stake: s2, merit: 0.55, payL: 'Selbst nachbessern lassen', payBook: 'Bauprojekte', winTxt: 'Die Baufirma muss auf eigene Kosten nachbessern.', loseTxt: 'Die Mängel gelten als Abnutzung.' };
+  };
+  S.legalFromQueue = function (st, club, q) {
+    if (q.type === 'abloese') { var A = st.clubs[q.club], an = A ? A.name : 'Der Käuferverein';
+      return { ic: '💸', kind: 'claim', title: 'Offene Ablöse', opp: an, oppClub: A ? A.id : null, t: an + ' hat die zweite Rate der Ablöse für ' + q.player + ' über ' + R.fmtMoney(q.amount) + ' nicht gezahlt und vertröstet seit Wochen.', stake: q.amount, merit: 0.7, self: false, winBook: 'Transfererlöse', dropL: 'Forderung abschreiben', extra: [{ l: 'Weiter abwarten', hint: 'Zahlt vielleicht noch: 40 %', book: 'Transfererlöse', lottery: [[0.4, q.amount, an + ' überweist die Rate doch noch.'], [0.6, 0, an + ' meldet Zahlungsschwierigkeiten.']] }], winTxt: 'Die Rate kommt samt Verzugszinsen.', loseTxt: an + ' ist zahlungsunfähig.' }; }
+    if (q.type === 'kuendigung') return { ic: '📄', title: 'Kündigungsklage', opp: q.name, t: q.name + ' (ehemals ' + q.role + ') klagt vor dem Arbeitsgericht gegen die Kündigung und fordert eine Abfindung von ' + R.fmtMoney(q.amount) + '.', stake: q.amount, merit: 0.5, payL: 'Abfindung zu 60 % zahlen', payCash: -rnd(q.amount * 0.6), payBook: 'Abfindungen', winTxt: 'Die Kündigung war wirksam.', loseTxt: 'Das Arbeitsgericht spricht die Abfindung zu.' };
+    return null;
+  };
+  S.maybeLegal = function (st, club) {
+    if (!club || st.pendingEvent || st.manager.role === 'trainer') return;
+    if (st.legalCase) { S.caseCard(st, club, st.legalCase, 'Das Verfahren „' + st.legalCase.title + '“ läuft weiter.'); return; }
+    if (club.legalRep) club.legalRep = Math.max(0, club.legalRep - 0.05); // Ruf verblasst langsam
+    var f = lgF(club), prev = Math.min(0.6, S.legalPrev(club)), c = null;
+    var q = (st.legalQueue || []).filter(function (x) { return x.season * 100 + x.week + 2 <= st.season * 100 + st.week; })[0];
+    if (q) { st.legalQueue.splice(st.legalQueue.indexOf(q), 1); c = S.legalFromQueue(st, club, q); }
+    else if (S.forceLegal || R.chance(0.03 * (1 - prev))) { var k = S.forceLegal || R.pick(Object.keys(S.LEGAL_CASES)); c = k === 'bau' ? S.legalBuild(st, club, f) : S.LEGAL_CASES[k](st, club, f); }
+    else if (R.chance(0.04 * (1 - prev))) c = S.legalBuild(st, club, f);
+    if (c) { S.news(st, 'Rechtsstreit: ' + c.title, c.t, 'event'); S.openCase(st, club, c); }
+  };
   S.resolveEvent = function (st, optIdx) {
     var pe = st.pendingEvent; if (!pe) return null;
     var ev = pe.custom || (pe.chaos ? D.chaosEvents : D.events)[pe.idx], o = ev.o[optIdx], club = S.userClub(st);
     if (o.wear && club && club.stadium) club.stadium.wear = R.clamp((club.stadium.wear || 0) + o.wear, 0, 100);
     st.pendingEvent = null;
     if (!club) return null;
+    if (o.legalAct) return S.legalAct(st, club, o);
+    if (ev.legal && st.legalCase && !o.legalOpen) st.legalCase = null; // Sonderoption (z. B. Abwarten) beendet das Verfahren
     var msg = o.l + '.';
     var cash = o.cash || 0, mor = o.mor || 0, fans = o.fans || 0;
     if (o.chance != null && R.chance(o.chance)) { msg = o.alt; cash = cash < 0 ? cash : -Math.abs(cash || 50000); mor = -Math.abs(mor); }
-    if (o.lottery) { var r = R.rand(), acc = 0; for (var i = 0; i < o.lottery.length; i++) { acc += o.lottery[i][0]; if (r <= acc) { cash += o.lottery[i][1]; msg = o.lottery[i][2]; break; } } }
-    if (cash) { club.cash += cash; E.book(club, 'Sonstiges', cash); }
+    var lfx = null;
+    if (o.lottery) { var r = R.rand(), acc = 0; for (var i = 0; i < o.lottery.length; i++) { acc += o.lottery[i][0]; if (r <= acc || i === o.lottery.length - 1) { cash += o.lottery[i][1]; msg = o.lottery[i][2]; lfx = o.lottery[i][3] || null; break; } } }
+    if (lfx) { mor += lfx.mor || 0; fans += lfx.fans || 0; if (lfx.rep) club.reputation = R.clamp(club.reputation + lfx.rep, 1, 100); }
+    if (ev.legal && !o.legalOpen) { var lg = club.legal = club.legal || { won: 0, lost: 0, settled: 0, balance: 0 }; if (lfx && lfx.legal) { lg[lfx.legal] = (lg[lfx.legal] || 0) + 1; lg.balance = (lg.balance || 0) + cash; var base0 = ev.o[0] && !ev.o[0].lottery ? ev.o[0].cash || 0 : 0; lg.saved = (lg.saved || 0) + cash - base0; } else lg.settled = (lg.settled || 0) + 1; }
+    if (cash) { club.cash += cash; E.book(club, o.book || 'Sonstiges', cash); }
     if (mor) W.squad(st, club.id).forEach(function (p) { p.morale = R.clamp(p.morale + mor, 0, 100); });
     if (fans) club.fans = Math.round(club.fans * (1 + fans / 100));
     if (o.rep) club.reputation = R.clamp(club.reputation + o.rep, 1, 100);
     if (o.youth) { var y = W.genYouth(st, club, E.level(club, 'jugend').q + 1); y.pot = Math.min(95, y.pot + 5); msg += ' ' + W.playerName(y) + ' (' + y.age + ', ' + y.pos + ') ist jetzt in der Jugend.'; }
     S.news(st, 'Entscheidung: ' + ev.t.slice(0, 60) + (ev.t.length > 60 ? '…' : ''), msg, 'event');
+    if (o.legalOpen) S.openCase(st, club, o.legalOpen);
     return msg;
   };
 

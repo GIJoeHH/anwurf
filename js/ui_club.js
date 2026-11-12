@@ -67,6 +67,17 @@
         return '<div class="ccard' + (l ? '' : ' empty') + '" data-act="staffOpen" data-k="' + k + '" tabindex="0" role="button"><div class="cc-top"><div class="ic-tile ' + (l ? 'ok' : 'neutral') + '">' + U.lc(STAFF_IC[k], 19) + '</div><div class="cc-t"><b>' + D.staff[k].n + '</b><span>' + (l ? D.staffLevels[l] : 'Vakanz') + '</span></div>' + U.stars(l, 3) + '</div>' +
           '<div class="cc-name">' + (s ? esc(s.name) : '<span class="muted">nicht besetzt</span>') + '</div><div class="cc-sub">' + esc(D.staff[k].eff) + (s ? ' · ' + money(s.wage) + '/Saison' : '') + '</div>' + (!l && (can || U.can('sport')) ? '<button class="sm secondary cc-btn" data-act="staffOpen" data-k="' + k + '">' + U.lc('user-plus', 14) + 'Einstellen</button>' : '') + '</div>';
       }).join('') + '</div>';
+    // Rechtsabteilung
+    var lw = c.lawyer, lwL = E.lawyerLvl(c), lg = c.legal || {};
+    h += '<div class="sec-h">' + U.lc('scale', 17) + ' Rechtsabteilung <span style="margin-left:auto">' + (lwL ? money(lw.wage) + ' pro Saison' : 'kein Hausanwalt') + '</span></div><div class="cards3">' +
+      '<div class="ccard' + (lwL ? '' : ' empty') + '" data-act="lawyerOpen" tabindex="0" role="button"><div class="cc-top"><div class="ic-tile ' + (lwL ? 'ok' : 'neutral') + '">' + U.lc('scale', 19) + '</div><div class="cc-t"><b>Rechtsanwalt</b><span>' + E.LAWYERS[lwL].n + '</span></div>' + U.stars(lwL, 5) + '</div>' +
+      '<div class="cc-name">' + (lwL ? esc(lw.name) : '<span class="muted">nicht beauftragt</span>') + '</div><div class="cc-sub">' + (lwL ? '+' + Math.round(E.LAWYERS[lwL].win * 100) + ' % Erfolgsaussicht vor Gericht · ' + Math.round(E.LAWYERS[lwL].prev * 100) + ' % weniger Rechtsstreit' : 'Hilft bei Vandalismus, Baustreit, offenen Ablösen, Kündigungsklagen, Verbandsstrafen u. v. m.') + '</div></div>' +
+      '<div class="ccard"><div class="cc-top"><div class="ic-tile">' + U.lc('landmark', 19) + '</div><div class="cc-t"><b>Verfahren</b><span>bisherige Bilanz</span></div></div><div class="cc-val"><b>' + (lg.won || 0) + ' : ' + (lg.lost || 0) + '</b><small> gewonnen : verloren</small></div><div class="cc-sub">' + (lg.settled || 0) + ' Vergleiche/Zahlungen · ' + ((lg.saved || 0) >= 0 ? 'gespart/erstritten ' : 'Mehrkosten ') + money(Math.abs(lg.saved || 0)) + ' gegenüber Zahlen bzw. Vergleich</div></div>' +
+      (function () { var rr = c.legalRep || 0, cs = st.legalCase, last = (lg.log || [])[0];
+        return '<div class="ccard"><div class="cc-top"><div class="ic-tile' + (rr >= 40 ? ' ok' : rr >= 20 ? '' : ' neutral') + '">' + U.lc('shield', 19) + '</div><div class="cc-t"><b>Rechtsruf</b><span>' + esc(R.season.legalRepTier(c)) + '</span></div></div>' +
+          '<div class="cc-val"><b>' + Math.round(rr) + '</b><small> / 100</small></div><div class="cc-sub">' +
+          (cs ? '<b>Laufend:</b> ' + esc(cs.title) + ' (' + esc(R.season.LEGAL_STAGES[cs.stage]) + ')' : last ? 'Zuletzt: ' + esc(last.t) + ' – ' + (last.res === 'won' ? 'gewonnen' : last.res === 'lost' ? 'verloren' : 'beendet') : 'Gewonnene Verfahren schrecken Gegner ab: Sie lenken schneller ein und gehen seltener in Berufung.') + '</div></div>'; })() +
+      '</div>';
     // Verwaltung: Budgetstufen direkt wählbar
     h += '<div class="sec-h">' + U.lc('briefcase', 17) + ' Verwaltung &amp; Budgets <span style="margin-left:auto">' + money(Object.keys(D.budgetAreas).reduce(function (n, a) { return n + E.budgetCost(c, a); }, 0)) + ' pro Saison</span></div><div class="cards3">' + Object.keys(D.budgetAreas).map(function (a) {
       return '<div class="ccard bud"><div class="cc-top" data-act="budgetOpen" data-k="' + a + '"><div class="ic-tile">' + U.lc(BUD_IC[a], 19) + '</div><div class="cc-t"><b>' + D.budgetAreas[a] + '</b><span>' + BUD_FX[a][0] + '</span></div><b class="cc-cost">' + money(E.budgetCost(c, a)) + '</b></div><div class="cc-sub">' + BUD_FX[a][1] + '</div>' +
@@ -200,6 +211,17 @@
     U.modal(U.lc(STAFF_IC[k], 17) + ' ' + def.n, h, '<button data-act="closeModal">Schließen</button>', true);
   };
   U.acts.staffSet = function (d) { var r = E.setStaff(U.st, U.club(), d.k, +d.v); if (r.ok) U.toast(+d.v ? D.staff[d.k].n + ' ' + r.s.name + ' eingestellt.' : D.staff[d.k].n + ' entlassen.'); U.acts.staffOpen(d); U.render(); };
+  // Rechtsanwalt-Fenster: Stufen vergleichen und beauftragen
+  U.acts.lawyerOpen = function () {
+    var st = U.st, c = U.club(), cur = E.lawyerLvl(c), can = U.can('business');
+    var h = '<p class="small">Ein Hausanwalt verbessert die Erfolgsaussicht in Rechtsstreitigkeiten (Vandalismusschäden, Baufirmen, offene Ablösen, Kündigungsklagen, Verbandsstrafen, Sponsoren, Anwohner …), verlangt pro Fall nur ein kleines Honorar und senkt durch Vertragsprüfung das Risiko, überhaupt in Streit zu geraten. Ohne Hausanwalt muss kurzfristig eine teure Kanzlei beauftragt werden.</p><div class="cmp lawyers">' + E.LAWYERS.map(function (L, i) {
+      return '<div class="cmp-card' + (cur === i ? ' best' : '') + '"><div>' + U.stars(i, 5) + '</div><b>' + L.n + '</b><div class="small muted" style="min-height:48px">' + L.d + '</div><div class="tv mono">' + (i ? money(E.lawyerWageFor(c, i)) + '/Saison' : '–') + '</div>' +
+        (i ? '<table><tr><td>Erfolgsaussicht</td><td>+' + Math.round(L.win * 100) + ' %</td></tr><tr><td>Fallhonorar</td><td>' + Math.round(L.caseF * 100) + ' % Streitwert</td></tr><tr><td>Weniger Streit</td><td>−' + Math.round(L.prev * 100) + ' %</td></tr></table>' : '<table><tr><td>Kurzfristige Kanzlei</td><td>+' + Math.round(E.LAWYER_ADHOC.win * 100) + ' %</td></tr><tr><td>Honorar</td><td>' + Math.round(E.LAWYER_ADHOC.caseF * 100) + ' % Streitwert</td></tr></table>') +
+        (cur === i ? '<span class="tag green">' + (i ? esc(c.lawyer.name) : 'aktuell') + '</span>' : can ? '<button class="' + (i ? 'primary' : '') + ' sm" data-act="lawyerSet" data-v="' + i + '">' + (i ? (cur ? 'Wechseln' : 'Beauftragen') : 'Mandat kündigen') + '</button>' : '') + '</div>';
+    }).join('') + '</div><p class="muted small" style="margin-top:10px">Bei Wechsel oder Kündigung wird ein Vierteljahreshonorar fällig.</p>';
+    U.modal(U.lc('scale', 17) + ' Rechtsanwalt', h, '<button data-act="closeModal">Schließen</button>', true);
+  };
+  U.acts.lawyerSet = function (d) { var r = E.setLawyer(U.st, U.club(), +d.v); if (r.ok) U.toast(+d.v ? r.s.name + ' vertritt jetzt den Verein.' : 'Mandat gekündigt.'); U.acts.lawyerOpen(); U.render(); };
   U.acts.coachOpen = function () {
     var st = U.st, c = U.club(), own = U.coachName(c) !== c.coach.name;
     var h = '<div class="row" style="gap:16px;flex-wrap:nowrap"><div class="ic-tile ok" style="width:64px;height:64px">' + U.lc('user-round', 32) + '</div><div><h3 style="margin:0">' + esc(U.coachName(c)) + '</h3><div class="muted small">' + (own ? 'Sie stehen selbst an der Seitenlinie.' : 'Cheftrainer') + '</div>' +
@@ -221,6 +243,7 @@
     var st = U.st, c = U.club(), k = U.coachOffers[+d.i], comp = Math.round(c.coach.wage * 0.5);
     c.cash -= comp; E.book(c, 'Abfindungen', -comp);
     c.history.push({ season: st.season, type: 'trainer', text: 'Neuer Trainer: ' + k.name });
+    if (R.chance(0.3 * (1 - E.LAWYERS[E.lawyerLvl(c)].prev)) && c.coach && U.coachName(c) === c.coach.name) S.legalQueue(st, { type: 'kuendigung', name: c.coach.name, role: 'Cheftrainer', amount: Math.round(c.coach.wage * R.randRange(0.4, 0.8)) });
     S.news(st, c.short + ' präsentiert neuen Trainer', k.name + ' (' + k.profile + ') übernimmt.', 'verein');
     c.coach = k; U.coachOffers = null; U.closeModal(); U.render();
   };
@@ -379,7 +402,7 @@
     U.drawer(esc(sd ? sd.name : d.k) + ' <span class="muted small">' + d.k + '</span>', h, '<button class="ghost" data-act="closeModal">Schließen</button>');
   };
   // Bilanzprognose bis Saisonende (Controlling): Werte aus E.forecast, nachvollziehbare Rechnung
-  var FC_IC = { 'Eintrittsgelder': 'ticket', 'TV-Gelder': 'zap', 'Sponsoren': 'handshake', 'Sponsorenboni': 'handshake', 'Hallengastronomie': 'utensils', 'Parkgebühren': 'circle-parking', 'Prämien': 'trophy', 'Zinserträge': 'piggy-bank', 'Spielergehälter': 'shirt', 'Trainer & Personal': 'users', 'Verwaltung & Budgets': 'briefcase', 'Unterhalt Anlagen': 'hammer', 'Kreditzinsen': 'credit-card', 'Nachwuchsgehälter': 'graduation-cap' };
+  var FC_IC = { 'Eintrittsgelder': 'ticket', 'TV-Gelder': 'zap', 'Sponsoren': 'handshake', 'Sponsorenboni': 'handshake', 'Hallengastronomie': 'utensils', 'Parkgebühren': 'circle-parking', 'Prämien': 'trophy', 'Zinserträge': 'piggy-bank', 'Spielergehälter': 'shirt', 'Trainer & Personal': 'users', 'Rechtsberatung': 'scale', 'Rechtskosten': 'scale', 'Verwaltung & Budgets': 'briefcase', 'Unterhalt Anlagen': 'hammer', 'Kreditzinsen': 'credit-card', 'Nachwuchsgehälter': 'graduation-cap' };
   U.finIcon = function (k) {
     if (FC_IC[k]) return FC_IC[k];
     if (/stadt|shop|hotel|museum|café|cafe|restaurant|event|gewerbe/i.test(k)) return 'building-2';

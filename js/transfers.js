@@ -234,6 +234,13 @@
     if (!T.canSell(st, p.clubId)) return { ok: false, why: 'Kader zu klein: Nach dem Verkauf blieben nur ' + (W.squad(st, p.clubId).length - 1) + ' Spieler (mindestens ' + T.MIN_SQUAD + '). Erst einen Spieler verpflichten.' };
     T.executeTransfer(st, p, buyer, o.amount, Math.max(p.wage, W.fairWage(p)), R.randInt(2, 4));
     st.inbox = st.inbox.filter(function (x) { return x.pid !== o.pid; });
+    // Manche Käufer zahlen die zweite Rate nicht pünktlich – Fall für den Anwalt
+    var seller = st.clubs[st.manager.clubId];
+    if (o.amount > 0 && R.season.legalQueue && (T.forceLatePay || R.chance(0.12 * (1 - E.LAWYERS[E.lawyerLvl(seller)].prev)))) {
+      var rest = R.round(o.amount * R.randRange(0.3, 0.5), D.MONEY ? 100 : 1000);
+      seller.cash -= rest; E.book(seller, 'Transfererlöse', -rest);
+      R.season.legalQueue(st, { type: 'abloese', club: buyer.id, player: W.playerName(p), amount: rest });
+    }
     return { ok: true };
   };
 

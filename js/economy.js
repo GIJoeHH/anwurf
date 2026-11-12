@@ -320,9 +320,37 @@
     club.staff = club.staff || {};
     var cur = club.staff[k];
     if (cur && cur.lvl > 0 && lvl !== cur.lvl) { var comp = Math.round(cur.wage * 0.25); club.cash -= comp; E.book(club, 'Abfindungen', -comp); }
+    // Entlassung: Kündigungsschutzklage möglich (seltener mit gutem Hausanwalt)
+    if (cur && cur.lvl > 0 && !lvl && club.userControlled && R.season && R.season.legalQueue && (R.season.forceLegalQueue || R.chance(0.35 * (1 - E.LAWYERS[E.lawyerLvl(club)].prev)))) R.season.legalQueue(st, { type: 'kuendigung', name: cur.name, role: D.staff[k].n, amount: Math.round(cur.wage * R.randRange(0.5, 1)) });
     if (!lvl) { delete club.staff[k]; return { ok: true }; }
     club.staff[k] = { lvl: lvl, wage: E.staffWageFor(club, lvl), name: R.pick(D.firstNames) + ' ' + R.pick(D.lastNames) };
     return { ok: true, s: club.staff[k] };
+  };
+  // ---------- Rechtsanwälte: Stufen vom Jura-Studenten bis zur Top-Kanzlei ----------
+  // win = Bonus auf die Erfolgsaussicht, f = Jahreshonorar (× Ligabasis), caseF = Fallhonorar (Anteil am Streitwert), prev = weniger Ärger durch Vertragsprüfung
+  E.LAWYERS = [
+    { n: 'Keine Rechtsvertretung', d: 'Bei Streitigkeiten muss kurzfristig und teuer eine Kanzlei gesucht werden.', win: 0, f: 0, caseF: 0, prev: 0 },
+    { n: 'Jura-Student', d: 'Engagierter Student im 5. Semester. Günstig, motiviert – aber noch ohne Zulassung und Erfahrung.', win: 0.07, f: 0.15, caseF: 0.03, prev: 0.03 },
+    { n: 'Einzelanwalt', d: 'Allgemeinanwalt aus der Stadt mit Schwerpunkt Vertrags- und Arbeitsrecht.', win: 0.15, f: 0.45, caseF: 0.05, prev: 0.07 },
+    { n: 'Fachanwalt für Sportrecht', d: 'Kennt Verbandsstatuten, Spielerverträge und Sportgerichte aus dem Effeff.', win: 0.24, f: 1.2, caseF: 0.07, prev: 0.12 },
+    { n: 'Wirtschaftskanzlei', d: 'Team aus mehreren Partnern für Bau-, Arbeits-, Marken- und Vertragsrecht.', win: 0.32, f: 2.6, caseF: 0.08, prev: 0.17 },
+    { n: 'Top-Kanzlei', d: 'Internationale Großkanzlei – gewinnt fast alles, prüft jeden Vertrag vorab und kostet entsprechend.', win: 0.4, f: 5, caseF: 0.1, prev: 0.22 }
+  ];
+  E.LAWYER_ADHOC = { win: 0.05, caseF: 0.25 }; // ohne Hausanwalt: kurzfristig beauftragte Kanzlei
+  var LAW_FIRMS = ['Hartwig Brenner & Partner', 'Lindqvist Albers International', 'Steinfeld Rosen Rechtsanwälte', 'Dr. Kranz & Kollegen', 'Wolters Behrendt LLP', 'Falkenrath Sommer Partners'];
+  E.lawyerLvl = function (club) { return club && club.lawyer ? club.lawyer.lvl || 0 : 0; };
+  E.lawyerWageFor = function (club, lvl) { return Math.round(E.LAWYERS[lvl].f * D.staffWage.base[club.league] / 100) * 100; };
+  E.lawyerName = function (lvl) {
+    var fn = R.pick(D.firstNames), ln = R.pick(D.lastNames), l2 = R.pick(D.lastNames);
+    return [null, 'stud. iur. ' + fn + ' ' + ln, 'Kanzlei ' + ln, ln + ' & ' + l2 + ' Sportrecht', ln + ' ' + l2 + ' Wirtschaftsanwälte', R.pick(LAW_FIRMS)][lvl];
+  };
+  E.setLawyer = function (st, club, lvl) {
+    if (lvl < 0 || lvl >= E.LAWYERS.length) return { ok: false };
+    var cur = club.lawyer;
+    if (cur && cur.lvl > 0 && lvl !== cur.lvl) { var comp = Math.round(cur.wage * 0.25); club.cash -= comp; E.book(club, 'Rechtsberatung', -comp); } // Kündigung: Vierteljahreshonorar
+    if (!lvl) { club.lawyer = null; return { ok: true }; }
+    club.lawyer = { lvl: lvl, wage: E.lawyerWageFor(club, lvl), name: E.lawyerName(lvl) };
+    return { ok: true, s: club.lawyer };
   };
   // Verletzungsrisiko-Faktor durch Fitnesstrainer und Ernährungsberater
   E.injuryStaffF = function (club) { return 1 - E.staffLvl(club, 'fitness') * 0.05 - E.staffLvl(club, 'ernaehrung') * 0.03; };
@@ -701,6 +729,7 @@
     add('Spielergehälter', -wages / n);
     add('Nachwuchsgehälter', -youthW / n);
     add('Trainer & Personal', -((club.coach ? club.coach.wage : 0) + E.staffWages(club) + { 1: 1500000, 2: 500000, 3: 150000 }[club.league] * D.MONEY) / n);
+    if (club.lawyer && club.lawyer.wage) add('Rechtsberatung', -club.lawyer.wage / n);
     add('Unterhalt Anlagen', -E.upkeepTotal(club) * costF / n);
     var budgets = 0; Object.keys(D.budgetAreas).forEach(function (a) { budgets += E.budgetCost(club, a); });
     add('Verwaltung & Budgets', -budgets * costF / n);

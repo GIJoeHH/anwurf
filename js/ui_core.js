@@ -271,8 +271,9 @@
     var pe = U.st.pendingEvent; if (!pe) return;
     var ev = pe.custom || (pe.chaos ? D.chaosEvents : D.events)[pe.idx];
     U.modalLock = true;
-    U.modal('Ereigniskarte', '<div class="event-card">' + (ev.ic ? '<div style="font-size:42px;line-height:1;margin-bottom:6px">' + ev.ic + '</div>' : '') + esc(ev.t) + '</div>', ev.o.map(function (o, i) {
+    U.modal('Ereigniskarte', '<div class="event-card">' + (ev.ic ? '<div style="font-size:42px;line-height:1;margin-bottom:6px">' + ev.ic + '</div>' : '') + esc(ev.t) + (ev.st ? '<div class="event-status">' + esc(ev.st) + '</div>' : '') + '</div>', ev.o.map(function (o, i) {
       var eff = []; if (o.cash) eff.push((o.cash > 0 ? '+' : '') + money(o.cash)); if (o.mor) eff.push('Moral ' + (o.mor > 0 ? '+' : '') + o.mor); if (o.fans) eff.push('Fans ' + (o.fans > 0 ? '+' : '') + o.fans + '%');
+      if (o.hint) return '<button data-act="eventPick" data-i="' + i + '">' + esc(o.l) + ' <span class="muted small">(' + esc(o.hint) + ')</span></button>';
       return '<button data-act="eventPick" data-i="' + i + '">' + esc(o.l) + (eff.length ? ' <span class="muted small">(' + eff.join(', ') + (o.chance || o.lottery ? ', Risiko' : '') + ')</span>' : (o.lottery ? ' <span class="muted small">(Risiko)</span>' : '')) + '</button>';
     }).join(''));
   };

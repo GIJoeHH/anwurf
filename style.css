@@ -519,3 +519,5 @@ button.crumb svg { transform: rotate(180deg); }
 .msg.offer-list { border-left: 4px solid var(--ok, #22c55e); }
 .msg.offer-free { border-left: 4px solid var(--warn, #f59e0b); }
 .tag.warn { background: rgba(245,158,11,.18); color: #fbbf24; }
+
+.event-status { margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(0,0,0,.2); font-size: 12px; opacity: .8; }

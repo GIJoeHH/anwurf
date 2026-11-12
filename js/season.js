@@ -363,7 +363,7 @@
     var won = sum.pens ? (sum.pens[side] > sum.pens[1 - side]) : my > op;
     if (won) S.achieve(st, 'firstWin');
     // Nachwuchskönig: fünf Eigengewächse eingesetzt
-    var hg = Object.keys(m.played).filter(function (pid) { return m.played[pid] === side && st.players[pid] && st.players[pid].homegrown; }).length;
+    var hg = Object.keys(m.played).filter(function (pid) { return m.played[pid] === side && W.isHomegrown(st.players[pid]); }).length;
     if (hg >= 5) S.achieve(st, 'youth');
     // Zeitung
     var H = st.clubs[fx.h], A = st.clubs[fx.a];

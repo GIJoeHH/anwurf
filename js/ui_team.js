@@ -27,7 +27,8 @@
     inbox.forEach(function (o) {
       if (o.type === 'offer') {
         var p = st.players[o.pid], b = st.clubs[o.from]; if (!p || !b) return;
-        h += '<div class="msg"><div class="ic-tile">' + U.lc('arrow-left-right', 20) + '</div><div class="msg-b"><b>Angebot für ' + esc(W.playerName(p)) + ' <span class="muted">(' + p.pos + ', ' + p.ovr + ')</span></b><span>' + esc(b.name) + ' bietet <b class="pos">' + money(o.amount) + '</b> · Marktwert ' + money(p.value) + '</span></div>' +
+        var onList = o.listed != null ? o.listed : !!p.listed, ask = o.asking || p.asking || 0;
+        h += '<div class="msg ' + (onList ? 'offer-list' : 'offer-free') + '"><div class="ic-tile ' + (onList ? 'ok' : 'warn') + '">' + U.lc(onList ? 'bookmark' : 'mail', 20) + '</div><div class="msg-b"><b>' + (onList ? '<span class="tag green">Transferliste</span> ' : '<span class="tag warn">Unaufgefordertes Angebot</span> ') + 'Angebot für ' + esc(W.playerName(p)) + ' <span class="muted">(' + p.pos + ', ' + p.ovr + ', ' + p.age + ' J.)</span></b><span>' + esc(b.name) + ' bietet <b class="pos">' + money(o.amount) + '</b> · Marktwert ' + money(p.value) + (onList && ask ? ' · Ihre Forderung ' + money(ask) + ' (' + (o.amount >= ask ? 'erfüllt' : Math.round(o.amount / ask * 100) + ' %') + ')' : '') + (onList ? '' : ' · Spieler steht nicht auf der Transferliste') + '</span></div>' +
           (U.can('business') || U.can('sport') ? (T.canSell(st, c.id) ? '' : '<div class="small neg" style="flex-basis:100%">Kader am Minimum (' + T.MIN_SQUAD + ' Spieler) – erst verpflichten, dann verkaufen.</div>') + '<div class="row" style="gap:6px"><button class="sm primary" data-act="offerAccept" data-id="' + o.id + '"' + (T.canSell(st, c.id) ? '' : ' disabled') + '>Annehmen</button><button class="sm" data-act="offerCounter" data-id="' + o.id + '">+15 % fordern</button><button class="sm danger" data-act="offerDecline" data-id="' + o.id + '">Ablehnen</button></div>' : '') + '</div>';
       } else h += '<div class="msg"><div class="ic-tile ok">' + U.lc('handshake', 20) + '</div><div class="msg-b"><b>Sponsorenangebote: ' + D.sponsorCategories[o.cat] + '</b><span>' + (o.cat === 'bande' ? (o.free || 0) + ' von 20 Banden frei – einzeln vermieten' : o.offers.length + ' Angebote liegen vor.') + '</span></div><button class="sm primary" data-act="' + (o.cat === 'bande' ? 'bandeOpen' : 'nav') + '" data-s="verein">Ansehen</button></div>';
     });
@@ -137,7 +138,7 @@
     opts = opts || {};
     var st = U.st;
     var cols = [
-      { k: 'last', l: 'Name', v: function (p) { return p.last; }, f: function (p) { return (st.favs && st.favs[p.id] ? '★ ' : '') + esc(W.playerName(p)) + (p.homegrown ? ' <span class="tag green" title="Eigengewächs">Eigengewächs</span>' : '') + (p.loan ? ' <span class="tag">Leihe</span>' : '') + (p.trial ? ' <span class="tag" title="Nachwuchsspieler auf Probe">Probe</span>' : ''); } },
+      { k: 'last', l: 'Name', v: function (p) { return p.last; }, f: function (p) { return (st.favs && st.favs[p.id] ? '★ ' : '') + esc(W.playerName(p)) + (W.isHomegrown(p) ? ' <span class="tag green" title="Eigengewächs – spielt bei seinem Jugendverein">Eigengewächs</span>' : '') + (p.loan ? ' <span class="tag">Leihe</span>' : '') + (p.trial ? ' <span class="tag" title="Nachwuchsspieler auf Probe">Probe</span>' : ''); } },
       { k: 'pos', l: 'Pos', f: function (p) { return U.posTag(p.pos) + (p.alt.length ? ' <span class="muted small">' + p.alt.join('/') + '</span>' : ''); } },
       { k: 'age', l: 'Alter', num: true }, { k: 'ovr', l: 'Stärke', num: true, f: function (p) { return U.ovrBadge(p.ovr); } },
       { k: 'pot', l: 'Pot.', num: true, f: function (p) { return U.potText(p); } }

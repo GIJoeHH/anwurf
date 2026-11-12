@@ -76,6 +76,7 @@
     Object.keys(st.clubs).forEach(function (k) { var c = st.clubs[k]; c.construction = c.construction || []; c.portfolio = c.portfolio || {}; c.loans = c.loans || []; });
     if (R.stadium) Object.keys(st.clubs).forEach(function (k) { if (st.clubs[k].stadium) R.stadium.migrate(st.clubs[k]); }); // Stadionplan v1 → v2
     if (R.deals) R.deals.ensureAll(st);
+    if (R.world.migrateHomegrown) R.world.migrateHomegrown(st); // Eigengewächs an Jugendverein binden
     if (R.econ && R.econ.ensureBande) Object.keys(st.clubs).forEach(function (k) { R.econ.ensureBande(st, st.clubs[k]); }); // Bandenwerbung: 20 einzelne Banden
     if (R.world.migrateWages) R.world.migrateWages(st); // Gehaltsgefüge 2026-11 (reale Größenordnungen, Ligaobergrenzen)
     R.rng.seed(st.rngState || st.seed || 1);

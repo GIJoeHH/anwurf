@@ -107,13 +107,16 @@
 
   // Genaue Position zufällig passend zur Positionsgruppe
   W.detailFor = function (pos) { return pos === 'TW' ? 'TW' : pos === 'AUS' ? (R.chance(0.5) ? 'LA' : 'RA') : pos === 'KRS' ? 'KM' : R.pick(['RL', 'RM', 'RR']); };
+  // Eigengewächs nur, solange der Spieler bei seinem Jugendverein spielt (nach Wechsel/Leihe weg, nach Rückkehr wieder da)
+  W.isHomegrown = function (p) { return !!(p && p.homegrown && p.clubId && (p.homeClub ? p.homeClub === p.clubId : true)); };
+  W.migrateHomegrown = function (st) { Object.keys(st.players).forEach(function (k) { var p = st.players[k]; if (p.homegrown && !p.homeClub && p.clubId) p.homeClub = p.clubId; }); };
   W.genYouth = function (st, club, quality) {
     // quality 0..4 (Stufe Nachwuchszentrum)
     var pos = R.weighted(['TW', 'AUS', 'RUE', 'KRS'], function (x) { return { TW: 1.2, AUS: 2.5, RUE: 3.5, KRS: 1.5 }[x]; });
     var base = W.fromMoneyScale(st, 34 + quality * 4 + (club.league === 1 ? 4 : club.league === 2 ? 2 : 0));
     var p = W.genPlayer(st, pos, R.clamp(R.gauss(base, 5), 25, 70), R.randInt(16, 18), club.id);
     p.pot = R.clamp(Math.round(p.ovr + R.randInt(10, 22) + quality * R.randInt(2, 5) + (R.chance(0.04 + quality * 0.02) ? R.randInt(5, 12) : 0)), p.ovr, 96);
-    p.youth = true; p.homegrown = true; p.contract = 3;
+    p.youth = true; p.homegrown = true; p.homeClub = club.id; p.contract = 3;
     p.wage = Math.max(1500, Math.round(W.fairWage(p) * 0.5 / 500) * 500);
     W.recalc(p);
     return p;

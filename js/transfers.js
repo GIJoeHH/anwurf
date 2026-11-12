@@ -127,7 +127,7 @@
     E.book(toClub, 'Transferausgaben', -(fee + (opts.signOn || 0)));
     if (!toClub.records.transferIn || fee > toClub.records.transferIn.fee) toClub.records.transferIn = { name: W.playerName(p), fee: fee, season: st.season };
     var oldFee = p.boughtFor;
-    p.clubId = toClub.id; p.wage = toClub.userControlled ? wage : W.capWage(wage, toClub); p.contract = years; p.listed = false; p.asking = 0; p.youth = false; p.homegrown = false;
+    p.clubId = toClub.id; p.wage = toClub.userControlled ? wage : W.capWage(wage, toClub); p.contract = years; p.listed = false; p.asking = 0; p.youth = false;
     p.boughtFor = fee; p.joined = st.season; p.morale = R.clamp(p.morale + 10, 0, 100); p.yellow = 0;
     if (opts.bonus) p.bonus = opts.bonus;
     var rec = { season: st.season, week: st.week, pid: p.id, name: W.playerName(p), from: from ? from.name : 'vereinslos', fromId: from ? from.id : null, to: toClub.name, toId: toClub.id, fee: fee, loan: !!opts.loan };
@@ -206,7 +206,7 @@
       var amount = R.round(Math.min(b.cash * 0.6, p.value * R.randRange(0.75, 1.2)), 5000);
       if (p.asking && amount < p.asking * 0.7) amount = R.round(p.asking * R.randRange(0.75, 0.95), 5000);
       amount = Math.min(amount, T.feeCap(b));
-      st.inbox.unshift({ id: W.nextId(st, 'offer'), type: 'offer', pid: p.id, from: b.id, amount: amount, week: st.week, season: st.season, tick: st.tick || 0 });
+      st.inbox.unshift({ id: W.nextId(st, 'offer'), type: 'offer', listed: true, asking: p.asking || 0, pid: p.id, from: b.id, amount: amount, week: st.week, season: st.season, tick: st.tick || 0 });
     });
     // Gelegentlich Angebote für Leistungsträger
     if (R.chance(0.08)) {
@@ -216,7 +216,7 @@
         var rich = Object.keys(st.clubs).map(function (k) { return st.clubs[k]; }).filter(function (c) { return !c.userControlled && c.league <= club.league && c.cash > sp.value * 1.5 && T.feeCap(c) >= sp.value; });
         if (rich.length) {
           var rb = R.pick(rich);
-          st.inbox.unshift({ id: W.nextId(st, 'offer'), type: 'offer', pid: sp.id, from: rb.id, amount: Math.min(T.feeCap(rb), R.round(sp.value * R.randRange(1.1, 1.5), 5000)), week: st.week, season: st.season, tick: st.tick || 0 });
+          st.inbox.unshift({ id: W.nextId(st, 'offer'), type: 'offer', listed: false, pid: sp.id, from: rb.id, amount: Math.min(T.feeCap(rb), R.round(sp.value * R.randRange(1.1, 1.5), 5000)), week: st.week, season: st.season, tick: st.tick || 0 });
         }
       }
     }
@@ -298,7 +298,7 @@
     var c = cands[0];
     if (c.p.clubId && st.clubs[c.p.clubId].userControlled) {
       // Angebot an den Nutzer statt direktem Transfer
-      st.inbox.unshift({ id: W.nextId(st, 'offer'), type: 'offer', pid: c.p.id, from: club.id, amount: R.round(c.fee, 5000), week: st.week, season: st.season, tick: st.tick || 0 });
+      st.inbox.unshift({ id: W.nextId(st, 'offer'), type: 'offer', listed: !!c.p.listed, asking: c.p.asking || 0, pid: c.p.id, from: club.id, amount: R.round(c.fee, 5000), week: st.week, season: st.season, tick: st.tick || 0 });
       return;
     }
     T.executeTransfer(st, c.p, club, R.round(c.fee, 5000), R.round(c.wage, 1000), R.randInt(2, 4));

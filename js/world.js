@@ -132,6 +132,7 @@
     return base * (0.6 + club.reputation / 120) * Math.pow(Math.max(400, club.fans) / 6000, 0.25);
   };
 
+  W.TECIS = { name: 'tecis', chance: 0.15, factor: 1.75 };
   W.genSponsor = function (st, club, cat, forOffer) {
     var total = W.sponsorBase(club) * D.sponsorShare[cat];
     // Öffentliche Wahrnehmung beeinflusst das Sponsoreninteresse
@@ -147,8 +148,13 @@
       var free = real.filter(function (s) { return taken.indexOf(s.n) < 0; });
       name = R.pick(free.length ? free : real).n;
     } else name = cat === 'ausruester' ? R.pick(kits) : R.pick(pool);
+    // tecis: äußerst großzügiger Werbepartner – taucht gelegentlich auf, zahlt deutlich mehr und bindet sich lange (nicht als Ausrüster)
+    // Die Auswahl hängt nur von der laufenden Sponsorennummer ab (kein Zufallszug), damit der Spielzufall unverändert bleibt
+    var tn = ((st && st.nextIds && st.nextIds.sponsor) || 0) + 1 + ((st && st.seed) || 0), th = (Math.imul(tn, 2654435761) >>> 0) % 1000;
+    var tecis = cat !== 'ausruester' && !(st && st.sponsorPool && st.sponsorPool.length) && th < W.TECIS.chance * 1000 && !(club && club.sponsors && club.sponsors.some(function (x) { return x && x.name === W.TECIS.name && x.cat === cat && cat !== 'bande'; }));
+    if (tecis) { name = W.TECIS.name; amount = R.round(amount * W.TECIS.factor, 1000); }
     return {
-      id: nextId(st, 'sponsor'), cat: cat, name: name, amount: amount, years: R.randInt(1, 3),
+      id: nextId(st, 'sponsor'), cat: cat, name: name, amount: amount, years: [R.randInt(1, 3), 3][tecis ? 1 : 0], generous: tecis || undefined,
       bonusTop: R.round(amount * R.randRange(0.08, 0.2), 1000), bonusPromo: R.round(amount * R.randRange(0.1, 0.3), 1000),
       bonusTitle: R.round(amount * R.randRange(0.15, 0.4), 1000), topN: R.pick([3, 5, 8])
     };

@@ -77,6 +77,7 @@
   // Geheimer Cheat „Kartenhai“: Bei aktivierten Cheats kaufen beim eigenen Verein immer noch 5 % der Nachfrage – egal, wie absurd der Preis ist.
   // Wird das an einem echten Spieltag genutzt, ist der Spielstand als „mit Cheat“ markiert (wie beim Bankdirektor).
   E.SHARK_FLOOR = 0.05;
+  E.SHARK_SEATS = 0.12; // auch kleine Vereine mit wenig Nachfrage verkaufen mindestens diesen Anteil der Plätze
   E.markShark = function (st, club, inc) {
     var first = !st.sharkGames; st.sharkGames = (st.sharkGames || 0) + 1; st.cheatUsed = true;
     if (R.season && R.season.achieve) R.season.achieve(st, 'kartenhai');
@@ -236,7 +237,7 @@
       dem[k] = d;
       var hold = Math.min(parts[k], sh[k] || 0);
       var extraD = d - hold * E.ST_OVERLAP;
-      if (sharkF && priceFactor(prices[k], ref[k]) < sharkF) extraD = d; // Kartenhai: die Käufer kommen zusätzlich zu den Dauerkarten-Inhabern
+      if (sharkF && priceFactor(prices[k], ref[k]) < sharkF) extraD = Math.max(d, parts[k] * E.SHARK_SEATS); // Kartenhai: Käufer kommen zusätzlich zu den Dauerkarten-Inhabern, mindestens 12 % der Plätze
       res[k] = Math.round(Math.min(parts[k], hold + Math.max(0, extraD)));
       dayTk[k] = Math.max(0, res[k] - hold);
       // übrige Nachfrage füllt freie Gästetickets (gleiche Platzart)

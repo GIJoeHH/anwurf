@@ -235,7 +235,9 @@
       var d = demand * share * pfx(prices[k], ref[k]) * (k === 'sitz' ? 0.95 : 1.05);
       dem[k] = d;
       var hold = Math.min(parts[k], sh[k] || 0);
-      res[k] = Math.round(Math.min(parts[k], hold + Math.max(0, d - hold * E.ST_OVERLAP)));
+      var extraD = d - hold * E.ST_OVERLAP;
+      if (sharkF && priceFactor(prices[k], ref[k]) < sharkF) extraD = d; // Kartenhai: die Käufer kommen zusätzlich zu den Dauerkarten-Inhabern
+      res[k] = Math.round(Math.min(parts[k], hold + Math.max(0, extraD)));
       dayTk[k] = Math.max(0, res[k] - hold);
       // übrige Nachfrage füllt freie Gästetickets (gleiche Platzart)
       if (guestFreeOk && k === gType && d > res[k]) { var extra = Math.round(Math.min(guestFree - homeInGuest, d - res[k])); if (extra > 0) { res[k] += extra; dayTk[k] += extra; homeInGuest += extra; } }

@@ -49,15 +49,18 @@
   function value() { return (+buf || 0) * mult; }
   function render() {
     var money = target && isMoney(target), v = value();
-    pad.querySelector('.np-v').textContent = buf === '' ? '0' : fmt(v);
-    pad.querySelector('.np-u').textContent = money ? (Math.abs(v) >= 10000 ? R.fmtMoney(v) : '€') : '';
+    // Anzeige: genau das Getippte (mit Komma), dahinter die gewählte Einheit; der volle Betrag steht darunter
+    var dot = buf.indexOf('.'), typed = buf === '' ? '0' : dot < 0 ? fmt(+buf) : fmt(+buf.slice(0, dot) || 0) + ',' + buf.slice(dot + 1);
+    var dec = dot >= 0 && mult === 1; // Komma ohne Tsd./Mio.: Felder nehmen nur ganze Zahlen
+    pad.querySelector('.np-v').textContent = typed + (mult === 1000 ? ' Tsd.' : mult === 1000000 ? ' Mio.' : '');
+    pad.querySelector('.np-u').textContent = dec ? 'Jetzt Tsd. oder Mio. wählen' : mult > 1 ? '= ' + fmt(v) + (money ? ' €' : '') : money ? (Math.abs(v) >= 10000 ? R.fmtMoney(v) : '€') : '';
     pad.querySelector('[data-np=tsd]').classList.toggle('on', mult === 1000);
     pad.querySelector('[data-np=mio]').classList.toggle('on', mult === 1000000);
   }
   function open(el) {
     target = el; mult = 1;
     var v = +el.value || 0;
-    if (hasMult(el) && v && v % 1000000 === 0) { mult = 1000000; buf = String(v / 1000000); }
+    if (hasMult(el) && v >= 1000000 && v % 10000 === 0) { mult = 1000000; buf = String(v / 1000000); } // 8.800.000 → 8,8 Mio.
     else if (hasMult(el) && v && v % 1000 === 0) { mult = 1000; buf = String(v / 1000); }
     else buf = v ? String(v) : '';
     if (!pad) {
@@ -79,7 +82,7 @@
         else if (k === 'tsd') mult = mult === 1000 ? 1 : 1000;
         else if (k === 'mio') mult = mult === 1000000 ? 1 : 1000000;
         else if (k === ',') { if (buf.indexOf('.') < 0) buf = (buf || '0') + '.'; }
-        else if (buf.length < 12) buf = (buf === '0' ? '' : buf) + k;
+        else if (buf.length < 12 && (buf.indexOf('.') < 0 || buf.length - buf.indexOf('.') <= 3)) buf = (buf === '0' ? '' : buf) + k; // höchstens 3 Nachkommastellen
         render();
       });
     }

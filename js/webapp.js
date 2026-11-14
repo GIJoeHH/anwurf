@@ -36,32 +36,25 @@
   }
 
   // ---------- iCloud-Hinweis ----------
-  var pill = null;
+  // Der Hinweis steht in der Menüleiste unter „Speichern“ (U.renderNav), damit er keine Inhalte überdeckt
   function t(s) { return s ? new Date(s).getTime() : 0; }
   W.dirty = function () {
     var local = 0; try { local = t(localStorage.getItem('anwurf_lastLocal')); } catch (e) {}
     return local > t(R.save.lastSync()) + 5000;
   };
+  var shown = null;
   W.refresh = function () {
-    var show = !!(R.ui && R.ui.st && R.ui.screen !== 'start' && W.dirty());
-    if (!pill) {
-      if (!show) return;
-      pill = document.createElement('button'); pill.type = 'button'; pill.id = 'cloudPill';
-      pill.style.cssText = 'position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:9000;' +
-        'border-radius:999px;border:1px solid #e2b453;background:#3a2d10;color:#f2c464;font:700 13px -apple-system,system-ui,sans-serif;padding:9px 14px;box-shadow:0 6px 18px rgba(0,0,0,.4)';
-      pill.textContent = '☁︎ Nicht in iCloud gesichert';
-      pill.title = 'Tippen: Spielstand für Mac und iPad-App in den iCloud-Ordner „Spielstände“ sichern';
-      pill.onclick = function () {
-        if (!R.ui || !R.ui.st) return;
-        R.save.syncExport(R.ui.st, 'autosave').then(function (r) {
-          if (r && r.aborted) return;
-          if (R.ui.toast) R.ui.toast(r && r.how === 'download' ? 'autosave.json + autosave.meta heruntergeladen – bitte in den Ordner „Spielstände“ verschieben.' : 'In iCloud gesichert.');
-          W.refresh();
-        });
-      };
-      document.body.appendChild(pill);
-    }
-    pill.style.display = show ? 'block' : 'none';
+    var U = R.ui; if (!U || !U.st || !U.renderNav || U.screen === 'start' || !document.getElementById('nav')) return;
+    var d = W.dirty(); if (d === shown && !!document.querySelector('#nav .nav-cloud') === d) return;
+    shown = d; U.renderNav();
+  };
+  if (R.ui && R.ui.acts) R.ui.acts.cloudSync = function () {
+    if (!R.ui.st) return;
+    R.save.syncExport(R.ui.st, 'autosave').then(function (r) {
+      if (r && r.aborted) return;
+      R.ui.toast(r && r.how === 'download' ? 'autosave.json + autosave.meta heruntergeladen – bitte in den Ordner „Spielstände“ verschieben.' : 'In iCloud gesichert.');
+      W.refresh();
+    });
   };
   setInterval(W.refresh, 4000);
   document.addEventListener('visibilitychange', W.refresh);

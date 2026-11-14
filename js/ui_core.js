@@ -217,7 +217,7 @@
     var map = { bericht: 'spieltag', match: 'spieltag', saisonende: 'liga', spieler: 'mannschaft' };
     document.getElementById('nav').innerHTML = U.navItems().map(function (i) {
       return (i[4] ? '<div class="nav-group">' + i[4] + '</div>' : '') + '<div class="nav-item ' + ((map[cur] || cur) === i[0] ? 'active' : '') + '" data-act="nav" data-s="' + i[0] + '" tabindex="0" role="link"><span class="ic">' + U.lc(i[1], 18) + '</span>' + i[2] + (i[3] ? '<span class="badge">' + i[3] + '</span>' : '') + '</div>';
-    }).join('') + '<div class="nav-sep"></div><div class="nav-item" data-act="saveQuick" tabindex="0" role="button"><span class="ic">' + U.lc('save', 18) + '</span>Speichern</div><div class="nav-item" data-act="toTitle" tabindex="0" role="button"><span class="ic">' + U.lc('log-out', 18) + '</span>Hauptmenü</div>';
+    }).join('') + '<div class="nav-sep"></div><div class="nav-item" data-act="saveQuick" tabindex="0" role="button"><span class="ic">' + U.lc('save', 18) + '</span>Speichern</div>' + (R.webapp && R.webapp.dirty() ? '<div class="nav-item nav-cloud" data-act="cloudSync" tabindex="0" role="button" title="Spielstand für Mac und iPad-App in den iCloud-Ordner „Spielstände“ sichern"><span class="ic">☁︎</span>Nicht in iCloud gesichert</div>' : '') + '<div class="nav-item" data-act="toTitle" tabindex="0" role="button"><span class="ic">' + U.lc('log-out', 18) + '</span>Hauptmenü</div>';
   };
   U.acts.nav = function (d) { if (U.screen === 'match' && U.liveActive) { U.toast('Das Spiel läuft – bitte erst beenden.'); return; } U.go(d.s); };
 

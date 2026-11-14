@@ -507,3 +507,6 @@ table.t tr.sel td:first-child { box-shadow: inset 3px 0 var(--act); }
 .set-stack table.t td:first-child { width: 100%; }
 .set-stack table.t td:last-child { white-space: nowrap; text-align: right; }
 @media (max-width: 700px) { .set-stack table.t td:last-child { white-space: normal; } }
+
+.nav-item.nav-cloud { color: #f2c464; }
+.nav-item.nav-cloud .ic { color: #f2c464; }

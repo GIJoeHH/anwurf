@@ -1,5 +1,5 @@
 /* ANWURF! – Service Worker für den Offline-Betrieb (automatisch erzeugt von web/deploy.sh, nicht von Hand ändern) */
-const VERSION = 'fa7f62a7d0';
+const VERSION = 'c2d8bf1292';
 const CACHE = 'anwurf-' + VERSION;
 const CORE = [
   './',
@@ -8,6 +8,7 @@ const CORE = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './img/bank.jpg',
+  './img/tecis.jpg',
   './index.html',
   './js/crests.js',
   './js/data.js',

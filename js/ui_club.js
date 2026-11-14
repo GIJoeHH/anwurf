@@ -27,6 +27,8 @@
   function hashStr(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   U.brandLogo = function (name, size, isKit) {
     size = size || 64; name = String(name || '?');
+    // tecis: offizielles Logo (mit Freigabe), liegt dem Spiel bei
+    if (name === 'tecis' && !isKit) return '<span class="brand-img" style="width:' + size + 'px;height:' + size + 'px;padding:' + Math.round(size * 0.08) + 'px;background:#fff;border-radius:' + Math.round(size * 0.18) + 'px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box" aria-label="tecis"><img src="img/tecis.jpg" alt="tecis" style="max-width:100%;max-height:100%;object-fit:contain"></span>';
     // Echtes Firmenlogo, wenn es auf diesem Gerät geladen wurde (nur privat, siehe js/logos.js)
     var real = R.logos && (!U.st || R.logos.enabled(U.st)) ? R.logos.get(name) : null;
     if (real) return '<span class="brand-img" style="width:' + size + 'px;height:' + size + 'px;padding:' + Math.round(size * 0.1) + 'px" aria-label="' + esc(name) + '"><img src="' + real + '" alt="' + esc(name) + '"></span>';

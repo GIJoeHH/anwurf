@@ -159,11 +159,11 @@
     var rows = ['steh', 'sitz'].map(function (k) {
       var cap = a.capK[k], sold = a.parts[k] - (k === gk ? a.homeInGuest : 0), hold = Math.min(cap, a.holders[k] || 0);
       return '<div class="tk-row"><div class="tk-l"><b>' + NAMES[k] + '</b><small class="muted">' + DESC[k] + ' · üblich ~' + ref[k] + ' €</small></div>' +
-        '<label class="tk-price">' + (can ? '<input type="number" min="1" max="2000" value="' + c.tickets[k] + '" data-inp="tkPrice" data-k="' + k + '">' : '<b>' + c.tickets[k] + '</b>') + ' €</label>' +
+        '<label class="tk-price">' + (can ? '<input type="number" min="1" max="5000" value="' + c.tickets[k] + '" data-inp="tkPrice" data-k="' + k + '">' : '<b>' + c.tickets[k] + '</b>') + ' €</label>' +
         '<div class="tk-f"><div class="tk-txt"><b>' + num(sold) + '</b> von ' + num(cap) + ' belegt <span class="muted">(' + Math.round(sold / Math.max(1, cap) * 100) + ' %' + (hold ? ' · davon ' + num(hold) + ' Dauerkarten' + (a.holders.sold ? '' : ' (Prognose)') : '') + ')</span></div>' + bar(sold, cap, null, hold) + '</div></div>';
     });
     if (a.bizCap) rows.push('<div class="tk-row"><div class="tk-l"><b>' + U.lc('briefcase', 13) + ' Business-Seats</b><small class="muted">' + DESC.biz + ' · üblich ~' + ref.biz + ' €</small></div>' +
-      '<label class="tk-price">' + (can ? '<input type="number" min="1" max="2000" value="' + c.tickets.biz + '" data-inp="tkPrice" data-k="biz">' : '<b>' + c.tickets.biz + '</b>') + ' €</label>' +
+      '<label class="tk-price">' + (can ? '<input type="number" min="1" max="5000" value="' + c.tickets.biz + '" data-inp="tkPrice" data-k="biz">' : '<b>' + c.tickets.biz + '</b>') + ' €</label>' +
       '<div class="tk-f"><div class="tk-txt"><b>' + num(a.resBiz) + '</b> von ' + num(a.bizCap) + ' belegt <span class="muted">(' + Math.round(a.resBiz / Math.max(1, a.bizCap) * 100) + ' %)</span></div>' + bar(a.resBiz, a.bizCap) + '</div></div>');
     if (a.logeBoxes) rows.push('<div class="tk-row"><div class="tk-l"><b>' + U.lc('crown', 13) + ' Logen</b><small class="muted">' + DESC.loge + ' · üblich ~' + num(ref.loge) + ' €</small></div>' +
       '<label class="tk-price">' + (can ? '<input type="number" min="1000" max="2000000" step="1000" value="' + c.tickets.loge + '" data-inp="tkPrice" data-k="loge">' : '<b>' + num(c.tickets.loge) + '</b>') + ' €</label>' +
@@ -191,7 +191,7 @@
     box.innerHTML = live(st, c, nextGame(st, c), U.can('business'));
     if (ds.inp) { var el = box.querySelector('input[data-inp="' + ds.inp + '"][data-k="' + ds.k + '"]' + (ds.f ? '[data-f="' + ds.f + '"]' : '')); if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (e) { /* number-Felder */ } } }
   }
-  U.acts.tkPrice = function (d, el) { if (!U.can('business')) return; var v = Math.round(+el.value); if (!(v >= 1)) return; U.club().tickets[d.k] = R.clamp(v, 1, d.k === 'loge' ? 2000000 : 2000); clearTimeout(U._tkT); U._tkT = setTimeout(refreshLive, 250); };
+  U.acts.tkPrice = function (d, el) { if (!U.can('business')) return; var v = Math.round(+el.value); if (!(v >= 1)) return; U.club().tickets[d.k] = R.clamp(v, 1, d.k === 'loge' ? 2000000 : 5000); clearTimeout(U._tkT); U._tkT = setTimeout(refreshLive, 250); };
   U.acts.tkSt = function (d, el) {
     if (!U.can('business')) return; var sx = E.ensureTix(U.club())[d.k];
     if (d.f === 'limit') { if (el.value === '') sx.limit = null; else { var l = Math.round(+el.value); if (!(l >= 0)) return; sx.limit = l; } }

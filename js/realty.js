@@ -235,10 +235,10 @@
     var fix = +fin.fix || 10, T = RE.terms(st, club, o, fix), f = RE.fees(o), std = RE.STANDARDS[fin.standard || 'modern'];
     var price = o.mode === 'neubau' ? o.land + Math.round(o.build * std.cost) : o.price;
     var total = price + f.total, maxLoan = Math.round(price * T.ltv);
-    var equity = fin.equity != null ? Math.min(total, Math.max(0, Math.round(fin.equity))) : Math.max(f.total, total - maxLoan);
+    var equity = fin.equity != null && isFinite(+fin.equity) ? Math.min(total, Math.max(0, Math.round(fin.equity))) : Math.max(f.total, total - maxLoan);
     var loan = Math.max(0, total - equity);
     var feeAmt = Math.round(loan * T.fee);
-    var terms = { principal: loan, rate: T.rate, mode: fin.mode === 'laufzeit' ? 'laufzeit' : 'tilgung', tilg: fin.tilg != null ? +fin.tilg : 0.02, months: (+fin.years || 25) * 12 };
+    var terms = { principal: loan, rate: T.rate, mode: fin.mode === 'laufzeit' ? 'laufzeit' : 'tilgung', tilg: fin.tilg != null && isFinite(+fin.tilg) ? +fin.tilg : 0.02, months: (+fin.years || 25) * 12 };
     var A = RE.annuity(terms);
     var rentY = o.rentY * (o.mode === 'neubau' ? std.rent : 1), occ = o.mode === 'bestand' ? o.occ : 0.95;
     var rentM = rentY * occ / 12, costM = (o.maint + rentY * 0.07) / 12;
@@ -362,7 +362,7 @@
     var re = RE.ensure(st), l = re.loans.filter(function (x) { return x.id === loanId && x.club === club.id; })[0];
     if (!l) return { ok: false, why: 'Kredit nicht gefunden' };
     var inf = RE.sonderInfo(st, l), a = Math.min(Math.round(amount), inf.max, l.balance, Math.max(0, club.cash));
-    if (a <= 0) return { ok: false, why: inf.max <= 0 ? 'Sondertilgungsrahmen für dieses Vertragsjahr ausgeschöpft (5 % p.a.).' : 'Kein Betrag möglich.' };
+    if (!(a > 0)) return { ok: false, why: inf.max <= 0 ? 'Sondertilgungsrahmen für dieses Vertragsjahr ausgeschöpft (5 % p.a.).' : 'Kein Betrag möglich.' };
     l.balance -= a; l.principalPaid += a; club.cash -= a; R.econ.book(club, 'Tilgung Immobilien', -a);
     if (l.sonderYear !== inf.year) { l.sonderYear = inf.year; l.sonderUsed = 0; } l.sonderUsed += a;
     if (l.balance < 1) RE.closeLoan(st, l);

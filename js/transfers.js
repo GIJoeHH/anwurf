@@ -236,10 +236,10 @@
     st.inbox = st.inbox.filter(function (x) { return x.pid !== o.pid; });
     // Manche Käufer zahlen die zweite Rate nicht pünktlich – Fall für den Anwalt
     var seller = st.clubs[st.manager.clubId];
-    if (o.amount > 0 && R.season.legalQueue && (T.forceLatePay || R.chance(0.12 * (1 - E.LAWYERS[E.lawyerLvl(seller)].prev)))) {
+    if (o.amount > 0 && R.season.legalQueue && (T.forceLatePay || R.chance(0.12 * (1 - Math.min(0.6, R.season.legalPrev(seller)))))) {
       var rest = R.round(o.amount * R.randRange(0.3, 0.5), D.MONEY ? 100 : 1000);
       seller.cash -= rest; E.book(seller, 'Transfererlöse', -rest);
-      R.season.legalQueue(st, { type: 'abloese', club: buyer.id, player: W.playerName(p), amount: rest });
+      R.season.legalQueue(st, { type: 'abloese', owner: seller.id, club: buyer.id, player: W.playerName(p), amount: rest });
     }
     return { ok: true };
   };

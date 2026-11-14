@@ -243,7 +243,7 @@
     var st = U.st, c = U.club(), k = U.coachOffers[+d.i], comp = Math.round(c.coach.wage * 0.5);
     c.cash -= comp; E.book(c, 'Abfindungen', -comp);
     c.history.push({ season: st.season, type: 'trainer', text: 'Neuer Trainer: ' + k.name });
-    if (R.chance(0.3 * (1 - E.LAWYERS[E.lawyerLvl(c)].prev)) && c.coach && U.coachName(c) === c.coach.name) S.legalQueue(st, { type: 'kuendigung', name: c.coach.name, role: 'Cheftrainer', amount: Math.round(c.coach.wage * R.randRange(0.4, 0.8)) });
+    if (R.chance(0.3 * (1 - Math.min(0.6, S.legalPrev(c)))) && c.coach && U.coachName(c) === c.coach.name) S.legalQueue(st, { type: 'kuendigung', owner: c.id, name: c.coach.name, role: 'Cheftrainer', amount: Math.round(c.coach.wage * R.randRange(0.4, 0.8)) });
     S.news(st, c.short + ' präsentiert neuen Trainer', k.name + ' (' + k.profile + ') übernimmt.', 'verein');
     c.coach = k; U.coachOffers = null; U.closeModal(); U.render();
   };
@@ -267,7 +267,7 @@
     if (tab === 'infra') h += '<div class="help" style="margin-top:12px">Verkehrskapazität = ÖPNV (' + R.fmtNum(E.level(c, 'oepnv').fans) + ') + min(Parkplätze × 2,6 = ' + R.fmtNum(E.level(c, 'parken').cars * 2.6) + ', Straße = ' + R.fmtNum(E.level(c, 'strasse').fans) + '). Sie müssen nicht alle drei Zweige ausbauen – eine starke S-Bahn ersetzt viele Parkplätze.</div>';
     return h;
   };
-  U.acts.ticket = function (d, el) { if (!U.can('business')) return; U.club().tickets[d.k] = R.clamp(Math.round(+el.value || 1), 1, 2000); U.render(); };
+  U.acts.ticket = function (d, el) { if (!U.can('business')) return; U.club().tickets[d.k] = R.clamp(Math.round(+el.value || 1), 1, 5000); U.render(); };
   U.acts.stadiumPart = function (d) {
     var k = d.k; if (!k || !D.facilities[k]) return;
     if (R.stadium && R.stadium.has(U.club()) && E.PLAN_KEYS.indexOf(k) >= 0) { U.go('stadion', { tab: 'plan' }); return; }
@@ -535,5 +535,11 @@
     if (U.autosave) U.autosave(); U.render();
     U.modal('Übernahme abgeschlossen', '<p>' + r.players + ' Spieler und ' + money(r.cash) + ' gehören jetzt Ihrem Verein. ' + esc(r.club.short) + ' steigt zum Saisonende zwangsweise ab.</p><p class="muted small">Tipp: Ihr Kader ist jetzt riesig – unter „Mannschaft“ und auf dem Transfermarkt können Sie Spieler verkaufen.</p>', '<button class="primary" data-act="closeModal">Weiter</button>');
   };
-  U.acts.assetSell = function (d) { var q = orderQty(U.st, U.club(), d.k, true); if (U.p.tradeMode === 'eur' && amt('q_' + d.k) && !q) { U.toast('Betrag reicht nicht für ein Stück'); return; } var r = E.sellAsset(U.st, U.club(), d.k, q || 1e12); U.toast(r.ok ? 'Verkauft: ' + money(r.revenue) + ' (' + (r.profit >= 0 ? '+' : '') + money(r.profit) + ')' : r.why); U.render(); };
+  U.acts.assetSell = function (d) {
+    var st = U.st, c = U.club(), raw = amt('q_' + d.k), q = orderQty(st, c, d.k, true);
+    if (U.p.tradeMode === 'eur' && raw && !q) { U.toast('Betrag reicht nicht für ein Stück'); return; }
+    if (!raw) { var pf = c.portfolio[d.k]; U.confirm('Alles verkaufen?', 'Sie haben keine Menge eingegeben. Die gesamte Position (' + R.fmtNum(pf ? pf.qty : 0) + ' Stück) verkaufen?', function () { sellNow(1e12); }); return; }
+    sellNow(q);
+    function sellNow(n) { var r = E.sellAsset(st, c, d.k, n); U.toast(r.ok ? 'Verkauft: ' + money(r.revenue) + ' (' + (r.profit >= 0 ? '+' : '') + money(r.profit) + ')' : r.why); U.render(); }
+  };
 })(RFM);

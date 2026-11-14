@@ -42,9 +42,9 @@ var RFM = (typeof RFM !== 'undefined') ? RFM : {};
   R.avg = function (arr, fn) { return arr.length ? R.sum(arr, fn) / arr.length : 0; };
 
   R.fmtMoney = function (v) {
-    var neg = v < 0; v = Math.abs(Math.round(v));
+    v = Math.round(+v || 0); var neg = v < 0; v = Math.abs(v);
     var s;
-    if (v >= 1e6) s = (v / 1e6).toFixed(v >= 1e7 ? 1 : 2).replace('.', ',') + ' Mio. €';
+    if (v >= 999500) s = (v / 1e6).toFixed(v >= 9995000 ? 1 : 2).replace('.', ',') + ' Mio. €';
     else if (v >= 1e4) s = Math.round(v / 1000).toLocaleString('de-DE') + ' Tsd. €';
     else s = v.toLocaleString('de-DE') + ' €';
     return (neg ? '−' : '') + s;

@@ -781,7 +781,7 @@
   }
   // Fall eröffnen (spec aus den Szenarien) und erste Karte zeigen
   S.openCase = function (st, club, spec) {
-    var cs = Object.assign({ stage: 0, pressure: 0, flow: 0, kind: 'defend', merit: 0.5, press: 0 }, spec);
+    var cs = Object.assign({ owner: club.id, stage: 0, pressure: 0, flow: 0, kind: 'defend', merit: 0.5, press: 0 }, spec);
     cs.payBase = cs.kind === 'defend' ? (cs.payCash != null ? -cs.payCash : cs.stake) : 0;
     st.legalCase = cs; S.caseCard(st, club, cs, cs.t); return cs;
   };
@@ -815,6 +815,7 @@
   // Aktion ausführen → Folgekarte oder Abschluss
   S.legalAct = function (st, club, o) {
     var cs = st.legalCase; if (!cs) return null;
+    if (cs.owner && cs.owner !== club.id) { st.legalCase = null; return 'Das Verfahren betraf Ihren früheren Verein.'; }
     var act = o.legalAct, opp = cs.opp || 'Die Gegenseite';
     if (act === 'give') {
       if (cs.kind === 'defend') pay(st, club, cs, -(cs.stage ? rnd(cs.stake * (1 + 0.1 * Math.max(0, cs.stage - 1))) : cs.payBase), cs.payBook);
@@ -912,6 +913,8 @@
   };
   S.maybeLegal = function (st, club) {
     if (!club || st.pendingEvent || st.manager.role === 'trainer') return;
+    if (st.legalCase && st.legalCase.owner && st.legalCase.owner !== club.id) st.legalCase = null; // Fälle bleiben beim Verein
+    st.legalQueue = (st.legalQueue || []).filter(function (x) { return !x.owner || x.owner === club.id; });
     if (st.legalCase) { S.caseCard(st, club, st.legalCase, 'Das Verfahren „' + st.legalCase.title + '“ läuft weiter.'); return; }
     if (club.legalRep) club.legalRep = Math.max(0, club.legalRep - 0.05); // Ruf verblasst langsam
     var f = lgF(club), prev = Math.min(0.6, S.legalPrev(club)), c = null;
@@ -924,6 +927,7 @@
   S.resolveEvent = function (st, optIdx) {
     var pe = st.pendingEvent; if (!pe) return null;
     var ev = pe.custom || (pe.chaos ? D.chaosEvents : D.events)[pe.idx], o = ev.o[optIdx], club = S.userClub(st);
+    if (!o) { st.pendingEvent = null; return null; }
     if (o.wear && club && club.stadium) club.stadium.wear = R.clamp((club.stadium.wear || 0) + o.wear, 0, 100);
     st.pendingEvent = null;
     if (!club) return null;

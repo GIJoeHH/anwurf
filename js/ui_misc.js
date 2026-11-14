@@ -143,7 +143,7 @@
 
   // ---------- Managerkarriere ----------
   // Bankdirektor-Cheat entdeckt? (erst dann erscheinen Hinweise darauf)
-  U.cheatDiscovered = function (st) { return !!(st && (st.cheatUsed || st.cheatClicks > 0 || (st.achievements && st.achievements.bankdirector))); };
+  U.cheatDiscovered = function (st) { return !!(st && (st.cheatUsed || st.cheatClicks > 0 || (st.achievements && (st.achievements.bankdirector || st.achievements.kartenhai)))); };
   U.screens.karriere = function () {
     var st = U.st, mg = st.manager, c = U.club();
     var h = '<h1 class="row" style="gap:10px">' + (c ? U.crest(c, 34) : '') + 'Managerkarriere</h1>';
@@ -162,7 +162,7 @@
     // Achievements
     var ach = st.achievements, cheatKnown = U.cheatDiscovered(st);
     // Das Cheat-Achievement bleibt verborgen, bis der Bankdirektor entdeckt wurde
-    var achKeys = Object.keys(D.achievements).filter(function (k) { return k !== 'bankdirector' || cheatKnown; });
+    var achKeys = Object.keys(D.achievements).filter(function (k) { return (k !== 'bankdirector' || cheatKnown) && (k !== 'kartenhai' || !!ach.kartenhai); });
     h += '<div class="panel" style="margin-top:14px"><h2>Achievements (' + achKeys.filter(function (k) { return ach[k]; }).length + '/' + achKeys.length + ')</h2><div class="grid g3">' + achKeys.map(function (k) {
       var a = ach[k];
       return '<div class="kpi" style="opacity:' + (a ? 1 : 0.45) + '"><div class="l">' + (a ? '🏆' : '🔒') + ' ' + esc(D.achievements[k][0]) + (a && a.cheat ? ' <span class="cheat-tag">Cheat</span>' : '') + '</div><div class="small muted" style="margin-top:4px">' + esc(D.achievements[k][1]) + (a ? ' · ' + a.season : '') + '</div></div>';
@@ -547,7 +547,7 @@
       '<tr><td>Original-Vereinslogos anzeigen <span class="muted small">(werden aus dem Netz geladen)</span></td><td><input type="checkbox" data-chg="setOptInv" data-k="noLogos"' + (s.noLogos ? '' : ' checked') + '></td></tr>' +
       (function () { var L = U.storedLogos(); return '<tr><td>Original-Logos für die Web-App<div class="muted small">Datei <b>daten/ANWURF_Logos.json</b> aus dem iCloud-Ordner Handball-Manager-Anwurf einmal importieren. Sie bleibt nur in diesem Browser – nur für die private Nutzung.</div></td><td>' +
         (L ? '<span class="pos small">' + Object.keys(L.logos).length + ' Logos importiert</span><div class="row" style="margin-top:6px"><button class="sm" data-act="importLogos">Neu importieren</button><button class="sm ghost" data-act="removeLogos">Entfernen</button></div>' : '<button class="sm primary" data-act="importLogos">Original-Logos importieren</button>') + '</td></tr>'; })() +
-      (U.cheatDiscovered(st) ? '<tr><td>Bankdirektor-Cheat aktiv</td><td><input type="checkbox" data-chg="setOpt" data-k="cheatEnabled"' + (s.cheatEnabled ? ' checked' : '') + '></td></tr>' : '') +
+      (U.cheatDiscovered(st) ? '<tr><td>Cheats aktiv (Bankdirektor' + (st.achievements && st.achievements.kartenhai ? ', Kartenhai' : '') + ')</td><td><input type="checkbox" data-chg="setOpt" data-k="cheatEnabled"' + (s.cheatEnabled ? ' checked' : '') + '></td></tr>' : '') +
       '<tr><td>Schwierigkeitsgrad</td><td>' + W.diffSettings[s.difficulty].name + '</td></tr>' + (U.cheatDiscovered(st) ? '<tr><td>Spielstand mit Cheat</td><td>' + (st.cheatUsed ? '<span class="cheat-tag">JA</span> (' + money(st.cheatTotal || 0) + ')' : 'nein') + '</td></tr>' : '') + '</table></div>' +
       '<div class="panel"><h2>Speichern & Synchronisieren</h2><p class="small" id="storeInfo2"></p><div class="grid"><button data-act="saveQuick">Manuell speichern …</button><button data-act="exportSave">Spielstand exportieren</button><button data-act="importSave">Spielstand importieren</button></div><p class="muted small">Tipp: In der Mac-App liegen alle Spielstände im iCloud-Ordner „Spielstände“ – so können Sie abwechselnd auf MacBook und iMac spielen. Bitte das Spiel nicht gleichzeitig auf beiden Geräten geöffnet haben.</p></div></div>' +
       '<div class="panel" style="margin-top:14px"><h2>Kurzanleitung</h2><p class="small">1. <b>NÄCHSTER SPIELTAG</b> spielt die nächste Runde. 2. <b>Mannschaft</b>: Aufstellung per Klick oder Ziehen. 3. <b>Transfermarkt</b>: Filtern, Spieler anklicken, Angebot abgeben. 4. <b>Halle / Vereinsstadt</b>: Ausbauen mit Wirtschaftlichkeitsrechnung. 5. <b>Bank</b>: Kredite, Tagesgeld, Aktien &amp; Krypto. ⏩ <b>Auto</b> spielt mehrere Spieltage am Stück. Leertaste pausiert das Live-Spiel.</p></div>';

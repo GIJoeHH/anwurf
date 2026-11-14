@@ -83,18 +83,22 @@
   };
   U.acts.confirmYes = function () { var f = U._confirmYes; U.closeModal(); if (f) f(); };
 
-  // Ereignisdelegation
+  // Ereignisdelegation – Fehler in einer Aktion werden angezeigt, statt still zu verpuffen (und ein gesperrtes Fenster wird freigegeben)
+  U.runAct = function (fn, el, e) {
+    try { fn(el.dataset, el, e); }
+    catch (err) { if (typeof console !== 'undefined') console.error(err); U.modalLock = false; U.toast('Fehler: ' + ((err && err.message) || err), 6000); }
+  };
   document.addEventListener('click', function (e) {
     var el = e.target.closest('[data-act]');
     if (!el) return;
     var fn = U.acts[el.dataset.act];
-    if (fn) { e.preventDefault(); fn(el.dataset, el, e); }
+    if (fn) { e.preventDefault(); U.runAct(fn, el, e); }
   });
   document.addEventListener('change', function (e) {
     var el = e.target.closest('[data-chg]');
     if (!el) return;
     var fn = U.acts[el.dataset.chg];
-    if (fn) fn(el.dataset, el, e);
+    if (fn) U.runAct(fn, el, e);
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !document.getElementById('modal').classList.contains('hidden')) U.acts.closeModal();
@@ -103,7 +107,7 @@
   });
   document.addEventListener('input', function (e) {
     var el = e.target.closest('[data-inp]');
-    if (el && U.acts[el.dataset.inp]) U.acts[el.dataset.inp](el.dataset, el, e);
+    if (el && U.acts[el.dataset.inp]) U.runAct(U.acts[el.dataset.inp], el, e);
   });
 
   // ---------- Grafische Helfer ----------

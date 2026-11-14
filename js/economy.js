@@ -73,7 +73,15 @@
 
   // Referenzpreise je Liga: Steh/Sitz/Business pro Spiel, Loge = Saisonmiete je Loge (Privatraum in der Halle für 12 Gäste mit eigenem Catering)
   E.refPrices = { 1: { steh: 13, sitz: 26, biz: 50, loge: 30000, vip: 140 }, 2: { steh: 10, sitz: 17, biz: 27, loge: 15000, vip: 75 }, 3: { steh: 7, sitz: 11, biz: 13, loge: 7000, vip: 35 } };
-  function priceFactor(price, ref) { var r = Math.max(0.1, price / ref); return R.clamp(Math.pow(r, -1.35), 0.05, 1.8); }
+  function priceFactor(price, ref, floor) { var r = Math.max(0.1, price / ref); return R.clamp(Math.pow(r, -1.35), floor || 0, 1.8); }
+  // Geheimer Cheat „Kartenhai“: Bei aktivierten Cheats kaufen beim eigenen Verein immer noch 5 % der Nachfrage – egal, wie absurd der Preis ist.
+  // Wird das an einem echten Spieltag genutzt, ist der Spielstand als „mit Cheat“ markiert (wie beim Bankdirektor).
+  E.SHARK_FLOOR = 0.05;
+  E.markShark = function (st, club, inc) {
+    var first = !st.sharkGames; st.sharkGames = (st.sharkGames || 0) + 1; st.cheatUsed = true;
+    if (R.season && R.season.achieve) R.season.achieve(st, 'kartenhai');
+    if (first && R.season && R.season.news) R.season.news(st, 'Kartenhai! ' + club.short + ' verkauft Tickets zu Mondpreisen', 'Trotz astronomischer Eintrittspreise kommen immer noch Zuschauer – ' + R.fmtMoney(inc) + ' Eintritt an einem Spieltag. Dieser Spielstand ist jetzt als „mit Cheat“ markiert. Abschalten lässt sich der Cheat in den Einstellungen.', 'finanz');
+  };
   E.priceFactor = priceFactor;
   E.LOGE_SEATS = 12; // Plätze je Loge
   E.HOME_GAMES = 17; // Liga-Heimspiele je Saison
@@ -180,6 +188,8 @@
   // Zuschauerberechnung für ein Heimspiel
   E.attendance = function (st, home, away, comp, opts) {
     opts = opts || {}; E.ensureTix(home);
+    var shark = false, sharkF = home.userControlled && st.settings && st.settings.cheatEnabled ? E.SHARK_FLOOR : 0;
+    function pfx(p, r) { if (sharkF && priceFactor(p, r) < sharkF) shark = true; return priceFactor(p, r, sharkF); }
     var leagueF = { 1: 1.0, 2: 0.82, 3: 0.66 }[home.league];
     var sport = E.sportFactor(st, home);
     var mu = E.matchup(st, home, away), nOpp = (st.leagues[home.league] && st.leagues[home.league].clubIds.length) || 18;
@@ -208,7 +218,7 @@
       blocks = Math.min(blocks, parts[gk] || 0);
       var quota = Math.round((parts.steh + parts.sitz) * E.GUEST_QUOTA); // Pflichtkontingent 10 % für den Gastverein
       gCap = Math.min(blocks, quota);
-      guests = Math.round(Math.min(gCap, gDemand * priceFactor(prices[gk], ref[gk])));
+      guests = Math.round(Math.min(gCap, gDemand * pfx(prices[gk], ref[gk])));
       // Nicht benötigte Gästetickets dürfen eigene Fans kaufen – außer im Derby (Sicherheitsrisiko, Pufferzone bleibt leer)
       guestFree = Math.max(0, gCap - guests); guestFreeOk = mu.derby <= 0 && comp !== 'friendly';
       guestQuota = quota; guestBlocks = blocks;
@@ -222,7 +232,7 @@
     var dayTk = { steh: 0, sitz: 0 };
     ['steh', 'sitz'].forEach(function (k) {
       var share = parts[k] / capNorm;
-      var d = demand * share * priceFactor(prices[k], ref[k]) * (k === 'sitz' ? 0.95 : 1.05);
+      var d = demand * share * pfx(prices[k], ref[k]) * (k === 'sitz' ? 0.95 : 1.05);
       dem[k] = d;
       var hold = Math.min(parts[k], sh[k] || 0);
       res[k] = Math.round(Math.min(parts[k], hold + Math.max(0, d - hold * E.ST_OVERLAP)));
@@ -232,7 +242,7 @@
     });
     // Business-Seats (Tribünenplatz mit Essen im Stadioninneren, Preis je Spiel) und Logen (Privaträume, Saisonmiete)
     var bizCap = parts.biz || 0, logeCap = parts.vip - bizCap;
-    var bizD = bizCap * (0.35 + home.reputation / 180) * sport * priceFactor(prices.biz, ref.biz) * (comp === 'final' ? 1.5 : 1) * (comp === 'friendly' ? 0.3 : 1);
+    var bizD = bizCap * (0.35 + home.reputation / 180) * sport * pfx(prices.biz, ref.biz) * (comp === 'final' ? 1.5 : 1) * (comp === 'friendly' ? 0.3 : 1);
     var logenN = sh.logen != null ? sh.logen : E.logeRented(st, home, prices.loge);
     var resLoge = Math.round(Math.min(logeCap, logenN * E.LOGE_SEATS * (comp === 'friendly' ? 0.4 : 0.92))), resBiz = Math.round(Math.min(bizCap, bizD));
     dem.biz = bizD; dem.loge = logenN;
@@ -251,11 +261,12 @@
     var transitShare = Math.min(0.75, lv(home, 'oepnv').fans / Math.max(1, total));
     var carsUsed = Math.min(lv(home, 'parken').cars, total * (1 - transitShare) / 2.6);
     // Eintritt je Spiel: nur Tageskarten und Business (Dauerkarten und Logen werden vor der Saison bezahlt)
-    var ticket = (dayTk.steh * prices.steh + dayTk.sitz * prices.sitz) * (home.ticketPromo > 0 ? 0.9 : 1) + resBiz * prices.biz + guests * prices[gType];
-    if (home.freeTickets) { var ft = Math.min(home.freeTickets, dayTk.steh + dayTk.sitz); ticket -= ft * prices.steh; }
+    var promoF = home.ticketPromo > 0 ? 0.9 : 1;
+    var ticket = (dayTk.steh * prices.steh + dayTk.sitz * prices.sitz) * promoF + resBiz * prices.biz + guests * prices[gType];
+    if (home.freeTickets) { var ft = Math.min(home.freeTickets, dayTk.steh + dayTk.sitz); ticket -= ft * prices.steh * promoF; }
     var cater = total * (3 + (lv(home, 'hosp').att || 0) * 0.5) + resLoge * 40 + resBiz * 15;
     var parking = carsUsed * (lv(home, 'parken').fee || 0);
-    return { matchup: mu, oppPos: oppPos, guestQuota: guestQuota, guestBlocks: guestBlocks, guestType: gType, homeInGuest: homeInGuest, guestFreeOk: guestFreeOk, guestEmpty: Math.max(0, gCap - guests - homeInGuest),
+    return { matchup: mu, shark: shark && dayTk.steh + dayTk.sitz + resBiz + guests > 0, oppPos: oppPos, guestQuota: guestQuota, guestBlocks: guestBlocks, guestType: gType, homeInGuest: homeInGuest, guestFreeOk: guestFreeOk, guestEmpty: Math.max(0, gCap - guests - homeInGuest),
       factors: { fans: home.fans, league: leagueF, sport: sport, opp: oppF, oppPos: oppPosF, derby: derby, friend: friendF, comp: compF, attr: attrF }, prices: { steh: prices.steh, sitz: prices.sitz, biz: prices.biz, loge: prices.loge }, dem: dem, capK: capK, holders: sh, dayTk: dayTk, resBiz: resBiz, resLoge: resLoge, bizCap: bizCap, logeCap: logeCap, logeBoxes: E.logeBoxes(home),
       total: total, parts: res, guests: guests, guestDemand: Math.round(gDemand), guestCap: gCap, capacity: E.capacity(home), ticket: ticket, cater: cater, parking: parking, congestion: congestion, demand: Math.round(demand), satisfaction: R.clamp(Math.round(100 - congestion * 120 - Math.max(0, (prices.steh / ref.steh - 1) * 40)), 0, 100) };
   };
@@ -321,7 +332,7 @@
     var cur = club.staff[k];
     if (cur && cur.lvl > 0 && lvl !== cur.lvl) { var comp = Math.round(cur.wage * 0.25); club.cash -= comp; E.book(club, 'Abfindungen', -comp); }
     // Entlassung: Kündigungsschutzklage möglich (seltener mit gutem Hausanwalt)
-    if (cur && cur.lvl > 0 && !lvl && club.userControlled && R.season && R.season.legalQueue && (R.season.forceLegalQueue || R.chance(0.35 * (1 - E.LAWYERS[E.lawyerLvl(club)].prev)))) R.season.legalQueue(st, { type: 'kuendigung', name: cur.name, role: D.staff[k].n, amount: Math.round(cur.wage * R.randRange(0.5, 1)) });
+    if (cur && cur.lvl > 0 && !lvl && club.userControlled && R.season && R.season.legalQueue && (R.season.forceLegalQueue || R.chance(0.35 * (1 - Math.min(0.6, R.season.legalPrev(club)))))) R.season.legalQueue(st, { type: 'kuendigung', owner: club.id, name: cur.name, role: D.staff[k].n, amount: Math.round(cur.wage * R.randRange(0.5, 1)) });
     if (!lvl) { delete club.staff[k]; return { ok: true }; }
     club.staff[k] = { lvl: lvl, wage: E.staffWageFor(club, lvl), name: R.pick(D.firstNames) + ' ' + R.pick(D.lastNames) };
     return { ok: true, s: club.staff[k] };
@@ -449,8 +460,8 @@
     return R.clamp(0.035 + Math.max(0, ratio) * 0.06 + (club.cash < 0 ? 0.03 : 0), 0.035, 0.16);
   };
   E.takeLoan = function (st, club, amount) {
-    amount = Math.round(amount);
-    if (amount <= 0) return { ok: false, why: 'Ungültiger Betrag' };
+    amount = Math.round(+amount);
+    if (!(amount > 0)) return { ok: false, why: 'Ungültiger Betrag' };
     if (amount > E.creditLimit(st, club)) return { ok: false, why: 'Kreditrahmen überschritten' };
     var rate = E.loanRate(st, club);
     club.loans.push({ amount: amount, rate: rate, since: st.season });
@@ -460,7 +471,7 @@
   };
   E.repayLoan = function (st, club, amount) {
     amount = Math.min(Math.round(amount), E.debt(club), Math.max(0, club.cash));
-    if (amount <= 0) return { ok: false, why: 'Kein Betrag tilgbar' };
+    if (!(amount > 0)) return { ok: false, why: 'Kein Betrag tilgbar' };
     var left = amount;
     club.loans.sort(function (a, b) { return b.rate - a.rate; });
     club.loans.forEach(function (l) { var x = Math.min(l.amount, left); l.amount -= x; left -= x; });
@@ -469,8 +480,8 @@
     E.book(club, 'Tilgung', -amount);
     return { ok: true, amount: amount };
   };
-  E.deposit = function (club, amount) { amount = Math.min(Math.round(amount), Math.max(0, club.cash)); if (amount <= 0) return false; club.cash -= amount; club.savings += amount; return true; };
-  E.withdraw = function (club, amount) { amount = Math.min(Math.round(amount), club.savings); if (amount <= 0) return false; club.savings -= amount; club.cash += amount; return true; };
+  E.deposit = function (club, amount) { amount = Math.min(Math.round(amount), Math.max(0, club.cash)); if (!(amount > 0)) return false; club.cash -= amount; club.savings += amount; return true; };
+  E.withdraw = function (club, amount) { amount = Math.min(Math.round(amount), club.savings); if (!(amount > 0)) return false; club.savings -= amount; club.cash += amount; return true; };
 
   // Märkte
   E.marketDef = function (sym) { return D.stocks.concat(D.cryptos).filter(function (s) { return s.id === sym; })[0]; };
@@ -600,7 +611,7 @@
   E.buyAsset = function (st, club, sym, qty) {
     E.ensureMarkets(st);
     qty = Math.floor(qty); var price = E.price(st, sym), def = E.marketDef(sym);
-    if (qty <= 0 || !price) return { ok: false, why: 'Ungültige Menge' };
+    if (!(qty > 0) || !price) return { ok: false, why: 'Ungültige Menge' };
     if (def && def.club) {
       var bv = E.bvbClub(st); if (!bv) return { ok: false, why: 'Diese Aktie wird in dieser Spielwelt nicht gehandelt' };
       if (bv.id === club.id) return { ok: false, why: 'Eigene Vereinsaktien können Sie nicht kaufen' };
@@ -646,7 +657,7 @@
   };
   E.sellAsset = function (st, club, sym, qty) {
     var pf = club.portfolio[sym]; qty = Math.floor(Math.min(qty, pf ? pf.qty : 0));
-    if (qty <= 0) return { ok: false, why: 'Keine Anteile' };
+    if (!(qty > 0)) return { ok: false, why: 'Keine Anteile' };
     var sd = E.marketDef(sym), impact = sd && sd.club ? Math.min(0.5, qty / sd.shares * 0.9) : 0;
     var price = E.price(st, sym), revenue = qty * price * (1 - impact / 2) * 0.995;
     if (impact) st.market.stocks[sym].price *= 1 - impact;
@@ -791,6 +802,7 @@
 
   E.matchdayIncome = function (st, club, att) {
     var inc = Math.round(att.ticket), cat = Math.round(att.cater), park = Math.round(att.parking);
+    if (att.shark && club.userControlled) E.markShark(st, club, inc);
     club.cash += inc + cat + park;
     E.book(club, 'Eintrittsgelder', inc); E.book(club, 'Hallengastronomie', cat); E.book(club, 'Parkgebühren', park);
     return inc + cat + park;

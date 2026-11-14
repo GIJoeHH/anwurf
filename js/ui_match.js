@@ -64,14 +64,14 @@
     }
     left += '</div>';
     // Mitte: Begegnung mit Vorschau / Direktvergleich / Statistiken / Berichte
-    var rH = clubRow(st, H), rA = clubRow(st, A), est = fx.neutral ? null : E.attendance(st, H, A, fx.comp);
+    var rH = clubRow(st, H), rA = clubRow(st, A), est = fx.neutral || H.foreign ? null : E.attendance(st, H, A, fx.comp);
     var ref = R.pick ? null : null, rs = hashStr(fx.key || (H.id + A.id + st.week)), refName = D.firstNames[rs % D.firstNames.length] + ' ' + D.lastNames[(rs >>> 5) % D.lastNames.length];
-    var mid = '<div class="panel md-mid"><div class="md-title">' + esc(title).toUpperCase() + (H.rivals.indexOf(A.id) >= 0 ? ' <span class="pill warn">Derby</span>' : '') + '</div>' +
+    var mid = '<div class="panel md-mid">' + U.compBanner(st, fx, true) + (H.rivals.indexOf(A.id) >= 0 ? '<div class="md-title"><span class="pill warn">Derby</span></div>' : '') +
       '<div class="md-teams"><div>' + U.crest(H, 52) + '<b>' + esc(H.name) + '</b></div><span>–</span><div>' + U.crest(A, 52) + '<b>' + esc(A.name) + '</b></div></div>' +
       '<div class="seg seg-tabs">' + [['vorschau', 'Vorschau'], ['h2h', 'Direktvergleich'], ['stats', 'Statistiken'], ['berichte', 'Berichte']].map(function (x) { return '<button class="sm ' + (vtab === x[0] ? 'on' : '') + '" data-act="mdVTab" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
     if (vtab === 'vorschau') {
-      mid += '<div class="md-facts"><div>' + U.lc('stadium', 18) + '<span><b>' + esc(fx.neutral ? 'Barclays Arena Hamburg' : H.stadiumName) + '</b><small>' + (est ? R.fmtNum(est.capacity) + ' Plätze · erwartet ' + R.fmtNum(est.total) : 'Final Four') + '</small></span></div><div>' + U.lc('calendar-days', 18) + '<span><b>' + (fx.comp === 'league' ? (st.week + 1) + '. Spieltag' : esc(S.fxLabel(st, fx))) + '</b><small>19:30 Uhr</small></span></div><div>' + U.lc('flag', 18) + '<span><b>SR: ' + esc(refName) + '</b><small>Schiedsrichtergespann</small></span></div></div>' +
-        '<table class="t md-cmp"><thead><tr><th>' + U.crest(H, 18) + ' ' + esc(H.short) + '</th><th></th><th style="text-align:right">' + esc(A.short) + ' ' + U.crest(A, 18) + '</th></tr></thead>' +
+      mid += '<div class="md-facts"><div>' + U.lc('stadium', 18) + '<span><b>' + esc(fx.neutral ? (fx.venue ? fx.venue.name + ', ' + fx.venue.city : 'Neutrale Halle') : H.foreign ? H.city + ' (' + H.countryName + ')' : H.stadiumName) + '</b><small>' + (est ? R.fmtNum(est.capacity) + ' Plätze · erwartet ' + R.fmtNum(est.total) : fx.neutral ? 'Final 4' + (fx.venue ? ' · ' + R.fmtNum(fx.venue.cap) + ' Plätze' : '') : 'Auswärtsspiel') + '</small></span></div><div>' + U.lc('calendar-days', 18) + '<span><b>' + (fx.comp === 'league' ? (st.week + 1) + '. Spieltag' : esc(S.fxLabel(st, fx))) + '</b><small>19:30 Uhr</small></span></div><div>' + U.lc('flag', 18) + '<span><b>SR: ' + esc(refName) + '</b><small>Schiedsrichtergespann</small></span></div></div>' +
+        (fx.comp === 'euro' ? U.euroPreview(st, fx) : '') + '<table class="t md-cmp"><thead><tr><th>' + U.crest(H, 18) + ' ' + esc(H.short) + '</th><th></th><th style="text-align:right">' + esc(A.short) + ' ' + U.crest(A, 18) + '</th></tr></thead>' +
         [['Tore', rH.gf, rA.gf], ['Gegentore', rH.ga, rA.ga], ['Tordifferenz', (rH.diff > 0 ? '+' : '') + rH.diff, (rA.diff > 0 ? '+' : '') + rA.diff], ['Tabellenplatz', rH.pos, rA.pos]].map(function (r) { return '<tr><td><b>' + r[1] + '</b></td><td class="muted" style="text-align:center">' + r[0] + '</td><td style="text-align:right"><b>' + r[2] + '</b></td></tr>'; }).join('') +
         '<tr><td>' + formLetters(rH.form) + '</td><td class="muted" style="text-align:center">Form</td><td style="text-align:right">' + formLetters(rA.form) + '</td></tr></table>';
     } else if (vtab === 'h2h') {
@@ -122,7 +122,7 @@
     m.userLive = true;
     var side = m.userSide;
     if (side >= 0 && U.can('sport')) { var sp = D.speeches.filter(function (s) { return s.id === U.speech; })[0]; if (sp) M.applySpeech(m, side, sp, false); }
-    L.att = fx.neutral ? null : E.attendance(st, st.clubs[m.clubs[0]], st.clubs[m.clubs[1]], fx.comp === 'friendly' ? 'friendly' : fx.comp);
+    L.att = fx.neutral || st.clubs[m.clubs[0]].foreign ? null : E.attendance(st, st.clubs[m.clubs[0]], st.clubs[m.clubs[1]], fx.comp === 'friendly' ? 'friendly' : fx.comp);
     L.m = m; L.paused = false; L.halftimeDone = false; L.lastEv = m.events.length; L.shown = 0; L.anim = U.initAnim(m); L.flash = null;
     U.liveActive = true;
     U.go('match');
@@ -209,9 +209,9 @@
     var L = U.live; if (!L) return U.screens.spieltag();
     var st = U.st, m = L.m, H = st.clubs[m.clubs[0]], A = st.clubs[m.clubs[1]], K = L.kits = U.matchKits(H, A), fx = L.queue[L.idx] || {};
     var coach = m.userSide >= 0 && U.can('sport');
-    var title = fx.comp === 'league' ? (st.week + 1) + '. SPIELTAG' : fx.comp === 'cup' ? 'DHB-POKAL' : fx.comp === 'releg' ? 'AUFSTIEGSRUNDE' : fx.comp === 'friendly' ? 'TESTSPIEL' : 'LIVE';
-    var h = '<div class="page-h"><div><h1>Matchcenter</h1><div class="page-sub">' + esc(m.neutral ? 'Final Four · Hamburg' : H.stadiumName) + ' · ' + esc(D.leagueNames[W.lk(H)] || '') + '</div></div></div>';
-    h += '<div class="mc-head"><div class="mc-team">' + U.crest(H, 64) + '<div><b>' + esc(H.name) + '</b><span>HEIM · ' + esc(m.neutral ? 'Hamburg' : H.stadiumName) + '</span></div></div>' +
+    var title = fx.comp === 'league' ? (st.week + 1) + '. SPIELTAG' : fx.comp === 'cup' || fx.comp === 'final' ? S.fxLabel(st, fx).toUpperCase() : fx.comp === 'euro' ? S.fxLabel(st, fx).toUpperCase() : fx.comp === 'releg' ? 'AUFSTIEGSRUNDE' : fx.comp === 'friendly' ? 'TESTSPIEL' : 'LIVE';
+    var h = '<div class="page-h"><div><h1>Matchcenter</h1><div class="page-sub">' + esc(m.neutral ? 'Final 4' + (fx.venue ? ' · ' + fx.venue.name + ', ' + fx.venue.city : '') : H.stadiumName) + ' · ' + esc(D.leagueNames[W.lk(H)] || '') + '</div></div></div>';
+    h += '<div class="mc-head"><div class="mc-team">' + U.crest(H, 64) + '<div><b>' + esc(H.name) + '</b><span>HEIM · ' + esc(m.neutral ? (fx.venue ? fx.venue.city : 'Neutrale Halle') : H.stadiumName) + '</span></div></div>' +
       '<div class="mc-score"><span class="mc-live">LIVE · ' + esc(title) + '</span><b><span id="sbH">0</span> : <span id="sbA">0</span></b><span id="sbMin">0\'</span>' + U.attLine(L.att, H, A, 'mc-att') + '</div>' +
       '<div class="mc-team away"><div><b>' + esc(A.name) + '</b><span>GAST' + (K[1].alt ? ' · Ausweichtrikot' : '') + '</span></div>' + U.crest(A, 64) + '</div></div>';
     h += '<div class="mc-main"><div class="mc-stage"><canvas id="pitchCv" class="mc-canvas" width="1200" height="660"></canvas><div id="flashBox"></div>' +

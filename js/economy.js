@@ -198,7 +198,7 @@
     var oppPosF = 1 + 0.14 * (1 - R.clamp((oppPos - 1) / (nOpp - 1), 0, 1.4)) - 0.05; // Tabellenplatz des Gegners
     var oppF = (0.88 + (away ? away.reputation : 50) / 100 * 0.3) * oppPosF;
     var derby = 1 + 0.5 * mu.derby, friendF = mu.friend ? 1.18 : 1;
-    var compF = comp === 'cup' ? 1.05 : comp === 'releg' ? 1.4 : comp === 'final' ? 2 : comp === 'friendly' ? 0.22 : 1;
+    var compF = comp === 'cup' ? 1.05 : comp === 'euro' ? 1.3 : comp === 'releg' ? 1.4 : comp === 'final' ? 2 : comp === 'friendly' ? 0.22 : 1;
     var attr = E.attractiveness(home);
     var attrF = 0.7 + 0.5 * (1 - Math.exp(-attr / 35));
     var fanCare = [0.97, 1, 1.04][home.budgets.fans];
@@ -212,7 +212,7 @@
     var gDemand = 0, gCap = 0, gType = 'steh', guests = 0, guestFree = 0, guestFreeOk = false, guestQuota = 0, guestBlocks = 0, homeInGuest = 0;
     if (away && comp !== 'final') {
       var lgF = { 1: 0.05, 2: 0.034, 3: 0.022 }[home.league] || 0.02;
-      gDemand = away.fans * lgF * (0.55 + away.reputation / 110) * (1 + 1.2 * mu.derby) * (mu.friend ? 1.6 : 1) * (1.15 - Math.min(0.45, mu.km / 1600)) * (comp === 'cup' ? 1.25 : comp === 'releg' ? 1.6 : comp === 'friendly' ? 0.15 : 1) * (0.85 + E.sportFactor(st, away) * 0.15);
+      gDemand = away.fans * lgF * (0.55 + away.reputation / 110) * (1 + 1.2 * mu.derby) * (mu.friend ? 1.6 : 1) * (1.15 - Math.min(0.45, mu.km / 1600)) * (comp === 'cup' || comp === 'euro' ? 1.25 : comp === 'releg' ? 1.6 : comp === 'friendly' ? 0.15 : 1) * (0.85 + E.sportFactor(st, away) * 0.15);
       var blocks = E.guestCap(home); if (home.blockedArea) blocks = Math.round(blocks * 0.8);
       gType = plan(home) ? R.stadium.guestType(home) : ((parts.steh || 0) > 0 ? 'steh' : 'sitz');
       var gk = gType === 'sitz' || gType === 'steh' ? gType : 'sitz';

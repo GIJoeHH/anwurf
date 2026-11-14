@@ -53,6 +53,7 @@
     if (U.st) U.applyLogos(U.st);
     if (R.logos && U.st && !U._logoAuto) { U._logoAuto = true; setTimeout(function () { R.logos.autoLoad(U.st, function () { if (U.screen === 'verein') U.render(); }); }, 4000); }
     var app = document.getElementById('app');
+    if (R.euro && R.euro.ensure && U.st) R.euro.ensure(U.st); // Europapokalgegner einhängen (stehen nicht im Spielstand)
     var inGame = !!U.st && ['start', 'wizard', 'load'].indexOf(U.screen) < 0;
     app.classList.toggle('nogame', !inGame);
     if (inGame) { U.renderTop(); U.renderNav(); }
@@ -199,7 +200,7 @@
       chip('wallet', 'Kontostand', money(c.cash), c.cash < 0 ? 'neg' : '') +
       chip('users', 'Fanbasis', R.fmtNum(c.fans || 0), '', true) +
       chip('gauge', 'Stärke · Moral', strength + ' · ' + mood, '', true) +
-      chip('shield', 'Nächster Gegner', opp ? esc(opp.short) + (nxt.comp !== 'league' ? ' (' + (nxt.comp === 'releg' ? 'AR' : nxt.comp === 'friendly' ? 'Test' : 'Pokal') + ')' : '') + (nxt.h === c.id ? ' · H' : ' · A') : '—', '', true) +
+      chip('shield', 'Nächster Gegner', opp ? esc(opp.short) + (nxt.comp !== 'league' ? ' (' + (nxt.comp === 'releg' ? 'AR' : nxt.comp === 'friendly' ? 'Test' : nxt.comp === 'euro' ? R.euro.shortLabel(nxt) : 'Pokal') + ')' : '') + (nxt.h === c.id ? ' · H' : ' · A') : '—', '', true) +
       '<div class="tb-spacer"></div>' +
       (U.autoRun ? '<button class="sm danger" data-act="autoStop">' + U.lc('square', 14) + 'Automatik stoppen</button>' : '<button class="sm ghost" data-act="autoStart" title="Spieltage automatisch mit Sofortergebnis durchspielen, bis etwas Wichtiges passiert">' + U.lc('fast-forward', 15) + 'Auto</button>') +
       nextBtn(nextSub);
@@ -208,7 +209,7 @@
     var st = U.st, offers = st.inbox.filter(function (o) { return o.type === 'offer'; }).length, sp = st.inbox.filter(function (o) { return o.type === 'sponsor'; }).length;
     var items = [['zentrale', 'layout-dashboard', 'Zentrale', offers + sp, 'Sport'], ['mannschaft', 'shirt', 'Mannschaft'], ['transfer', 'arrow-left-right', 'Transfermarkt'], ['training', 'dumbbell', 'Training'], ['nachwuchs', 'graduation-cap', 'Nachwuchs'], ['medizin', 'stethoscope', 'Medizin'],
       ['verein', 'briefcase', 'Vereinsmanagement', sp, 'Verein'], ['stadion', 'stadium', 'Halle'], ['stadt', 'building-2', 'Vereinsstadt'], ['bank', 'landmark', 'Bank & Finanzen'],
-      ['spieltag', 'calendar-days', 'Spieltag', 0, 'Wettbewerb'], ['liga', 'chart-column', 'Liga & Statistiken'], ['geschichte', 'trophy', 'Vereinsgeschichte'], ['karriere', 'user-round', 'Managerkarriere', st.manager.unemployed ? st.manager.offers.length : 0], ['editor', 'pencil', 'Editor', 0, 'System'], ['einstellungen', 'settings', 'Einstellungen']];
+      ['spieltag', 'calendar-days', 'Spieltag', 0, 'Wettbewerb'], ['liga', 'chart-column', 'Liga & Statistiken'], ['europa', 'globe', 'Europapokal'], ['geschichte', 'trophy', 'Vereinsgeschichte'], ['karriere', 'user-round', 'Managerkarriere', st.manager.unemployed ? st.manager.offers.length : 0], ['editor', 'pencil', 'Editor', 0, 'System'], ['einstellungen', 'settings', 'Einstellungen']];
     if (st.manager.unemployed) items = items.filter(function (i) { return ['liga', 'karriere', 'editor', 'einstellungen'].indexOf(i[0]) >= 0; });
     return items;
   };

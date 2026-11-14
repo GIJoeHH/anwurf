@@ -43,8 +43,8 @@
     h += '<div class="panel"><div class="panel-h"><h2>' + U.lc('calendar-days', 17) + ' Nächstes Spiel</h2><button class="sm" data-act="nav" data-s="spieltag">Spieltagsvorbereitung</button></div>';
     if (nx.length) nx.forEach(function (fx) {
       var H = st.clubs[fx.h], A = st.clubs[fx.a];
-      function side(x) { return '<div class="mc-team">' + U.crest(x, 56) + '<b>' + esc(x.name) + '</b><span>' + (W.lk(x) === W.lk(c) && st.week ? E.leaguePos(st, x) + '. Platz' : D.leagueNames[W.lk(x)]) + '</span>' + U.formDots(x.form) + '</div>'; }
-      h += '<div class="matchcard">' + side(H) + '<div class="mc-vs"><span>' + esc(S.fxLabel(st, fx)) + '</span><b>vs</b>' + (H.rivals.indexOf(A.id) >= 0 ? '<span class="pill warn">Derby</span>' : '') + '</div>' + side(A) + '</div>';
+      function side(x) { return '<div class="mc-team">' + U.crest(x, 56) + '<b>' + esc(x.name) + '</b><span>' + (x.foreign ? esc(x.countryName) : W.lk(x) === W.lk(c) && st.week ? E.leaguePos(st, x) + '. Platz' : D.leagueNames[W.lk(x)]) + '</span>' + U.formDots(x.form) + '</div>'; }
+      h += U.compBanner(st, fx, true) + '<div class="matchcard">' + side(H) + '<div class="mc-vs"><span>' + esc(S.fxLabel(st, fx)) + '</span><b>vs</b>' + (H.rivals.indexOf(A.id) >= 0 ? '<span class="pill warn">Derby</span>' : '') + '</div>' + side(A) + '</div>';
     });
     else h += U.empty('calendar', st.phase === 'seasonEnd' ? 'Die Saison ist beendet.' : S.isBreak(st) ? S.calText(st) + ': diese Woche kein Pflichtspiel. Das nächste Spiel wird nach Abschluss der Vorbereitung angesetzt.' + (U.can('business') ? ' <a href="#" data-act="nav" data-s="training">Testspiel oder Trainingslager planen</a>' : '') : 'Diese Woche kein Spiel für Ihren Verein.');
     if (st.lastResults) {
@@ -266,7 +266,7 @@
     h += '<div class="pp-kpis"><div><span>Stärke</span><b>' + U.ovrBadge(p.ovr) + '</b></div><div><span>Potenzial</span><b>' + U.potText(p) + '</b></div><div><span>Marktwert</span><b>' + money(p.value) + '</b></div><div><span>Gehalt</span><b>' + money(p.wage) + '<small>/J.</small></b></div><div><span>Vertrag</span><b>' + p.contract + ' J.</b></div><div><span>Form</span><b>' + p.form.toFixed(1) + '</b></div></div>';
     h += '<div class="sub-h">Attribute</div><div class="pp-attrs">' + D.attrKeys.map(function (k) { var v = Math.round(p.attr[k]); return (k === 'gk' && p.pos !== 'TW') ? '' : '<div><span>' + D.attrNames[k] + '</span><b>' + v + '</b>' + U.bar(v, 99, v >= 75 ? 'var(--ok)' : v >= 55 ? 'var(--act)' : 'var(--warn)') + '</div>'; }).join('') + '</div>';
     h += '<div class="sub-h">Zustand &amp; Statistik</div><table class="t small"><tr><td>Fitness / Moral</td><td class="num">' + Math.round(p.fitness) + ' / ' + Math.round(p.morale) + '</td></tr><tr><td>Saison: Spiele / Tore / Vorlagen</td><td class="num">' + p.stats.apps + ' / ' + p.stats.goals + ' / ' + p.stats.assists + '</td></tr><tr><td>Ø Note</td><td class="num">' + (p.stats.apps ? (p.stats.rsum / p.stats.apps).toFixed(2).replace('.', ',') : '–') + '</td></tr><tr><td>Karriere: Spiele / Tore</td><td class="num">' + p.career.apps + ' / ' + p.career.goals + '</td></tr></table>';
-    if (c && !own && p.clubId) {
+    if (c && !own && p.clubId && !p.foreignClub) {
       var mine = W.squad(st, c.id).filter(function (x) { return x.pos === p.pos; }).sort(function (a, b) { return b.ovr - a.ovr; })[0];
       if (mine) h += '<div class="help" style="margin-top:12px">Kadervergleich: Ihr bester ' + D.posNames[p.pos] + ' ist ' + esc(W.playerName(mine)) + ' (' + mine.ovr + ').</div>';
     }

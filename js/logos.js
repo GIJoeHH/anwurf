@@ -51,8 +51,8 @@
       var out = {}; qids.forEach(function (q) { var e = w.entities && w.entities[q]; out[q] = e && e.claims ? LG.pickClaim(e.claims.P154) : null; }); return out;
     });
   };
-  LG.fetchImage = function (file) {
-    return getJSON('https://commons.wikimedia.org/w/api.php?action=query&prop=imageinfo&iiprop=url|mime&iiurlwidth=' + LG.WIDTH + '&format=json&origin=*&titles=' + encodeURIComponent('File:' + file)).then(function (j) {
+  LG.fetchImage = function (file, width) {
+    return getJSON('https://commons.wikimedia.org/w/api.php?action=query&prop=imageinfo&iiprop=url|mime&iiurlwidth=' + (width || LG.WIDTH) + '&format=json&origin=*&titles=' + encodeURIComponent('File:' + file)).then(function (j) {
       var pages = (j.query && j.query.pages) || {}, p = pages[Object.keys(pages)[0]], ii = p && p.imageinfo && p.imageinfo[0];
       if (!ii) throw new Error('Datei nicht gefunden');
       return fetch(ii.thumburl || ii.url);

@@ -78,6 +78,7 @@
     return R.round(Math.min(W.wageCap(club) * 1.05, Math.max(base * leagueF * repF, cur * 1.08) * W.diffSettings[st.settings.difficulty].nego), 500);
   };
   T.willingness = function (st, p, club) {
+    if (p.foreignClub) return 0; // Spieler der Europapokalgegner stehen nicht auf dem Transfermarkt
     // Möchte der Spieler überhaupt wechseln? (Ligaunterschied, Reputation)
     if (!p.clubId) return true;
     var from = st.clubs[p.clubId];

@@ -220,7 +220,8 @@
   };
 
   W.squad = function (st, clubId) {
-    var out = [];
+    var out = [], fc = st.clubs && st.clubs[clubId];
+    if (fc && fc.foreign && fc.squadIds) return fc.squadIds.map(function (id) { return st.players[id]; }).filter(Boolean); // Europapokalgegner (js/euro.js)
     for (var id in st.players) { var p = st.players[id]; if (p.clubId === clubId && !p.youth) out.push(p); }
     return out;
   };

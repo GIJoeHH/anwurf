@@ -5,7 +5,7 @@
 
   // Pokalrunden: Qualifikation (Vorbereitung Woche 3) und 1. Runde (Woche 4), danach Spielwochen der Liga.
   // -1 = Vorbereitung Woche 3, 0 = Vorbereitung Woche 4, sonst Spielwoche
-  S.CUP_WEEKS = [-1, 0, 7, 12, 20, 27, 31];
+  S.CUP_WEEKS = [-1, 0, 7, 12, 20, 31, 31]; // Halbfinale und Finale: Final 4 an einem Wochenende (Woche 31, Finale am Finaltag danach)
   S.CUP_FINAL = 6;
   S.PREP_WEEKS = 4;      // Saisonvorbereitung
   S.WINTER_AFTER = 17;   // Winterpause (EM/WM-Pause) nach dem 17. Spieltag …
@@ -15,13 +15,14 @@
     if (st.phase === 'preseason') { var pw = st.prep || 1; return pw === S.PREP_WEEKS - 1 ? 0 : pw === S.PREP_WEEKS ? 1 : -1; }
     // offene Runden aus der Vorbereitung im nächsten Ligaspiel nachholen
     if (st.phase === 'season' && st.cup && st.cup.rounds.length <= 2 && !st.cup.rounds[st.cup.rounds.length - 1].ties.every(function (t) { return t.winner; })) return st.cup.rounds.length - 1;
-    if (st.phase === 'season') { var w = st.week + 1, i = S.CUP_WEEKS.indexOf(w); return w >= 1 && i > 1 ? i : -1; }
+    if (st.phase === 'season') { var w = st.week + 1, i = S.CUP_WEEKS.indexOf(w), rd = st.cup && st.cup.rounds[i]; return w >= 1 && i > 1 && !(rd && rd.ties.every(function (t) { return t.winner; })) ? i : -1; }
     return -1;
   };
   // Kalendertext: „Vorbereitung 2/4“, „7. Spieltag“, „Winterpause 3/6“
   S.calText = function (st, short) {
     if (st.phase === 'preseason') return (short ? 'Vorb. ' : 'Vorbereitung ') + (st.prep || 1) + '/' + S.PREP_WEEKS;
     if (st.phase === 'winter') return (short ? 'Winter ' : 'Winterpause ') + (st.winter || 1) + '/' + S.WINTER_WEEKS;
+    if (st.phase === 'season' && S.finalDay && S.finalDay(st)) return short ? 'Final 4' : 'Final 4 – Finaltag';
     if (st.phase === 'season') return short ? st.week + '/34' : st.week + '. Spieltag';
     return st.phase === 'releg' ? 'Aufstiegsrunde' : 'Saisonende';
   };
@@ -29,7 +30,8 @@
     if (fx.comp === 'league') return (st.week + 1) + '. Spieltag';
     if (fx.comp === 'friendly') return 'Testspiel (' + S.calText(st) + ')';
     if (fx.comp === 'releg') return 'Aufstiegsrunde';
-    var ci = S.cupRoundNow(st); return 'DHB-Pokal – ' + (st.cup.rounds[ci] ? st.cup.rounds[ci].name : '');
+    if (fx.comp === 'euro') return R.euro.label(st, fx);
+    var ci = fx.key && fx.key.charAt(0) === 'C' ? +fx.key.split('-')[1] : S.cupRoundNow(st); return 'DHB-Pokal – ' + (ci >= S.CUP_FINAL - 1 ? 'Final 4, ' : '') + (st.cup.rounds[ci] ? st.cup.rounds[ci].name : '');
   };
   S.isBreak = function (st) { return st.phase === 'preseason' || st.phase === 'winter'; };
   // Wochen-Schlüssel für die Planung der Vorbereitung/Winterpause
@@ -156,6 +158,7 @@
       S.ensureSponsors(st, uc);
     }
     Object.keys(st.clubs).forEach(function (k) { var c = st.clubs[k]; c.fin.season = {}; c.attendanceHist = []; if (!c.userControlled) S.aiSponsors(st, c); });
+    if (R.euro && R.euro.startSeason) R.euro.startSeason(st); // Meister-Liga und Top-Liga auslosen
   };
 
   S.targetFor = function (club) {
@@ -196,7 +199,7 @@
     var prev = st.cup.rounds[round - 1];
     var adv = prev.ties.map(function (t) { return t.winner; });
     if (round === 1) adv = adv.concat(st.cup.byes);
-    st.cup.rounds.push({ name: S.CUP_NAMES[round], week: S.CUP_WEEKS[round], ties: S.pairCup(st, R.shuffle(adv), round === S.CUP_FINAL) });
+    st.cup.rounds.push({ name: S.CUP_NAMES[round], week: S.CUP_WEEKS[round], ties: S.pairCup(st, R.shuffle(adv), round >= S.CUP_FINAL - 1) });
   };
   S.pairCup = function (st, ids, final) {
     var ties = [];
@@ -212,12 +215,21 @@
   // Liefert alle Partien der Woche; Partien mit Beteiligung des Nutzers werden markiert.
   S.prepareWeek = function (st) {
     var list = [], uc = st.manager.unemployed ? null : st.manager.clubId;
+    if (R.euro && R.euro.ensure) R.euro.ensure(st);
+    if (S.finalDay(st)) {
+      // Finaltag des Final 4: nur die Endspiele (Pokal und Europapokal)
+      var cfi = S.CUP_FINAL, cfr = st.cup && st.cup.rounds[cfi];
+      if (cfr && !st.cup.winner) cfr.ties.forEach(function (t, i) { if (!t.winner) list.push({ key: 'C-' + cfi + '-' + i, comp: 'final', h: t.h, a: t.a, neutral: true, venue: S.cupVenue(), extraTime: true }); });
+      R.euro.weekFixtures(st, true).forEach(function (x) { if (x.h === uc || x.a === uc) list.push(x); });
+      list.forEach(function (x) { x.user = (x.h === uc || x.a === uc); });
+      return { list: list, finalDay: true };
+    }
     if (st.phase === 'preseason' || st.phase === 'season' || st.phase === 'winter') {
       var week = st.week + 1;
       if (st.phase === 'season' && week > S.SEASON_WEEKS) return { list: [], week: week };
       var ci = S.cupRoundNow(st);
       if (ci >= 0 && st.cup.rounds[ci]) st.cup.rounds[ci].ties.forEach(function (t, i) {
-        list.push({ key: 'C-' + ci + '-' + i, comp: ci === S.CUP_FINAL ? 'final' : 'cup', h: t.h, a: t.a, neutral: t.neutral, extraTime: true });
+        list.push({ key: 'C-' + ci + '-' + i, comp: ci === S.CUP_FINAL ? 'final' : 'cup', h: t.h, a: t.a, neutral: t.neutral, venue: t.neutral ? S.cupVenue() : null, extraTime: true });
       });
       // Testspiel aus dem Vorbereitungsplan des Nutzers
       if (S.isBreak(st) && uc) {
@@ -225,6 +237,8 @@
         if (pl && pl.type === 'test' && st.clubs[pl.opp] && !list.some(function (x) { return x.h === uc || x.a === uc; }))
           list.push({ key: 'F-' + S.breakKey(st), comp: 'friendly', h: pl.home ? uc : pl.opp, a: pl.home ? pl.opp : uc });
       }
+      // Europapokal: Spiele des eigenen Vereins (alle übrigen laufen als Schnellergebnis, siehe js/euro.js)
+      if (st.phase === 'season' && R.euro && R.euro.weekFixtures && uc) R.euro.weekFixtures(st).forEach(function (x) { if (x.h === uc || x.a === uc) list.push(x); });
       if (st.phase === 'season') D.leagueKeys.forEach(function (l) {
         S.roundsOf(st, l, week).forEach(function (r) {
           st.leagues[l].fixtures[r].forEach(function (f, i) { list.push({ key: 'L-' + l + '-' + r + '-' + i, comp: 'league', h: f.h, a: f.a }); });
@@ -247,10 +261,50 @@
     return m;
   };
 
+  // ---------- Neutrale Plätze, Final 4 ----------
+  S.NEUTRAL = { total: 13000, ticket: 400000, cater: 60000, capacity: 13300, share: 180000 };
+  S.cupVenue = function () { var v = D.euro && D.euro.cupVenue; return v ? { name: v[0], city: v[1], country: v[2], cap: v[3] } : null; };
+  // Zuschauer und Einnahmen auf neutralem Platz; mit Spielort (fx.venue) richten sie sich nach dessen Größe
+  S.neutralGate = function (st, fx, home, away) {
+    var v = fx.venue, N = S.NEUTRAL, cap = v ? v.cap : N.capacity, share = v ? Math.round(cap * D.euro.gatePerSeat / 1000) * 1000 : N.share;
+    [home, away].forEach(function (c) { if (c.foreign) return; c.cash += share; E.book(c, 'Eintrittsgelder', share); });
+    return { total: v ? Math.round(cap * 0.97) : N.total, ticket: v ? share * 2 : N.ticket, cater: v ? Math.round(share * 0.22) : N.cater, parking: 0, capacity: cap, parts: {}, venue: v || null };
+  };
+  // Auswärtsspiel im Europapokal: Kulisse des Gastgebers, keine eigenen Einnahmen
+  S.awayGate = function (home) { var cap = Math.round((home.fans || 10000) / 100) * 100; return { total: Math.round(cap * 0.93), ticket: 0, cater: 0, parking: 0, capacity: cap, parts: {} }; };
+  // Finaltag nur im Handball (Final 4): das Endspiel folgt direkt auf das Halbfinale, ohne dass eine Woche vergeht
+  S.finalDay = function (st) {
+    if (st.phase !== 'season' || !D.euro || !D.euro.final4) return false;
+    var cf = st.cup && st.cup.rounds[S.CUP_FINAL];
+    if (cf && !st.cup.winner && cf.ties[0] && !cf.ties[0].winner) return true;
+    return !!(R.euro && R.euro.finalOpen && R.euro.finalOpen(st));
+  };
+  S.playFinalDay = function (st, played) {
+    var prep = S.prepareWeek(st), results = [];
+    prep.list.forEach(function (fx) {
+      var m = played[fx.key];
+      if (!m) { m = S.createMatch(st, fx); M.simulate(m); }
+      m.st = st;
+      var att = S.neutralGate(st, fx, st.clubs[fx.h], st.clubs[fx.a]);
+      m.attendance = att.total; m.attInfo = att;
+      M.finalize(m);
+      var sum = M.summary(m);
+      S.storeResult(st, fx, sum, m);
+      results.push({ fx: fx, sum: sum, match: m });
+      if (fx.user) S.userMatchAftermath(st, fx, sum, m);
+    });
+    if (R.euro) R.euro.simWeek(st, true);
+    S.advanceCup(st);
+    st.lastResults = results.map(function (r) { return { key: r.fx.key, comp: r.fx.comp, h: r.fx.h, a: r.fx.a, hg: r.sum.hg, ag: r.sum.ag, pens: r.sum.pens, user: r.fx.user }; });
+    st.rngState = R.rng.state;
+    return results;
+  };
+
   // ---------- Woche abschließen ----------
   // played: { key: fertiges Match-Objekt } (vom Nutzer live gespielte Partien)
   S.completeWeek = function (st, played) {
     played = played || {};
+    if (S.finalDay(st)) return S.playFinalDay(st, played);
     var prep = S.prepareWeek(st);
     var results = [];
     var suspendedAtStart = {};
@@ -274,9 +328,9 @@
         att = E.attendance(st, home, away, 'friendly');
         if (home.userControlled) E.matchdayIncome(st, home, att);
       } else if (fx.neutral) {
-        // Endspiel beim Final Four in Hamburg
-        att = { total: 13000, ticket: 400000, cater: 60000, parking: 0, capacity: 13300, parts: {} };
-        [home, away].forEach(function (c) { c.cash += 180000; E.book(c, 'Eintrittsgelder', 180000); });
+        att = S.neutralGate(st, fx, home, away);
+      } else if (home.foreign) {
+        att = S.awayGate(home);
       } else {
         att = E.attendance(st, home, away, fx.comp);
         E.matchdayIncome(st, home, att);
@@ -292,8 +346,8 @@
       var sum = M.summary(m);
       var resH = sum.hg - sum.ag;
       if (fx.comp !== 'friendly') {
-        E.fanGrowthWeekly(st, home, resH, fx.neutral ? null : att);
-        E.fanGrowthWeekly(st, away, -resH, null);
+        if (!home.foreign) E.fanGrowthWeekly(st, home, resH, fx.neutral ? null : att);
+        if (!away.foreign) E.fanGrowthWeekly(st, away, -resH, null);
         S.storeResult(st, fx, sum, m);
       } else S.friendlyAftermath(st, fx, sum, m);
       results.push({ fx: fx, sum: sum, match: m });
@@ -303,6 +357,7 @@
     Object.keys(suspendedAtStart).forEach(function (id) { var p = st.players[id]; if (p && p.susp > 0) p.susp--; });
 
     if (st.phase === 'season') {
+      if (R.euro && R.euro.simWeek) R.euro.simWeek(st, false, st.week); // übrige Europapokalspiele dieser Woche
       S.weeklyUpdate(st);
       S.advanceCup(st);
       if (st.week >= S.SEASON_WEEKS) S.toRelegation(st);
@@ -338,6 +393,7 @@
   S.storeResult = function (st, fx, sum, m) {
     var parts = fx.key.split('-');
     if (parts[0] === 'L') { st.leagues[+parts[1]].fixtures[+parts[2]][+parts[3]].r = sum; }
+    else if (parts[0] === 'E') R.euro.store(st, fx.key, sum);
     else if (parts[0] === 'C') {
       var ci = +parts[1], tie = st.cup.rounds[ci].ties[+parts[2]];
       tie.r = sum;
@@ -377,7 +433,7 @@
       .replace(/\{H\}/g, H.short.toUpperCase()).replace(/\{A\}/g, A.short.toUpperCase()).replace(/\{S\}/g, sum.hg + ':' + sum.ag).replace(/\{T\}/g, 'TRAINER');
     // Beste Werfer beider Teams statt aller Torschützen (im Handball fallen 50–70 Tore)
     var scorers = (sum.sc || []).slice(0, 4).map(function (x) { var p = st.players[x[0]]; return (p ? p.last : '?') + ' (' + x[1] + ')'; }).join(', ');
-    S.news(st, head, (fx.comp === 'league' ? st.week + '. Spieltag' : fx.comp === 'releg' ? 'Aufstiegsrunde' : 'DHB-Pokal') + ': ' + H.name + ' – ' + A.name + ' ' + sum.hg + ':' + sum.ag + (sum.pens ? ' (n. 7m ' + sum.pens[0] + ':' + sum.pens[1] + ')' : '') + '. ' + (scorers ? 'Beste Werfer: ' + scorers + '. ' : '') + 'Zuschauer: ' + R.fmtNum(m.attendance || 0) + '.', 'match');
+    S.news(st, head, (fx.comp === 'league' ? st.week + '. Spieltag' : fx.comp === 'releg' ? 'Aufstiegsrunde' : fx.comp === 'euro' ? R.euro.label(st, fx) : 'DHB-Pokal') + ': ' + H.name + ' – ' + A.name + ' ' + sum.hg + ':' + sum.ag + (sum.pens ? ' (n. 7m ' + sum.pens[0] + ':' + sum.pens[1] + ')' : '') + '. ' + (scorers ? 'Beste Werfer: ' + scorers + '. ' : '') + 'Zuschauer: ' + R.fmtNum(m.attendance || 0) + '.', 'match');
     // Vertrauen des Vorstands
     var exp = uc.expectedPos || 9;
     var oppC = st.clubs[side === 0 ? fx.a : fx.h];

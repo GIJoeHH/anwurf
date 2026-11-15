@@ -563,3 +563,6 @@ table.t tr.sel td:first-child { box-shadow: inset 3px 0 var(--act); }
 .tag.imp { background: var(--bad); color: #fff; letter-spacing: .04em; text-transform: uppercase; font-size: 10px; }
 .rp-kicker { display: inline-flex; align-items: center; gap: 8px; margin: -4px 0 10px; font-size: 13px; color: var(--muted); }
 .rp-kicker b { color: var(--text); }
+
+/* Gästerang im Stadioneditor */
+button.gtier-on { background: rgba(239, 68, 68, .14); border-color: #ef4444; color: #ef4444; }

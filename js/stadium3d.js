@@ -765,9 +765,10 @@
     roadSeg(B, -500, 46, 500, 46, 16); roadSeg(B, 70, -500, 70, 38, 12);
     carRow(I, r, -480, 42, 480, 42, 14, 0, 0.45); carRow(I, r, 480, 50, -480, 50, 14, Math.PI, 0.45);
     // Turm
-    B.box('f_office', -6, -6, 30, 24, 10, 52, 0, { topKey: 'roofTop', tw: 20, th: 18 });
-    B.box('band', -6, -6, 30.4, 24.4, 61.5, 1.2, 0, {});
-    B.box('steelDark', -6, -6, 22, 16, 62, 4, 0, { topKey: 'roofTop' });
+    // Turm steht vollständig auf dem Sockelbau (Sockel z −9 … 21, Turm z −7 … 15) – kein Überhang nach hinten
+    B.box('f_office', -6, 4, 30, 22, 10, 52, 0, { topKey: 'roofTop', tw: 20, th: 18 });
+    B.box('band', -6, 4, 30.4, 22.4, 61.5, 1.2, 0, {});
+    B.box('steelDark', -6, 4, 22, 14, 62, 4, 0, { topKey: 'roofTop' });
     // Sockel mit Glasfront und Vordach
     B.box('glassWarm', 0, 6, 64, 30, 0, 10, 0, { topKey: 'roofTop' });
     B.box('steel', 0, 22.5, 36, 7, 7.2, 0.6, 0, {});
@@ -780,7 +781,7 @@
       B.box('steelDark', -25, 21.03, 7.6, 0.06, 1.0, 5.8, 0, {});
     }
     // Nachbargebäude
-    [[-78, -12, 30, 34, 26, 'f_concrete'], [78, -40, 28, 30, 34, 'f_brick'], [-90, -70, 40, 30, 44, 'f_office'], [40, -90, 36, 30, 60, 'f_office'], [-30, -110, 50, 30, 30, 'f_brick']].forEach(function (b) { B.box(b[5], b[0], b[1], b[2], b[3], 0, b[4], 0, { topKey: 'roofTop' }); });
+    [[-78, -12, 30, 34, 26, 'f_concrete'], [104, -40, 28, 30, 34, 'f_brick'], [-90, -70, 40, 30, 44, 'f_office'], [40, -90, 36, 30, 60, 'f_office'], [-30, -110, 50, 30, 30, 'f_brick']].forEach(function (b) { B.box(b[5], b[0], b[1], b[2], b[3], 0, b[4], 0, { topKey: 'roofTop' }); });
     for (var i = 0; i < 9; i++) { treeAt(I, r, -56 + i * 14, 32, 0.8); }
     for (var k = 0; k < 70; k++) I.people.push({ x: -50 + r() * 100, z: 24 + r() * 8, c: ['#1f2937', '#e5e7eb', '#6b7280', m.colors[0], '#334155'][Math.floor(r() * 5)] });
     B.flush(group, M, hq());

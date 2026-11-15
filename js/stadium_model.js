@@ -112,9 +112,9 @@
     m.roofH = r1(Math.max(8, tierTop + G.roofGap));
     // Gästeblock
     var gs = m.sectors[plan.guest] || null;
-    m.guest = { sector: plan.guest, area: gs ? gs.area : null, center: gs ? gs.center : [0, 0], cap: gs ? gs.cap : 0 };
+    m.guest = { sector: plan.guest, area: gs ? gs.area : null, center: gs ? gs.center : [0, 0], cap: SP.planGuestCap(plan, true) };
     if (gs) gs.guest = true;
-    SP.guestIds(plan).forEach(function (id) { if (m.sectors[id]) m.sectors[id].guest = true; }); // weitere Gästeblöcke
+    SP.guestIds(plan).forEach(function (id) { if (m.sectors[id]) { m.sectors[id].guest = true; m.sectors[id].guestTiers = SP.guestTiers(plan, id); } }); // weitere Gästeblöcke
     // Hallenstufe 1–6 (bestimmt Fassade, Foyer, Materialien, Details)
     m.stage = SM.stageOf(m.capacityFull);
     m.facade = { 1: 'sheet', 2: 'clad', 3: 'dark', 4: 'glass', 5: 'glass', 6: 'glass' }[m.stage];
@@ -159,7 +159,7 @@
     SP.SECTORS.forEach(function (s) {
       var x = m.sectors[s.id];
       x.tiers.forEach(function (t, ti) {
-        P.push({ kind: 'tier', sec: x.id, area: x.area, tier: ti, type: t.type, inner: t.inner, outer: t.outer, hIn: t.hIn, hOut: t.hOut, guest: !!x.guest, busy: t.busy });
+        P.push({ kind: 'tier', sec: x.id, area: x.area, tier: ti, type: t.type, inner: t.inner, outer: t.outer, hIn: t.hIn, hOut: t.hOut, guest: !!x.guest && (!x.guestTiers || x.guestTiers.indexOf(ti) >= 0), busy: t.busy });
         // Band zwischen den Rängen: Umlauf bzw. Logenreihe (Glas bei VIP/Hospitality)
         if (ti > 0) {
           var prev = x.tiers[ti - 1], glass = t.type === 'loge' || t.type === 'business' || prev.type === 'loge' || prev.type === 'business' || m.hospitality >= 2 || m.stage === 'modern';

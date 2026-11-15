@@ -22,7 +22,8 @@
     h += '<div class="dash"><div class="grid" style="align-content:start">';
     // Posteingang & wichtige Ereignisse
     var inbox = st.inbox.filter(function (o) { return o.type === 'offer' || o.type === 'sponsor'; });
-    h += '<div class="panel"><div class="panel-h"><h2>' + U.lc('mail', 17) + ' Posteingang</h2>' + (inbox.length ? '<span class="pill act">' + inbox.length + ' neu</span>' : '') + '</div>';
+    var mails = U.mailItems ? U.mailItems(st) : { n: 0, html: '' };
+    h += '<div class="panel"><div class="panel-h"><h2>' + U.lc('mail', 17) + ' Posteingang</h2>' + (inbox.length + mails.n ? '<span class="pill act">' + (inbox.length + mails.n) + ' neu</span>' : '') + '</div>' + mails.html;
     if (st.deal && st.deal.club === c.id) h += '<div class="msg msg-warn"><div class="ic-tile warn">' + U.lc('newspaper', 20) + '</div><div class="msg-b"><b>Eilmeldung: Großangebot</b><span>' + esc(R.deals.type(st.deal.type).name) + ' – ' + money(st.deal.amount) + ' · Frist bis zum ' + st.deal.deadline + '. Spieltag</span></div><button class="primary sm" data-act="showDeal">Entscheiden</button></div>';
     inbox.forEach(function (o) {
       if (o.type === 'offer') {
@@ -32,7 +33,7 @@
           (U.can('business') || U.can('sport') ? (T.canSell(st, c.id) ? '' : '<div class="small neg" style="flex-basis:100%">Kader am Minimum (' + T.MIN_SQUAD + ' Spieler) – erst verpflichten, dann verkaufen.</div>') + '<div class="row" style="gap:6px"><button class="sm primary" data-act="offerAccept" data-id="' + o.id + '"' + (T.canSell(st, c.id) ? '' : ' disabled') + '>Annehmen</button><button class="sm" data-act="offerCounter" data-id="' + o.id + '">+15 % fordern</button><button class="sm danger" data-act="offerDecline" data-id="' + o.id + '">Ablehnen</button></div>' : '') + '</div>';
       } else h += '<div class="msg"><div class="ic-tile ok">' + U.lc('handshake', 20) + '</div><div class="msg-b"><b>Sponsorenangebote: ' + D.sponsorCategories[o.cat] + '</b><span>' + (o.cat === 'bande' ? (o.free || 0) + ' von 20 Banden frei – einzeln vermieten' : o.offers.length + ' Angebote liegen vor.') + '</span></div><button class="sm primary" data-act="' + (o.cat === 'bande' ? 'bandeOpen' : 'nav') + '" data-s="verein">Ansehen</button></div>';
     });
-    if (!inbox.length && !(st.deal && st.deal.club === c.id)) h += U.empty('mail', 'Keine neuen Nachrichten. Angebote für Spieler und Sponsoren erscheinen hier.');
+    if (!inbox.length && !mails.html && !(st.deal && st.deal.club === c.id)) h += U.empty('mail', 'Keine neuen Nachrichten. Angebote für Spieler und Sponsoren erscheinen hier.');
     if (c.construction.length || (c.stadium && c.stadium.jobs && c.stadium.jobs.length)) {
       h += '<div class="sub-h">Laufende Bauprojekte</div>' + c.construction.map(function (b) { return '<div class="prog"><span>' + esc(D.facilities[b.key].levels[b.to].n) + '</span><em>noch ' + b.weeks + ' Wo.</em>' + U.bar(b.total - b.weeks, b.total, 'var(--warn)') + '</div>'; }).join('') +
         ((c.stadium && c.stadium.jobs) || []).map(function (j) { return '<div class="prog"><span>Stadion ' + esc(j.sec) + ': ' + esc(j.n) + '</span><em>noch ' + j.weeks + ' Wo.</em>' + U.bar(j.total - j.weeks, j.total, 'var(--warn)') + '</div>'; }).join('');

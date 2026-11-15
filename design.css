@@ -556,3 +556,10 @@ table.t tr.sel td:first-child { box-shadow: inset 3px 0 var(--act); }
 .eu-legs { display: inline-flex; gap: 6px; } .eu-legs b { background: rgba(0,0,0,.25); border-radius: 4px; padding: 1px 6px; min-width: 34px; }
 .eu-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
 .eu-mini { margin-top: 4px; } .eu-mini-h { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }
+
+/* ---------- Posteingang: wichtige Mails ---------- */
+.msg.msg-imp { border-left: 4px solid var(--bad); background: linear-gradient(90deg, rgba(227,94,99,.14), transparent 70%); }
+.msg.msg-read { opacity: .72; }
+.tag.imp { background: var(--bad); color: #fff; letter-spacing: .04em; text-transform: uppercase; font-size: 10px; }
+.rp-kicker { display: inline-flex; align-items: center; gap: 8px; margin: -4px 0 10px; font-size: 13px; color: var(--muted); }
+.rp-kicker b { color: var(--text); }

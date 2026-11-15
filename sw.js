@@ -1,5 +1,5 @@
 /* ANWURF! – Service Worker für den Offline-Betrieb (automatisch erzeugt von web/deploy.sh, nicht von Hand ändern) */
-const VERSION = '85365b6a73';
+const VERSION = '12dd738826';
 const CACHE = 'anwurf-' + VERSION;
 const CORE = [
   './',
@@ -37,6 +37,7 @@ const CORE = [
   './js/ui_deals.js',
   './js/ui_euro.js',
   './js/ui_gfx.js',
+  './js/ui_mail.js',
   './js/ui_match.js',
   './js/ui_misc.js',
   './js/ui_realty.js',

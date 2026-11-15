@@ -555,10 +555,10 @@
 
   // ---------- Spielbericht ----------
   U.screens.bericht = function () {
-    var st = U.st, lm = st.lastUserMatch;
+    var st = U.st, rl = U.reportList(st), ri = Math.min(U.p.m || 0, Math.max(0, rl.length - 1)), lm = rl[ri];
     if (!lm) return '<h1>Spielbericht</h1><p class="muted">Noch kein Spiel absolviert.</p>';
     var H = st.clubs[lm.h], A = st.clubs[lm.a], s = lm.sum;
-    var h = '<h1>Spielbericht</h1><div class="grid g21"><div class="grid">';
+    var h = '<h1>Spielbericht</h1>' + U.reportHead(st, rl, ri) + '<div class="grid g21"><div class="grid">';
     h += '<div class="panel"><div class="row" style="justify-content:center;gap:24px"><div style="text-align:center;width:200px">' + U.crest(H, 60) + '<div><b>' + esc(H.name) + '</b></div></div><div class="mono" style="font-size:44px;font-weight:900">' + s.hg + ':' + s.ag + '</div><div style="text-align:center;width:200px">' + U.crest(A, 60) + '<div><b>' + esc(A.name) + '</b></div></div></div>' + (s.pens ? '<p style="text-align:center">nach 7-Meter-Werfen ' + s.pens[0] + ':' + s.pens[1] + '</p>' : '') +
       '<div class="grid g2" style="margin-top:10px">' + [0, 1].map(function (side) { return '<table class="t small"><tr><th colspan="2">Torschützen</th></tr>' + (s.sc || []).filter(function (x) { return x[2] === side; }).map(function (x) { var p = st.players[x[0]]; return '<tr><td>' + esc(p ? W.shortName(p) : '?') + '</td><td class="num"><b>' + x[1] + '</b></td></tr>'; }).join('') + '</table>'; }).join('') + '</div>' +
       (s.ev.length ? '<table class="t small" style="margin-top:8px">' + s.ev.map(function (e) { var p = st.players[e.p]; return '<tr><td class="num" style="width:40px">' + e.m + '\'</td><td>' + (e.t === 'red' ? '🟥 Disqualifikation' : '✚ Verletzung') + '</td><td style="text-align:' + (e.s === 0 ? 'left' : 'right') + '">' + esc(p ? W.playerName(p) : '?') + '</td></tr>'; }).join('') + '</table>' : '') + '</div>';

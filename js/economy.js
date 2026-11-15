@@ -486,6 +486,20 @@
   E.deposit = function (club, amount) { amount = Math.min(Math.round(amount), Math.max(0, club.cash)); if (!(amount > 0)) return false; club.cash -= amount; club.savings += amount; return true; };
   E.withdraw = function (club, amount) { amount = Math.min(Math.round(amount), club.savings); if (!(amount > 0)) return false; club.savings -= amount; club.cash += amount; return true; };
 
+  // Mail in den Posteingang der Zentrale legen. important = rot markiert; normale Mails verfallen nach 6 Wochen.
+  E.MAIL_MAX = 30;
+  E.addMail = function (st, o) {
+    st.inbox = st.inbox || [];
+    var tick = st.tick || 0;
+    st.inbox = st.inbox.filter(function (m) { return m.type !== 'mail' || m.important || tick - (m.tick || 0) <= 6; });
+    var m = { id: R.world.nextId(st, 'mail'), type: 'mail', kind: o.kind || 'info', important: !!o.important, tone: o.tone || '', icon: o.icon || 'mail', title: o.title, text: o.text || '', season: st.season, week: st.week, tick: tick, read: !!o.read };
+    if (o.sym) m.sym = o.sym;
+    st.inbox.unshift(m);
+    var mails = st.inbox.filter(function (x) { return x.type === 'mail'; });
+    if (mails.length > E.MAIL_MAX) { var drop = mails.slice(E.MAIL_MAX); st.inbox = st.inbox.filter(function (x) { return drop.indexOf(x) < 0; }); }
+    return m;
+  };
+  E.fmtPrice = function (p) { return (p >= 1 ? p.toFixed(2) : p.toFixed(4)).replace('.', ',') + ' €'; };
   // Märkte
   E.marketDef = function (sym) { return D.stocks.concat(D.cryptos).filter(function (s) { return s.id === sym; })[0]; };
   E.price = function (st, sym) { var m = st.market.stocks[sym] || st.market.crypto[sym]; return m ? m.price : 0; };
@@ -548,20 +562,22 @@
   E.updateMarkets = function (st) {
     E.ensureMarkets(st);
     var chaos = st.settings.difficulty === 'chaos' ? 1.5 : 1;
-    // Börsencrash in unregelmäßigen Abständen (ca. alle 1–2 Saisons), danach langsame Erholung
+    // Börsencrash in unregelmäßigen Abständen (ca. alle 1–2 Saisons), danach langsame Erholung.
+    // Die Meldungen entstehen erst NACH der Kursberechnung aus den tatsächlichen Bewegungen, damit Text und Chart zusammenpassen.
     var crash = R.chance(0.022 * chaos) ? R.randRange(0.12, 0.32) : 0;
-    if (crash) st.news.unshift({ season: st.season, week: st.week, title: 'BÖRSENCRASH! Kurse brechen um bis zu ' + Math.round(crash * 100) + ' % ein', text: 'Panikverkäufe an allen Märkten. Mutige kaufen jetzt billig nach …', type: 'markt' });
-    var alerts = [];
-    if (crash) alerts.push({ k: 'crash', ic: '📉', t: 'Börsencrash!', x: 'Panikverkäufe an allen Märkten – die Kurse brechen um bis zu ' + Math.round(crash * 100) + ' % ein. Kryptowährungen trifft es besonders hart. Danach erholen sich die Kurse meist langsam.' });
+    var alerts = [], idx0 = E.marketIndex(st), coinWorst = 0;
+    if (st.marketAlerts && st.marketAlerts.length) { alerts = st.marketAlerts; st.marketAlerts = []; } // ältere Spielstände: offene Meldungen übernehmen
     st.market.recovery = crash ? crash * 0.5 : (st.market.recovery || 0) * 0.9;
     var bvb = E.bvbClub(st);
     D.stocks.forEach(function (s) {
       var m = st.market.stocks[s.id];
       var shock = R.chance(0.01) ? R.randRange(-0.2, 0.15) : 0;
-      var r = s.drift + s.vol * chaos * R.gauss(0, 1) + shock + (st.market.recovery || 0) * 0.08;
-      if (crash) r -= crash * R.randRange(0.7, 1.15);
+      var noise = s.vol * chaos * R.gauss(0, 1);
+      // In der Crashwoche fällt jeder Wert deutlich: kaum Rauschen, keine Sonderausschläge, keine Erholung
+      var r = s.drift + (crash ? noise * 0.3 : noise + shock + (st.market.recovery || 0) * 0.08);
+      if (crash) r -= crash * R.randRange(0.75, 1.1);
       if (s.club && bvb && st.week > 0) { // Vereinsaktie folgt dem sportlichen Erfolg
-        var pos = E.leaguePos(st, bvb), n = st.leagues[W.lk(bvb)].clubIds.length;
+        var pos = E.leaguePos(st, bvb), n = st.leagues[bvb.league].clubIds.length;
         r += (0.5 - (pos - 1) / (n - 1)) * 0.012 - (bvb.league - 1) * 0.01;
         if (bvb.form && bvb.form.length) r += bvb.form[bvb.form.length - 1] === 'S' ? 0.01 : bvb.form[bvb.form.length - 1] === 'N' ? -0.01 : 0;
       }
@@ -569,19 +585,39 @@
       E.marketPush(m, crash ? 'Crash' : null, st, s.id);
     });
     D.cryptos.forEach(function (s) {
-      var m = st.market.crypto[s.id];
-      var r = s.drift + s.vol * chaos * R.gauss(0, 1);
-      if (R.chance(0.03)) { var dn = R.randRange(0.3, 0.6); r -= dn; st.news.unshift({ season: st.season, week: st.week, title: s.name + ' crasht!', text: 'Panik an den Kryptomärkten.', type: 'markt' }); alerts.push({ k: 'ccrash', ic: '🪙', t: s.name + ' crasht!', x: 'Panik an den Kryptomärkten: ' + s.name + ' verliert binnen einer Woche rund ' + Math.round((1 - Math.exp(-dn)) * 100) + ' %.', sym: s.id }); }
-      else if (R.chance(0.03)) { var up = R.randRange(0.3, 0.7); r += up; st.news.unshift({ season: st.season, week: st.week, title: s.name + ' explodiert!', text: 'Spekulationsblase oder Revolution?', type: 'markt' }); alerts.push({ k: 'cboom', ic: '🚀', t: s.name + ' explodiert!', x: 'Spekulationsblase oder Revolution? ' + s.name + ' legt binnen einer Woche rund ' + Math.round((Math.exp(up) - 1) * 100) + ' % zu.', sym: s.id }); }
-      // Mean-Reversion gegen Extremwerte
-      r -= 0.02 * Math.log(m.price / s.price);
+      var m = st.market.crypto[s.id], p0 = m.price;
+      var noise = s.vol * chaos * R.gauss(0, 1), ev = 0, amt = 0;
+      if (R.chance(0.03)) { ev = -1; amt = R.randRange(0.3, 0.6); }
+      else if (R.chance(0.03)) { ev = 1; amt = R.randRange(0.3, 0.7); }
+      if (crash && ev > 0) ev = 0; // kein Kursfeuerwerk mitten im Crash
+      // Bei Einzelcrash, Kurssprung oder Börsencrash bestimmt das Ereignis die Richtung, das Rauschen bleibt klein
+      var r = s.drift + (ev || crash ? noise * 0.25 : noise) + ev * amt;
+      r -= 0.02 * Math.log(m.price / s.price); // Mean-Reversion gegen Extremwerte
       if (crash) r -= crash * R.randRange(1.2, 1.8);
       m.price = Math.max(0.0005, m.price * Math.exp(r));
-      E.marketPush(m, crash ? 'Crash' : null, st, s.id);
+      E.marketPush(m, crash || ev < 0 ? 'Crash' : null, st, s.id);
+      var ch = m.price / p0 - 1;
+      coinWorst = Math.min(coinWorst, ch);
+      if (ev < 0 && !crash && ch <= -0.2) {
+        st.news.unshift({ season: st.season, week: st.week, title: s.name + ' crasht: −' + Math.round(-ch * 100) + ' %', text: 'Panik an den Kryptomärkten.', type: 'markt' });
+        alerts.push({ k: 'ccrash', t: s.name + ' crasht!', x: 'Panik an den Kryptomärkten: ' + s.name + ' verliert binnen einer Woche ' + Math.round(-ch * 100) + ' % (jetzt ' + E.fmtPrice(m.price) + ').', sym: s.id });
+      } else if (ev > 0 && ch >= 0.2) {
+        st.news.unshift({ season: st.season, week: st.week, title: s.name + ' explodiert: +' + Math.round(ch * 100) + ' %', text: 'Spekulationsblase oder Revolution?', type: 'markt' });
+        alerts.push({ k: 'cboom', t: s.name + ' explodiert!', x: 'Spekulationsblase oder Revolution? ' + s.name + ' legt binnen einer Woche ' + Math.round(ch * 100) + ' % zu (jetzt ' + E.fmtPrice(m.price) + ').', sym: s.id });
+      }
     });
+    if (crash) {
+      var idxCh = E.marketIndex(st) / idx0 - 1;
+      st.news.unshift({ season: st.season, week: st.week, title: 'BÖRSENCRASH! Aktienindex −' + Math.round(-idxCh * 100) + ' %', text: 'Panikverkäufe an allen Märkten. Kryptowährungen verlieren bis zu ' + Math.round(-coinWorst * 100) + ' %. Mutige kaufen jetzt billig nach …', type: 'markt' });
+      alerts.unshift({ k: 'crash', t: 'Börsencrash!', x: 'Panikverkäufe an allen Märkten: Der Aktienindex verliert ' + Math.round(-idxCh * 100) + ' % auf ' + R.fmtNum(E.marketIndex(st)) + ' Punkte, Kryptowährungen bis zu ' + Math.round(-coinWorst * 100) + ' %. Danach erholen sich die Kurse meist langsam.' });
+    }
     st.savingsRate = R.clamp(st.savingsRate + R.gauss(0, 0.001), 0.005, 0.04);
     E.marketRecords(st, alerts);
-    if (alerts.length) { st.marketAlerts = (st.marketAlerts || []).concat(alerts).slice(-8); }
+    // Alle Börsenmeldungen landen als Mail im Posteingang der Zentrale, Crashs als wichtige Mail
+    alerts.forEach(function (a) {
+      var badA = /crash/.test(a.k);
+      E.addMail(st, { kind: 'markt', important: badA, tone: badA ? 'bad' : 'good', icon: badA ? 'trending-down' : /ath/.test(a.k) ? 'trophy' : 'trending-up', title: a.t, text: a.x, sym: a.sym });
+    });
   };
   // Rekordhöhen: Marktindex (Aktien), einzelne Werte im eigenen Depot, Depotwert des eigenen Vereins
   E.marketIndex = function (st) {

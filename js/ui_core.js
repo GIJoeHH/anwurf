@@ -181,7 +181,7 @@
   // ---------- Kopfzeile & Navigation ----------
   U.renderTop = function () {
     var st = U.st, c = U.club(), el = document.getElementById('topbar');
-    var nextSub = st.phase === 'seasonEnd' ? 'Neue Saison' : st.phase === 'releg' ? 'Relegation' : S.isBreak(st) ? 'Nächste Woche' : 'Nächster Spieltag';
+    var nextSub = U.screen === 'bericht' ? 'Zur Zentrale' : st.phase === 'seasonEnd' ? 'Neue Saison' : st.phase === 'releg' ? 'Relegation' : S.isBreak(st) ? 'Nächste Woche' : 'Nächster Spieltag';
     function chip(icon, label, val, cls, opt) { return '<div class="tb-chip' + (opt ? ' opt' : '') + '">' + U.lc(icon, 18) + '<div><span>' + label + '</span><b class="' + (cls || '') + '">' + val + '</b></div></div>'; }
     var nextBtn = function (sub) { return '<button class="btn-next" data-act="next"' + (U.busy ? ' disabled' : '') + '><span class="bn-txt">Weiter<small>' + sub + '</small></span>' + U.lc('chevron-right', 20) + '</button>'; };
     if (!c) {
@@ -207,7 +207,7 @@
   };
   U.navItems = function () {
     var st = U.st, offers = st.inbox.filter(function (o) { return o.type === 'offer'; }).length, sp = st.inbox.filter(function (o) { return o.type === 'sponsor'; }).length;
-    var items = [['zentrale', 'layout-dashboard', 'Zentrale', offers + sp, 'Sport'], ['mannschaft', 'shirt', 'Mannschaft'], ['transfer', 'arrow-left-right', 'Transfermarkt'], ['training', 'dumbbell', 'Training'], ['nachwuchs', 'graduation-cap', 'Nachwuchs'], ['medizin', 'stethoscope', 'Medizin'],
+    var items = [['zentrale', 'layout-dashboard', 'Zentrale', offers + sp + (U.mailCount ? U.mailCount(st) : 0), 'Sport'], ['mannschaft', 'shirt', 'Mannschaft'], ['transfer', 'arrow-left-right', 'Transfermarkt'], ['training', 'dumbbell', 'Training'], ['nachwuchs', 'graduation-cap', 'Nachwuchs'], ['medizin', 'stethoscope', 'Medizin'],
       ['verein', 'briefcase', 'Vereinsmanagement', sp, 'Verein'], ['stadion', 'stadium', 'Halle'], ['stadt', 'building-2', 'Vereinsstadt'], ['bank', 'landmark', 'Bank & Finanzen'],
       ['spieltag', 'calendar-days', 'Spieltag', 0, 'Wettbewerb'], ['liga', 'chart-column', 'Liga & Statistiken'], ['europa', 'globe', 'Europapokal'], ['geschichte', 'trophy', 'Vereinsgeschichte'], ['karriere', 'user-round', 'Managerkarriere', st.manager.unemployed ? st.manager.offers.length : 0], ['editor', 'pencil', 'Editor', 0, 'System'], ['einstellungen', 'settings', 'Einstellungen']];
     if (st.manager.unemployed) items = items.filter(function (i) { return ['liga', 'karriere', 'editor', 'einstellungen'].indexOf(i[0]) >= 0; });
@@ -226,6 +226,8 @@
   U.acts.next = function () {
     var st = U.st;
     if (U.busy || U.liveActive) return;
+    // Nach dem Spielbericht geht es erst in die Zentrale (Posteingang mit Ereignissen und Meldungen)
+    if (U.screen === 'bericht') { U.go('zentrale'); setTimeout(function () { if (U.afterWeekPopups) U.afterWeekPopups(); }, 300); return; }
     if (st.pendingEvent) { U.showEvent(); return; }
     if (st.phase === 'seasonEnd') {
       if (U.screen !== 'saisonende') { U.go('saisonende'); return; }
@@ -246,7 +248,7 @@
     else if (st.manager.unemployed) U.go('karriere');
     else if (st.lastUserMatch && st.lastResults && st.lastResults.some(function (r) { return r.user; })) U.go('bericht');
     else U.go('zentrale');
-    setTimeout(function () { if (U.afterWeekPopups) U.afterWeekPopups(); }, 300);
+    if (U.screen !== 'bericht') setTimeout(function () { if (U.afterWeekPopups) U.afterWeekPopups(); }, 300);
   };
   U.acts.autoStart = function () {
     U.autoRun = true; U.renderTop();
@@ -283,7 +285,9 @@
     }).join(''));
   };
   U.acts.eventPick = function (d) {
+    var pe0 = U.st.pendingEvent, ev0 = pe0 && (pe0.custom || (pe0.chaos ? D.chaosEvents : D.events)[pe0.idx]), opt0 = ev0 && ev0.o[+d.i];
     var msg = S.resolveEvent(U.st, +d.i);
+    if (U.mailEventDone) U.mailEventDone(U.st, ev0, opt0, msg);
     U.closeModal(); U.render(); if (msg) U.toast(msg, 4000);
     setTimeout(function () { if (U.afterWeekPopups) U.afterWeekPopups(); }, 400);
   };

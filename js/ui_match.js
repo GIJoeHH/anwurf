@@ -162,11 +162,12 @@
     U.liveUpdate([]);
     var btn = document.getElementById('liveCtl');
     var more = L.idx + 1 < L.queue.length;
-    if (btn) btn.innerHTML = '<button class="primary" data-act="liveContinue">' + (more ? 'Weiter zum nächsten Spiel ▶' : 'Zum Spielbericht ▶') + '</button>';
+    if (btn) btn.innerHTML = '<span class="muted small">Abpfiff – ' + (more ? 'weiter zum nächsten Spiel' : 'weiter zum Spielbericht') + ' oben rechts.</span>';
+    if (U.renderTop) U.renderTop();
     U.beep(440, 0.4);
   };
   U.acts.liveContinue = function () {
-    var L = U.live; L.played[L.m.key] = L.m; L.idx++;
+    var L = U.live; if (!L || !L.m || !L.m.finished) return; L.played[L.m.key] = L.m; L.idx++;
     if (L.idx < L.queue.length) { U.liveNext(); return; }
     U.liveActive = false; cancelAnimationFrame(U._raf);
     var played = L.played; U.live = null;

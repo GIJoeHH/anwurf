@@ -183,7 +183,14 @@
     var st = U.st, c = U.club(), el = document.getElementById('topbar');
     var nextSub = U.screen === 'bericht' ? 'Zur Zentrale' : st.phase === 'seasonEnd' ? 'Neue Saison' : st.phase === 'releg' ? 'Relegation' : S.isBreak(st) ? 'Nächste Woche' : 'Nächster Spieltag';
     function chip(icon, label, val, cls, opt) { return '<div class="tb-chip' + (opt ? ' opt' : '') + '">' + U.lc(icon, 18) + '<div><span>' + label + '</span><b class="' + (cls || '') + '">' + val + '</b></div></div>'; }
-    var nextBtn = function (sub) { return '<button class="btn-next" data-act="next"' + (U.busy ? ' disabled' : '') + '><span class="bn-txt">Weiter<small>' + sub + '</small></span>' + U.lc('chevron-right', 20) + '</button>'; };
+    var nextBtn = function (sub) {
+      // Während eines Live-Spiels: oben der Knopf zum Spielbericht (bzw. zum nächsten Spiel) statt „Weiter“
+      if (U.liveActive && U.live && U.live.m) {
+        var L = U.live, done = !!L.m.finished, more = L.idx + 1 < L.queue.length;
+        return '<button class="btn-next" data-act="liveContinue"' + (done ? '' : ' disabled title="Das Spiel läuft noch"') + '><span class="bn-txt">' + (more ? 'Nächstes Spiel' : 'Zum Spielbericht') + '<small>' + (done ? 'Spiel beendet' : 'Spiel läuft …') + '</small></span>' + U.lc('chevron-right', 20) + '</button>';
+      }
+      return '<button class="btn-next" data-act="next"' + (U.busy ? ' disabled' : '') + '><span class="bn-txt">Weiter<small>' + sub + '</small></span>' + U.lc('chevron-right', 20) + '</button>';
+    };
     if (!c) {
       el.innerHTML = '<div class="tb-club"><div><div class="name">' + esc(st.manager.name) + ' – vereinslos</div><div class="sub">Saison ' + st.season + '/' + String(st.season + 1).slice(2) + ' · ' + S.calText(st) + '</div></div></div><div class="tb-spacer"></div>' + nextBtn(st.phase === 'seasonEnd' ? 'Neue Saison' : 'Woche abwarten');
       return;
@@ -202,7 +209,7 @@
       chip('gauge', 'Stärke · Moral', strength + ' · ' + mood, '', true) +
       chip('shield', 'Nächster Gegner', opp ? esc(opp.short) + (nxt.comp !== 'league' ? ' (' + (nxt.comp === 'releg' ? 'AR' : nxt.comp === 'friendly' ? 'Test' : nxt.comp === 'euro' ? R.euro.shortLabel(nxt) : 'Pokal') + ')' : '') + (nxt.h === c.id ? ' · H' : ' · A') : '—', '', true) +
       '<div class="tb-spacer"></div>' +
-      (U.autoRun ? '<button class="sm danger" data-act="autoStop">' + U.lc('square', 14) + 'Automatik stoppen</button>' : '<button class="sm ghost" data-act="autoStart" title="Spieltage automatisch mit Sofortergebnis durchspielen, bis etwas Wichtiges passiert">' + U.lc('fast-forward', 15) + 'Auto</button>') +
+      (U.liveActive ? '' : U.autoRun ? '<button class="sm danger" data-act="autoStop">' + U.lc('square', 14) + 'Automatik stoppen</button>' : '<button class="sm ghost" data-act="autoStart" title="Spieltage automatisch mit Sofortergebnis durchspielen, bis etwas Wichtiges passiert">' + U.lc('fast-forward', 15) + 'Auto</button>') +
       nextBtn(nextSub);
   };
   U.navItems = function () {

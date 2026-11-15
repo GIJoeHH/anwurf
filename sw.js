@@ -1,5 +1,5 @@
 /* ANWURF! – Service Worker für den Offline-Betrieb (automatisch erzeugt von web/deploy.sh, nicht von Hand ändern) */
-const VERSION = 'cc10cf0547';
+const VERSION = 'e4a6f56de2';
 const CACHE = 'anwurf-' + VERSION;
 const CORE = [
   './',
@@ -11,6 +11,7 @@ const CORE = [
   './img/tecis.jpg',
   './index.html',
   './js/crests.js',
+  './js/customleague.js',
   './js/data.js',
   './js/data_euro.js',
   './js/data_real.js',

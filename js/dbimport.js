@@ -169,7 +169,7 @@
     var clubRows = order.map(function (n) {
       var c = clubs[n], k = known.byName[n] || known.bySource[c.source] || {};
       var ovrs = c.players.map(function (p) { return p.ovr; });
-      return [n, k.short || n.replace(/^(1\.\s*)?(FC|SV|VfL|VfB|SC|TSV|SG|SSV|FSV|SpVgg|TSG)\s+/, '').slice(0, 14), k.city || n, k.color1 || '#64748b', k.color2 || '#ffffff', c.league, k.fans || { 1: 30000, 2: 16000, 3: 5000 }[c.league], Math.round(R.avg(ovrs) * 10) / 10, Math.max.apply(null, ovrs), c.players.length, c.source];
+      return [n, k.short || n.replace(/^(1\.\s*)?(FC|SV|VfL|VfB|SC|TSV|SG|SSV|FSV|SpVgg|TSG)\s+/, '').slice(0, 14), k.city || n, k.color1 || '#64748b', k.color2 || '#ffffff', c.league, k.fans || { 1: 30000, 2: 16000, 3: 5000, 4: 800 }[c.league], Math.round(R.avg(ovrs) * 10) / 10, Math.max.apply(null, ovrs), c.players.length, c.source];
     });
     var idx = {}; order.forEach(function (n, i) { idx[n] = i; });
     var playerRows = [];

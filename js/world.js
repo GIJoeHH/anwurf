@@ -44,7 +44,7 @@
     if (p.age >= 31) w *= 0.9;
     return Math.max(3000, R.round(w, 500));
   };
-  W.WAGE_CAP = { 1: 600000, 2: 95000, 3: 40000 }; // Obergrenzen je Liga (3 = alle Staffeln der 3. Liga)
+  W.WAGE_CAP = { 1: 600000, 2: 95000, 3: 40000, 4: 12000 }; // Obergrenzen je Liga (3 = alle Staffeln der 3. Liga)
   W.wageCap = function (club) { return club ? (W.WAGE_CAP[club.league] || W.WAGE_CAP[3]) : W.WAGE_CAP[1]; };
   W.capWage = function (wage, club) { return Math.min(wage, W.wageCap(club)); };
   // Alte Spielstände: Gehälter einmalig auf das neue Gefüge umrechnen (Verhältnis neue/alte Formel, Ligaobergrenze)
@@ -128,7 +128,7 @@
   };
 
   W.sponsorBase = function (club) {
-    var base = { 1: 2200000, 2: 500000, 3: 100000 }[club.league];
+    var base = { 1: 2200000, 2: 500000, 3: 100000, 4: 30000 }[club.league];
     return base * (0.6 + club.reputation / 120) * Math.pow(Math.max(400, club.fans) / 6000, 0.25);
   };
 
@@ -175,10 +175,10 @@
     var club = {
       id: 'c' + (idx + 1), name: row[0], short: row[1], city: row[2], colors: [row[3], row[4]], crest: { shape: idx % 4, symbol: idx % 6 },
       league: lvl, staffel: row[8] || 0, tier: tier, reputation: Math.round(15 + tier * 80), fans: row[7], tradition: R.randInt(30, 90),
-      cash: R.round({ 1: R.randRange(6e6, 30e6), 2: R.randRange(1.5e6, 6e6), 3: R.randRange(3e5, 1.5e6) }[lvl] * D.MONEY, 1000),
+      cash: R.round({ 1: R.randRange(6e6, 30e6), 2: R.randRange(1.5e6, 6e6), 3: R.randRange(3e5, 1.5e6), 4: R.randRange(4e4, 1.5e5) }[lvl] * D.MONEY, 1000),
       savings: 0, loans: [], portfolio: {}, sponsors: [], construction: [], fac: {},
       budgets: { admin: 1, marketing: 1, fans: 1, scouting: 1, trainorg: 1 },
-      tickets: { 1: { steh: 14, sitz: 28, vip: 150 }, 2: { steh: 10, sitz: 18, vip: 80 }, 3: { steh: 7, sitz: 12, vip: 40 } }[lvl],
+      tickets: { 1: { steh: 14, sitz: 28, vip: 150 }, 2: { steh: 10, sitz: 18, vip: 80 }, 3: { steh: 7, sitz: 12, vip: 40 }, 4: { steh: 4, sitz: 6, vip: 15 } }[lvl],
       tactic: { formation: R.pick(['6:0', '6:0', '5:1', '3:2:1', '4:2']), style: 1, pressing: 1, tempo: 1 },
       lineup: [], bench: [], captain: null, pen: null, fk: null, corner: null,
       training: 'technik', trainingBonus: 0, coach: W.genCoach(30 + tier * 65, lvl), rivals: [], stadiumName: row[9] || ((row[1].length < 12 ? row[1] : row[2]) + '-Halle'),
@@ -186,8 +186,8 @@
       fin: { season: {}, last: null, weeks: [] }, chemistry: 50, fanTrust: 60, publicImage: 50, pitch: 100, attBonus: 0, dealHistory: [], commitments: [], dealLast: {}, attendanceHist: [], cityAuto: true, form: [], stadiumHist: []
     };
     // Einrichtungen nach Liga/Stärke
-    var sc = { 1: 0.55 + tier * 0.3, 2: 0.3 + tier * 0.3, 3: 0.08 + tier * 0.3 }[lvl];
-    var capTarget = row[10] || club.fans * ({ 1: 0.8, 2: 0.85, 3: 0.9 }[lvl]);
+    var sc = { 1: 0.55 + tier * 0.3, 2: 0.3 + tier * 0.3, 3: 0.08 + tier * 0.3, 4: 0.02 + tier * 0.2 }[lvl];
+    var capTarget = row[10] || club.fans * ({ 1: 0.8, 2: 0.85, 3: 0.9, 4: 0.9 }[lvl]);
     var stad = pickStadium(capTarget);
     club.fac.sitz = stad[0]; club.fac.steh = stad[1];
     ['dach', 'vip', 'licht', 'video', 'rasen', 'sanitaer', 'hosp', 'technik'].forEach(function (k) {
@@ -231,7 +231,7 @@
     return out;
   };
   // Ligaschlüssel eines Vereins: 1 = Bundesliga, 2 = 2. Bundesliga, 3–6 = Staffeln der 3. Liga
-  W.lk = function (c) { return !c ? 1 : c.league < 3 ? c.league : 3 + (c.staffel || 0); };
+  W.lk = function (c) { return !c ? 1 : c.league < 3 ? c.league : c.league === 4 ? 7 : 3 + (c.staffel || 0); }; // 7 = eigene Liga (Spielklasse 4)
   W.clubsInLeague = function (st, key) {
     return Object.keys(st.clubs).map(function (k) { return st.clubs[k]; }).filter(function (c) { return W.lk(c) === key; });
   };
@@ -340,6 +340,9 @@
       transfers: [], allTime: {}, pendingEvent: null, deal: null, dealsScheduled: [], dealLog: [], lastResults: null, seasonLog: []
     };
     var diff = W.diffSettings[st.settings.difficulty];
+    var CLg = R.customLeague, custom = opts.mode === 'found' && opts.customLeague && CLg ? opts.customLeague : null;
+    st.customLeague = custom ? { name: custom.name, short: CLg.shortName(custom.name), age: custom.age } : null;
+    if (CLg) CLg.activate(st);
     var real = true; // ANWURF! kennt nur die echte Spielwelt (Bundesliga, 2. Bundesliga, 3. Liga in vier Staffeln)
     st.world = 'real';
     if (real) W.buildRealWorld(st);
@@ -352,7 +355,18 @@
 
     // Eigener Verein gründen
     var userClub = null;
-    if (opts.mode === 'found') {
+    if (custom) {
+      // Eigene Liga als 4. Spielklasse: kein Drittligist wird ersetzt, die eigene Mannschaft ist der gegründete Verein
+      var ncC = opts.newClub || {};
+      userClub = CLg.makeClubs(st, custom, ncC);
+      userClub.crest = { shape: ncC.crestShape || 0, symbol: ncC.crestSymbol || 0 };
+      if (ncC.crestImage) userClub.crestImage = ncC.crestImage;
+      if (ncC.stadium) userClub.stadiumName = ncC.stadium;
+      userClub.reputation = 12; userClub.tradition = 5;
+      userClub.cash = R.round((ncC.capital || 150000), 1000);
+      userClub.founded = true;
+      userClub.coach = W.genCoach(30, 4);
+    } else if (opts.mode === 'found') {
       var rep = st.clubs[opts.replaceClubId] || W.clubsInTier(st, 3)[0];
       var nc = opts.newClub || {};
       var keepId = rep.id;
@@ -376,14 +390,15 @@
     // Kader erzeugen (echte Welt: importierte Spieler; ein neu gegründeter Verein bekommt einen erzeugten Kader)
     if (real) {
       W.importRealPlayers(st);
-      if (opts.mode === 'found') {
+      if (opts.mode === 'found' && !custom) {
         // Der Kader des ersetzten Vereins wird vertragslos (Transfermarkt), damit keine Spieler verloren gehen
         Object.keys(st.players).forEach(function (id) { var p = st.players[id]; if (p.clubId === userClub.id) { p.clubId = null; p.freeSince = st.season; } });
       }
     }
     // Kleine Kader (z. B. zweite Mannschaften) auf mindestens 15 Spieler auffüllen
+    if (custom) CLg.populate(st, custom); // Spieler der eigenen Liga (eingelesene Kader + aufgefüllt)
     if (real) Object.keys(st.clubs).forEach(function (k) {
-      var c = st.clubs[k]; if (c.founded) return;
+      var c = st.clubs[k]; if (c.founded || c.custom) return;
       var sq = W.squad(st, c.id), need = { TW: 2, AUS: 4, RUE: 5, KRS: 2 };
       var mean = R.avg(sq.slice().sort(function (a, b) { return b.ovr - a.ovr; }).slice(0, 10), function (p) { return p.ovr; }) - 5;
       Object.keys(need).forEach(function (pos) { var have = sq.filter(function (p) { return p.pos === pos; }).length; while (have++ < need[pos]) W.genPlayer(st, pos, R.clamp(R.gauss(mean, 3), 30, 85), R.randInt(18, 24), c.id); });
@@ -393,7 +408,7 @@
       var c = st.clubs[k];
       var mean = 40 + c.tier * 38 + (c === userClub ? 0 : diff.ai);
       if (c.founded) mean = real ? st.leagueMean[3] - 7 : 47;
-      if (!real || c.founded) W.genSquad(st, c, mean);
+      if (!real || (c.founded && !c.custom)) W.genSquad(st, c, mean);
       ['haupt', 'trikot', 'aermel', 'ausruester', 'bande'].forEach(function (cat) { var s = W.genSponsor(st, c, cat); if (c.founded && cat !== 'haupt' && cat !== 'bande') return; c.sponsors.push(s); }); if (R.econ && R.econ.ensureBande) R.econ.ensureBande(st, c, true);
     });
     userClub.cash = Math.round(userClub.cash * (opts.mode === 'found' ? 1 : diff.cash));

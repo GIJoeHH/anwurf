@@ -382,13 +382,20 @@
     if (w.step === 1) {
       h += '<div class="grid g3">' +
         U.choice('mode', 'existing', w.mode, '🏟️ Verein übernehmen', 'Übernehmen Sie einen beliebigen Verein aus Bundesliga, 2. Bundesliga oder 3. Liga.') +
-        U.choice('mode', 'found', w.mode, '🛠️ Eigenen Verein gründen', 'Präsident + Geschäftsführer + Trainer in einer Person. Start in der 3. Liga, unkündbar.') +
+        U.choice('mode', 'found', w.mode, '🛠️ Eigenen Verein gründen', 'Präsident + Geschäftsführer + Trainer in einer Person. Start in der 3. Liga – oder mit Ihrer echten Mannschaft in Ihrer eigenen Liga. Unkündbar.') +
         U.choice('mode', 'project', w.mode, '🚀 Vom Drittligisten zum Spitzenclub', 'Schnellstart mit einem schwachen Drittligisten als Aufbauprojekt.') + '</div>';
       if (W.hasRealWorld()) h += '<div class="panel" style="margin-top:14px"><h2>Spielwelt 2026/27</h2><p class="small">🇩🇪 <b>100 echte Vereine</b>: Bundesliga (18), 2. Bundesliga (18) und 3. Liga in vier Staffeln (Nord-Ost, Nord-West, Süd-West, Süd mit je 16) – mit ' + R.fmtNum(D.real.players.length) + ' echten Spielern. Daten: ' + esc(D.real.source) + '.</p></div>';
       h += '<div class="row" style="margin-top:18px"><button data-act="toStart">← Zurück</button><div class="tb-spacer"></div><button class="primary" data-act="wizNext"' + (w.mode ? '' : ' disabled') + '>Weiter →</button></div>';
     } else if (w.step === 2) {
       var st = U.wizPreview();
-      if (w.mode === 'found') {
+      if (w.mode === 'found' && R.customLeague) {
+        h += '<div class="grid g2" style="margin-bottom:14px">' +
+          U.choice('league', 'std', w.league || 'std', '🏟️ Start in der 3. Liga', 'Ihr neuer Verein übernimmt den Platz eines Drittligisten.') +
+          U.choice('league', 'custom', w.league, '🏠 Eigene Liga einlesen', 'Ihre echte Liga (z. B. Jugend- oder Kreisliga) mit Ihrer eigenen Mannschaft – als neue unterste Spielklasse unter der 3. Liga.') + '</div>';
+      }
+      if (w.mode === 'found' && w.league === 'custom' && R.customLeague) {
+        h += U.customLeagueForm(w);
+      } else if (w.mode === 'found') {
         h += '<div class="panel"><h2>Welcher Drittligist wird ersetzt?</h2><p class="muted small">Ihr neuer Verein übernimmt den Platz in der 3. Liga (in derselben Staffel), damit jede Staffel weiterhin 16 Mannschaften hat.' + (st.world === 'real' ? ' Die Spieler des ersetzten Vereins werden vertragslos und stehen auf dem Transfermarkt.' : '') + '</p><select data-chg="wizReplace">' + W.clubsInTier(st, 3).map(function (c) { return '<option value="' + c.id + '"' + (w.replace === c.id ? ' selected' : '') + '>' + esc(c.name) + ' (' + esc(c.city) + ')</option>'; }).join('') + '</select></div>';
         if (!w.replace) w.replace = W.clubsInTier(st, 3)[0].id;
       } else {
@@ -408,7 +415,7 @@
           ], cl, { click: 'wizPickClub', rowClass: function (c) { return c.id === w.clubId ? 'sel' : ''; } }) + '</div></div>';
         });
       }
-      h += '<div class="row" style="margin-top:18px"><button data-act="wizBack">← Zurück</button><div class="tb-spacer"></div>' + (w.clubId && w.mode !== 'found' ? '<span class="muted">Gewählt: <b>' + esc(st.clubs[w.clubId].name) + '</b></span>' : '') + '<button class="primary" data-act="wizNext"' + (w.mode === 'found' || w.clubId ? '' : ' disabled') + '>Weiter →</button></div>';
+      h += '<div class="row" style="margin-top:18px"><button data-act="wizBack">← Zurück</button><div class="tb-spacer"></div>' + (w.clubId && w.mode !== 'found' ? '<span class="muted">Gewählt: <b>' + esc(st.clubs[w.clubId].name) + '</b></span>' : '') + '<button class="primary" data-act="wizNext"' + ((w.mode === 'found' && !(w.league === 'custom' && R.customLeague.check(w.cl).length)) || (w.mode !== 'found' && w.clubId) ? '' : ' disabled') + '>Weiter →</button></div>';
     } else if (w.step === 3) {
       if (w.mode === 'found') {
         var nc = w.nc, prevClub = { id: 'prev', short: nc.short || 'FC', colors: [nc.color1, nc.color2], crest: { shape: nc.crestShape, symbol: nc.crestSymbol }, crestImage: nc.crestImage || null };
@@ -456,12 +463,68 @@
   U.acts.wizCrest = function (d) { U.wiz.nc[d.k] = +d.v; U.wiz.nc.crestImage = null; U.render(); };
   U.acts.wizCrestImg = function () { U.pickFile('image/*', function (url) { U.resizeImage(url, 160, function (small) { U.wiz.nc.crestImage = small; U.render(); }); }, true); };
   U.acts.wizCrestImgDel = function () { U.wiz.nc.crestImage = null; U.render(); };
+
+  // ---------- Eigene Liga einlesen (nur auf diesem Gerät; siehe js/customleague.js) ----------
+  U.customLeagueForm = function (w) {
+    var CL = R.customLeague, dr = w.cl || (w.cl = CL.emptyDraft()), errs = CL.check(dr);
+    var opts = dr.teams.map(function (t) { return '<option value="' + esc(t) + '"' + (dr.own === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('');
+    var rows = dr.teams.map(function (t) { var n = (dr.rosters[t] || []).length; return '<tr' + (dr.own === t ? ' class="me"' : '') + '><td>' + esc(t) + '</td><td class="muted small">' + esc(CL.shortName(t)) + '</td><td class="num">' + (dr.own === t ? CL.parseRoster(dr.ownRoster).length || n : n) + '</td></tr>'; }).join('');
+    return '<div class="panel" style="margin-bottom:12px;border-left:4px solid #16a34a"><p class="small" style="margin:0">🔒 <b>Bleibt auf diesem Gerät.</b> Spielberichte, Namen und Kader werden nur hier gelesen und nur in Ihrem Spielstand gespeichert. Ins veröffentlichte Spiel (GitHub) gelangt davon nichts – deshalb braucht es auch kein Passwort.</p></div>' +
+      '<div class="grid g2"><div class="panel"><h2>1. Spielberichte von handball.net <span class="muted small">(optional)</span></h2>' +
+      '<p class="muted small">Auf handball.net beim jeweiligen Spiel den Spielbericht als PDF laden und hier auswählen (gern mehrere auf einmal). Daraus werden Liganame, Mannschaften und Kader mit Rückennummern und Toren übernommen.</p>' +
+      '<div class="row"><button class="primary" data-act="wizClPdf">📄 PDF-Spielberichte auswählen</button><span class="muted small" id="clPdfState">' + (dr.reports ? dr.reports + ' Bericht' + (dr.reports === 1 ? '' : 'e') + ' gelesen' : '') + '</span></div>' +
+      '<h2 style="margin-top:16px">2. Liga</h2><div class="grid g2">' +
+      U.field('Name der Liga', '<input type="text" data-inp="wizClF" data-k="name" value="' + esc(dr.name) + '" maxlength="40" placeholder="z. B. Kreisliga Hamburg">') +
+      U.field('Alter der Spieler (ca.)', '<input type="number" data-inp="wizClF" data-k="age" value="' + esc(dr.age) + '" min="8" max="45">') + '</div>' +
+      U.field('Mannschaften (eine pro Zeile – die Tabelle von handball.net kann auch einfach hineinkopiert werden)', '<textarea data-chg="wizClTeams" rows="9" style="width:100%">' + esc(dr.teams.join('\n')) + '</textarea>') +
+      '</div><div class="panel"><h2>3. Ihre Mannschaft</h2>' +
+      U.field('Unsere Mannschaft', '<select data-chg="wizClOwn"><option value="">– bitte wählen –</option>' + opts + '</select>') +
+      U.field('Unser Kader (eine Zeile pro Spieler: Nummer Name, Position optional)', '<textarea data-inp="wizClF" data-k="ownRoster" rows="11" style="width:100%" placeholder="1 Max Muster TW&#10;7 Tom Beispiel RL&#10;…">' + esc(dr.ownRoster) + '</textarea>') +
+      '<p class="muted small">Aus der Handball-Live-App (Einstellungen → „Unser Kader“) einfach hineinkopieren. Positionen: TW, LA, RA, RL, RM, RR, KM. Ohne Angabe wird die Position geschätzt; Stärke und Position lassen sich später im Editor anpassen. Fehlende Spieler werden aufgefüllt.</p></div></div>' +
+      (dr.teams.length ? '<div class="panel" style="margin-top:12px"><h2>Übersicht</h2><table class="t small"><tr><th>Mannschaft</th><th>Kurzname</th><th class="num">Spieler bekannt</th></tr>' + rows + '</table><p class="muted small">Mannschaften ohne bekannte Spieler erhalten einen erzeugten Kader. Der Meister steigt am Saisonende in die 3. Liga auf.</p></div>' : '') +
+      (errs.length ? '<ul class="small warn" style="margin-top:10px">' + errs.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul>' : '');
+  };
+  U.acts.wizClF = function (d, el) { var dr = U.wiz.cl; dr[d.k] = d.k === 'age' ? +el.value : el.value; };
+  U.acts.wizClTeams = function (d, el) {
+    var CL = R.customLeague, dr = U.wiz.cl; dr.teams = [];
+    CL.parseTeams(el.value).forEach(function (t) { CL.addTeam(dr, t); });
+    if (dr.own && dr.teams.indexOf(dr.own) < 0) dr.own = '';
+    U.render();
+  };
+  U.acts.wizClOwn = function (d, el) {
+    var CL = R.customLeague, w = U.wiz, dr = w.cl; dr.own = el.value;
+    if (dr.own) {
+      if (!dr.ownRoster.trim() && dr.rosters[dr.own]) dr.ownRoster = CL.rosterText(dr.rosters[dr.own]);
+      w.nc.name = dr.own; w.nc.short = CL.shortName(dr.own); w.nc.city = CL.cityOf(dr.own);
+      if (/^Sporthalle am Bahndamm$/.test(w.nc.stadium)) w.nc.stadium = 'Sporthalle ' + w.nc.city;
+    }
+    U.render();
+  };
+  U.acts.wizClPdf = function () {
+    var CL = R.customLeague, inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/pdf,.pdf'; inp.multiple = true;
+    inp.onchange = function () {
+      var files = Array.prototype.slice.call(inp.files || []); if (!files.length) return;
+      var dr = U.wiz.cl, ok = 0, players = 0, bad = [], chain = Promise.resolve(), stEl = document.getElementById('clPdfState');
+      if (stEl) stEl.textContent = 'Lese ' + files.length + ' PDF …';
+      files.forEach(function (f) {
+        chain = chain.then(function () { return CL.readPdf(f); }).then(function (rep) {
+          var n = CL.addReport(dr, rep); if (n || (rep.meta && rep.meta.heim)) { ok++; players += n; } else bad.push(f.name);
+        }).catch(function (e) { bad.push(f.name + (e && e.message ? ' (' + e.message + ')' : '')); });
+      });
+      chain.then(function () {
+        if (dr.own && !dr.ownRoster.trim() && dr.rosters[dr.own]) dr.ownRoster = CL.rosterText(dr.rosters[dr.own]);
+        U.render();
+        U.toast(ok + ' Spielbericht' + (ok === 1 ? '' : 'e') + ' gelesen, ' + players + ' Spielereinträge' + (bad.length ? ' – nicht lesbar: ' + bad.join(', ') : ''));
+      });
+    };
+    inp.click();
+  };
   U.acts.wizStart = function () {
     var w = U.wiz;
     var main = document.getElementById('main'); main.innerHTML = '<div class="title-screen"><div class="logo" style="font-size:24px">Die Spielwelt wird erschaffen …</div></div>';
     setTimeout(function () {
       var opts = { seed: w.seed, world: w.world, difficulty: w.difficulty, managerName: w.name || 'Manager', role: w.role, canBeFired: w.canBeFired };
-      if (w.mode === 'found') { opts.mode = 'found'; opts.replaceClubId = w.replace; opts.newClub = w.nc; }
+      if (w.mode === 'found') { opts.mode = 'found'; opts.replaceClubId = w.replace; opts.newClub = w.nc; if (w.league === 'custom' && R.customLeague) opts.customLeague = R.customLeague.finalize(w.cl); }
       else { opts.mode = 'existing'; opts.clubId = w.clubId; }
       U.st = W.newGame(opts);
       if (R.crests) R.crests.applyLibrary(U.st);

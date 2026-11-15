@@ -71,7 +71,7 @@
   // Gehaltsforderung des Spielers
   T.wageDemand = function (st, p, club) {
     var base = W.fairWage(p);
-    var leagueF = { 1: 1.15, 2: 1, 3: 0.9 }[club.league];
+    var leagueF = { 1: 1.15, 2: 1, 3: 0.9, 4: 0.8 }[club.league];
     var repF = 1 + (60 - club.reputation) / 300; // kleine Vereine müssen mehr bieten
     var cur = p.clubId ? p.wage : base * 0.8;
     // Ligaobergrenze: kein Zweitligist zahlt Bundesliga-Spitzengehälter
@@ -294,7 +294,7 @@
       if (p.age > 32) continue;
       if (p.clubId && p.joined === st.season && p.boughtFor) continue; // in dieser Saison schon gewechselt
       var fee = p.clubId ? T.askingPrice(st, p) * 0.95 : 0;
-      var wage = W.capWage(W.fairWage(p) * ({ 1: 1.15, 2: 1, 3: 0.9 }[club.league]), club);
+      var wage = W.capWage(W.fairWage(p) * ({ 1: 1.15, 2: 1, 3: 0.9, 4: 0.8 }[club.league]), club);
       if (fee > budget || fee > T.feeCap(club) || wage > wageRoom + (squad.length > 22 ? 0 : wage * 0.5)) continue;
       if (!T.willingness(st, p, club)) continue;
       if (p.clubId && W.squad(st, p.clubId).length <= 18) continue;

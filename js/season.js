@@ -39,7 +39,7 @@
   S.CUP_NAMES = ['Qualifikation', '1. Runde', '2. Runde', 'Achtelfinale', 'Viertelfinale', 'Halbfinale', 'Finale'];
   S.CUP_PRIZE = [5000, 10000, 20000, 40000, 80000, 150000, 300000];
   // Ligaprämien je Spielklasse (1. bis letzter Platz)
-  S.LEAGUE_PRIZE = { 1: [1200000, 300000], 2: [300000, 80000], 3: [60000, 15000] };
+  S.LEAGUE_PRIZE = { 1: [1200000, 300000], 2: [300000, 80000], 3: [60000, 15000], 4: [12000, 2000] };
   S.prizeFor = function (key) { return S.LEAGUE_PRIZE[D.leagueTier[key]]; };
 
   S.news = function (st, title, text, type) {
@@ -89,14 +89,16 @@
 
   // Doppelrunde (Kreismethode): jede Mannschaft hat gleich viele Heim- und Auswärtsspiele
   S.makeSchedule = function (ids) {
-    var teams = R.shuffle(ids.slice()), n = teams.length, rounds = [];
+    var teams = R.shuffle(ids.slice()), rounds = [];
+    if (teams.length % 2) teams.push(null); // ungerade Anzahl (eigene Liga): ein Team ist je Spieltag spielfrei
+    var n = teams.length;
     var fixed = teams[0], rot = teams.slice(1);
     for (var r = 0; r < n - 1; r++) {
       var md = [], cur = [fixed].concat(rot);
       for (var i = 0; i < n / 2; i++) {
         var a = cur[i], b = cur[n - 1 - i];
         var home = (i === 0) ? (r % 2 === 0 ? a : b) : (i % 2 === 0 ? a : b); // Heim/Auswärts wechseln sich ab
-        md.push({ h: home, a: home === a ? b : a, r: null });
+        if (a && b) md.push({ h: home, a: home === a ? b : a, r: null });
       }
       rounds.push(md);
       rot.unshift(rot.pop());
@@ -163,6 +165,11 @@
 
   S.targetFor = function (club) {
     var e = club.expectedPos || 9, n = club.leagueSize || 18;
+    if (club.league === 4) { // eigene Liga: Meister steigt auf
+      if (e <= 2) return { pos: 1, text: 'Meisterschaft (Aufstieg)' };
+      if (e <= Math.ceil(n / 3)) return { pos: Math.ceil(n / 3), text: 'Spitzengruppe' };
+      return { pos: n, text: 'Spaß am Handball' };
+    }
     if (club.league === 3) { // 3. Liga: Nur der Staffelsieger erreicht die Aufstiegsrunde, abgestiegen wird nicht
       if (e <= 2) return { pos: 1, text: 'Staffelsieg (Aufstiegsrunde)' };
       if (e <= 5) return { pos: 5, text: 'Spitzengruppe' };
@@ -1172,6 +1179,11 @@
     var n1 = ft[1].length, n2 = ft[2].length;
     sum.relegated = [ft[1][n1 - 2], ft[1][n1 - 1], ft[2][n2 - 2], ft[2][n2 - 1]];
     st.releg.forEach(function (rg) { sum.releg.push({ upper: rg.upper, lower: rg.lower, winner: rg.winner }); });
+    // Eigene Liga (Spielklasse 4): Meister steigt in die 3. Liga auf, der schwächste Staffel-Letzte steigt ab
+    if (R.customLeague && R.customLeague.active() && ft[7] && ft[7].length) {
+      sum.promoted.push(ft[7][0]);
+      var dn = R.customLeague.downFrom3(st); if (dn) { sum.relegated.push(dn); sum.down4 = dn; }
+    }
     return sum;
   };
 
@@ -1199,14 +1211,14 @@
           var bonus = 0;
           if (i + 1 <= s.topN) bonus += s.bonusTop;
           if (i === 0 && l === 1) bonus += s.bonusTitle;
-          if (l > 1 && i < (tier === 3 ? 1 : 2)) bonus += s.bonusPromo;
+          if (l > 1 && i < (tier >= 3 ? 1 : 2)) bonus += s.bonusPromo;
           if (bonus) { c.cash += bonus; E.book(c, 'Sponsorenboni', bonus); }
           s.years--;
         });
         c.sponsors = c.sponsors.filter(function (s) { return s.years > 0; });
         // Reputation & Fans
         var expected = c.expectedPos || 9;
-        c.reputation = R.clamp(Math.round(c.reputation + (expected - (i + 1)) * 0.35 + ({ 1: 72, 2: 48, 3: 30 }[tier] - c.reputation) * 0.06), 1, 100);
+        c.reputation = R.clamp(Math.round(c.reputation + (expected - (i + 1)) * 0.35 + ({ 1: 72, 2: 48, 3: 30, 4: 18 }[tier] - c.reputation) * 0.06), 1, 100);
         c.fans = R.clamp(Math.round(c.fans * (1 + (expected - (i + 1)) * 0.006 + [-0.01, 0, 0.015][c.budgets.marketing])), 300, 40000);
         c.pointsPenalty = 0;
         c.fin.last = c.fin.season;
@@ -1223,6 +1235,7 @@
     function move(id, to, why) {
       var c = st.clubs[id], from = c.league; c.league = to;
       if (to === 3) c.newInTier3 = true;
+      if (to === 4) c.newInTier3 = false;
       if (to < from) { c.titles.promo++; c.history.push({ season: st.season, type: 'aufstieg', text: 'Aufstieg in die ' + D.tierNames[to] + (why ? ' (' + why + ')' : '') }); c.fans = Math.round(c.fans * 1.08); }
       else c.history.push({ season: st.season, type: 'abstieg', text: 'Abstieg in die ' + D.tierNames[to] + (why ? ' (' + why + ')' : '') });
     }
@@ -1231,6 +1244,7 @@
     move(ft[2][0], 1); move(ft[2][1], 1); move(ft[1][n1 - 2], 2); move(ft[1][n1 - 1], 2);
     move(ft[2][n2 - 2], 3); move(ft[2][n2 - 1], 3);
     st.releg.forEach(function (rg) { if (rg.winner) move(rg.winner, 2, 'Aufstiegsrunde'); });
+    if (sum.down4 && ft[7] && ft[7][0]) { move(ft[7][0], 3, 'Meister ' + D.leagueNames[7]); move(sum.down4, 4, 'schwächster Staffel-Letzter'); }
     // Zwangsabstieg: eine Liga tiefer, der beste nicht aufgestiegene Verein der unteren Liga rückt nach
     Object.keys(st.clubs).forEach(function (k) {
       var fc = st.clubs[k]; if (!fc.forcedRelegation) return;
@@ -1349,7 +1363,7 @@
       // Trainerwechsel bei schlechter Saison
       if ((c.lastPos || 9) >= (c.league === 3 ? 14 : 15) && R.chance(0.5)) { c.coach = W.genCoach(30 + c.tier * 60 + R.randInt(-10, 10), c.league); c.history.push({ season: st.season, type: 'trainer', text: 'Neuer Trainer: ' + c.coach.name }); }
       // Stärke-Tier passt sich der Liga an (KI-Vereine verändern sich)
-      c.tier = R.clamp(c.tier * 0.85 + ({ 1: 0.82, 2: 0.55, 3: 0.35 }[c.league]) * 0.15 + (c.reputation - 50) / 2000, 0.15, 1);
+      c.tier = R.clamp(c.tier * 0.85 + ({ 1: 0.82, 2: 0.55, 3: 0.35, 4: 0.15 }[c.league]) * 0.15 + (c.reputation - 50) / 2000, 0.15, 1);
     });
 
     st.season++;
@@ -1362,7 +1376,7 @@
 
   // Durchschnittliche Stammspielerstärke je Spielklasse (wird beim Start der Karriere festgehalten, damit
   // nachrückende Spieler zum Niveau der Spielwelt passen)
-  S.leagueMean = function (st, l) { return (st.leagueMean && st.leagueMean[l]) || { 1: 70, 2: 60, 3: 52 }[l]; };
+  S.leagueMean = function (st, l) { return (st.leagueMean && st.leagueMean[l]) || { 1: 70, 2: 60, 3: 52, 4: 42 }[l]; };
 
   // Staffeln der 3. Liga ausgleichen: neue Drittligisten (Absteiger) kommen in die Staffeln mit den wenigsten
   // Vereinen, bei Gleichstand bevorzugt in ihre Heimatregion (club.region). Jede Staffel behält so 16 Vereine.

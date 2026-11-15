@@ -72,7 +72,7 @@
   E.GUEST_QUOTA = 0.10; // der Gastverein erhält 10 % der Stadiontickets
 
   // Referenzpreise je Liga: Steh/Sitz/Business pro Spiel, Loge = Saisonmiete je Loge (Privatraum in der Halle für 12 Gäste mit eigenem Catering)
-  E.refPrices = { 1: { steh: 13, sitz: 26, biz: 50, loge: 30000, vip: 140 }, 2: { steh: 10, sitz: 17, biz: 27, loge: 15000, vip: 75 }, 3: { steh: 7, sitz: 11, biz: 13, loge: 7000, vip: 35 } };
+  E.refPrices = { 1: { steh: 13, sitz: 26, biz: 50, loge: 30000, vip: 140 }, 2: { steh: 10, sitz: 17, biz: 27, loge: 15000, vip: 75 }, 3: { steh: 7, sitz: 11, biz: 13, loge: 7000, vip: 35 }, 4: { steh: 4, sitz: 6, biz: 8, loge: 2500, vip: 15 } };
   function priceFactor(price, ref, floor) { var r = Math.max(0.1, price / ref); return R.clamp(Math.pow(r, -1.35), floor || 0, 1.8); }
   // Geheimer Cheat „Kartenhai“: Bei aktivierten Cheats kaufen beim eigenen Verein immer noch 5 % der Nachfrage – egal, wie absurd der Preis ist.
   // Wird das an einem echten Spieltag genutzt, ist der Spielstand als „mit Cheat“ markiert (wie beim Bankdirektor).
@@ -191,9 +191,9 @@
     opts = opts || {}; E.ensureTix(home);
     var shark = false, sharkF = home.userControlled && st.settings && st.settings.cheatEnabled ? E.SHARK_FLOOR : 0;
     function pfx(p, r) { if (sharkF && priceFactor(p, r) < sharkF) shark = true; return priceFactor(p, r, sharkF); }
-    var leagueF = { 1: 1.0, 2: 0.82, 3: 0.66 }[home.league];
+    var leagueF = { 1: 1.0, 2: 0.82, 3: 0.66, 4: 0.5 }[home.league];
     var sport = E.sportFactor(st, home);
-    var mu = E.matchup(st, home, away), nOpp = (st.leagues[home.league] && st.leagues[home.league].clubIds.length) || 18;
+    var mu = E.matchup(st, home, away), lkH = R.world.lk(home), nOpp = (st.leagues[lkH] && st.leagues[lkH].clubIds.length) || 18;
     var oppPos = away && away.league === home.league && st.week >= 3 ? E.leaguePos(st, away) : (away ? (away.lastPos || 9) + (away.league - home.league) * 6 : 9);
     var oppPosF = 1 + 0.14 * (1 - R.clamp((oppPos - 1) / (nOpp - 1), 0, 1.4)) - 0.05; // Tabellenplatz des Gegners
     var oppF = (0.88 + (away ? away.reputation : 50) / 100 * 0.3) * oppPosF;
@@ -318,7 +318,7 @@
     return sum * (1 - E.energySave(club));
   };
   E.budgetCost = function (club, area) {
-    var base = { 1: 1100000, 2: 380000, 3: 110000 }[club.league] * D.MONEY;
+    var base = { 1: 1100000, 2: 380000, 3: 110000, 4: 25000 }[club.league] * D.MONEY;
     return base * [0.55, 1, 1.7][club.budgets[area]];
   };
   E.wageTotal = function (st, club) {
@@ -778,7 +778,7 @@
     for (var id in st.players) { var p = st.players[id]; if (p.clubId === club.id) { if (p.youth) youthW += p.wage; else wages += p.wage; } }
     add('Spielergehälter', -wages / n);
     add('Nachwuchsgehälter', -youthW / n);
-    add('Trainer & Personal', -((club.coach ? club.coach.wage : 0) + E.staffWages(club) + { 1: 1500000, 2: 500000, 3: 150000 }[club.league] * D.MONEY) / n);
+    add('Trainer & Personal', -((club.coach ? club.coach.wage : 0) + E.staffWages(club) + { 1: 1500000, 2: 500000, 3: 150000, 4: 30000 }[club.league] * D.MONEY) / n);
     if (club.lawyer && club.lawyer.wage) add('Rechtsberatung', -club.lawyer.wage / n);
     add('Unterhalt Anlagen', -E.upkeepTotal(club) * costF / n);
     var budgets = 0; Object.keys(D.budgetAreas).forEach(function (a) { budgets += E.budgetCost(club, a); });
@@ -823,7 +823,7 @@
     if (pr && from < total + 1) {
       var prize = Math.round(pr[0] - (pr[0] - pr[1]) * (pos - 1) / Math.max(1, n - 1)); add('Prämien', prize); end += prize;
       club.sponsors.forEach(function (s) {
-        var b = 0; if (pos <= s.topN) b += s.bonusTop || 0; if (pos === 1 && club.league === 1) b += s.bonusTitle || 0; if (club.league > 1 && pos <= (club.league === 3 ? 1 : 2)) b += s.bonusPromo || 0;
+        var b = 0; if (pos <= s.topN) b += s.bonusTop || 0; if (pos === 1 && club.league === 1) b += s.bonusTitle || 0; if (club.league > 1 && pos <= (club.league >= 3 ? 1 : 2)) b += s.bonusPromo || 0;
         if (b) { add('Sponsorenboni', b); end += b; }
       });
     }

@@ -75,12 +75,12 @@
   // Ligen: Schlüssel 1 = Bundesliga, 2 = 2. Bundesliga, 3–6 = die vier Staffeln der 3. Liga (Spielklasse 3)
   D.leagueNames = { 1: 'Bundesliga', 2: '2. Bundesliga', 3: '3. Liga Nord-Ost', 4: '3. Liga Nord-West', 5: '3. Liga Süd-West', 6: '3. Liga Süd' };
   D.leagueShort = { 1: 'HBL', 2: '2. HBL', 3: 'Nord-Ost', 4: 'Nord-West', 5: 'Süd-West', 6: 'Süd' };
-  D.tierNames = { 1: 'Bundesliga', 2: '2. Bundesliga', 3: '3. Liga' };
+  D.tierNames = { 1: 'Bundesliga', 2: '2. Bundesliga', 3: '3. Liga', 4: 'Amateurliga' }; // 4 = eigene Liga (js/customleague.js)
   D.staffeln = ['Nord-Ost', 'Nord-West', 'Süd-West', 'Süd'];
   D.leagueKeys = [1, 2, 3, 4, 5, 6];
   D.leagueTier = { 1: 1, 2: 2, 3: 3, 4: 3, 5: 3, 6: 3 };
-  D.leagueTV = { 1: 1300000, 2: 300000, 3: 50000 }; // TV-Gelder je Saison (Basis)
-  D.leagueTicketBase = { 1: 1.0, 2: 0.65, 3: 0.40 };
+  D.leagueTV = { 1: 1300000, 2: 300000, 3: 50000, 4: 8000 }; // TV-Gelder je Saison (Basis)
+  D.leagueTicketBase = { 1: 1.0, 2: 0.65, 3: 0.40, 4: 0.25 };
 
   D.positions = ['TW', 'AUS', 'RUE', 'KRS'];
   D.posNames = { TW: 'Torwart', AUS: 'Außen', RUE: 'Rückraum', KRS: 'Kreis' };
@@ -283,7 +283,7 @@
     assistent: { n: 'Teamassistent', ic: '🗂️', d: 'Reibungslose Abläufe, gute Stimmung im Team.', eff: '+2 Moral-Zielwert und Teamchemie je Stufe' }
   };
   D.staffLevels = ['Nicht besetzt', 'Einsteiger', 'Erfahren', 'Spitzenkraft'];
-  D.staffWage = { factor: [0, 1, 2.6, 6], base: { 1: 14000, 2: 5500, 3: 2200 } };
+  D.staffWage = { factor: [0, 1, 2.6, 6], base: { 1: 14000, 2: 5500, 3: 2200, 4: 900 } };
 
   D.stocks = [
     { id: 'STB', name: 'Hallenbau AG', price: 42, vol: 0.05, drift: 0.002 },

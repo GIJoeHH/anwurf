@@ -75,13 +75,13 @@
       l = l.replace(/\t/g, ' ').replace(/[;|]/g, ' ').replace(/\s+/g, ' ').trim(); if (!l) return;
       var m = /^#?(\d{1,3})[.:)]?\s+(.+)$/.exec(l), nr = null, rest = l;
       if (m) { nr = +m[1]; rest = m[2]; }
-      var tok = rest.split(' '), pos = null, goals = 0;
+      var tok = rest.split(' '), pos = null, goals = 0, detail = null;
       // Position am Ende (TW, RL, KM …) und optional Tore als letzte Zahl
       if (tok.length > 1 && /^\d{1,3}$/.test(tok[tok.length - 1])) goals = +tok.pop();
-      if (tok.length > 1 && R.ocr && R.ocr.normPos(tok[tok.length - 1]) && tok[tok.length - 1].length <= 11) { pos = R.ocr.normPos(tok.pop()); }
+      if (tok.length > 1 && R.ocr && R.ocr.normPos(tok[tok.length - 1]) && tok[tok.length - 1].length <= 11) { var raw = tok.pop(); pos = R.ocr.normPos(raw); detail = /^(TW|LA|RA|RL|RM|RR|KM)$/i.test(raw) ? raw.toUpperCase() : null; }
       var name = tok.join(' ').trim();
       if (!/[A-Za-zÄÖÜäöüß]/.test(name)) return;
-      out.push({ nr: nr, name: name.slice(0, 40), pos: pos, goals: goals, games: goals ? 1 : 0 });
+      out.push({ nr: nr, name: name.slice(0, 40), pos: pos, detail: detail, goals: goals, games: goals ? 1 : 0 });
     });
     return out;
   };
@@ -162,6 +162,53 @@
     dr.reports++;
     return found;
   };
+  // ---------- Sicherungsdatei der Handball-Live-App („Handball-Live-Daten.json“) ----------
+  // Enthält je Mannschaft: Name, Spielklasse, eigenen Kader (Nummer, Name, Position), Liga mit Spielplan und Spielberichten.
+  CL.backupTeams = function (data) {
+    var o = typeof data === 'string' ? JSON.parse(data) : data;
+    if (o && o.cfg && !o.teams) o = { format: 'handball-live-sync', teams: [{ id: 'eins', label: o.cfg.nameH, state: o }] }; // einzelner Spielstand
+    if (!o || !Array.isArray(o.teams) || !o.teams.length) throw new Error('Keine Sicherungsdatei der Handball-Live-App (Handball-Live-Daten.json).');
+    return o.teams.filter(function (t) { return t && t.state && t.state.cfg; }).map(function (t) { return { id: t.id, label: t.label || t.state.cfg.nameH || 'Mannschaft', state: t.state }; });
+  };
+  function tokens(s) { return String(s || '').toUpperCase().replace(/HH/g, 'HAMBURG').split(/[^A-ZÄÖÜ0-9]+/).filter(function (t) { return t.length > 1; }); }
+  CL.matchTeam = function (list, name) {
+    var k = norm(name), exact = list.filter(function (t) { return norm(t) === k; })[0]; if (exact) return exact;
+    var mine = tokens(name), best = null, bs = 0;
+    list.forEach(function (t) { var tt = tokens(t), sc = tt.filter(function (x) { return mine.indexOf(x) >= 0; }).length; if (sc > bs) { bs = sc; best = t; } });
+    return bs >= Math.min(2, mine.length) && bs > 0 ? best : null;
+  };
+  var POS_TXT = { TW: 'TW', LA: 'LA', RA: 'RA', RL: 'RL', RM: 'RM', RR: 'RR', KM: 'KM' };
+  CL.draftFromBackup = function (team) {
+    var st = team.state, cfg = st.cfg || {}, L = st.league || {}, dr = CL.emptyDraft();
+    var reps = Object.keys(L.reports || {}).map(function (k) { return L.reports[k]; });
+    var klasse = (reps.filter(function (r) { return r.klasse; })[0] || {}).klasse;
+    dr.name = String(cfg.teamClass || klasse || 'Eigene Liga').slice(0, 40);
+    Object.keys(L.games || {}).forEach(function (k) { var g = L.games[k]; CL.addTeam(dr, g.home); CL.addTeam(dr, g.away); });
+    reps.forEach(function (r) { CL.addTeam(dr, (r.heim || {}).team); CL.addTeam(dr, (r.gast || {}).team); });
+    // Kader aus allen Spielberichten der Liga und aus dem Gegner-Scouting
+    var sides = [];
+    reps.forEach(function (r) { sides.push(r.heim, r.gast); });
+    ((st.scout || {}).reports || []).forEach(function (r) { sides.push(r); });
+    sides.forEach(function (x) {
+      if (!x || !x.team || !x.roster) return;
+      var team = CL.matchTeam(dr.teams, x.team) || CL.addTeam(dr, x.team);
+      var list = dr.rosters[team] || (dr.rosters[team] = []);
+      x.roster.forEach(function (p) {
+        if (!p || !p.name) return;
+        var k = norm(p.name), hit = list.filter(function (q) { return norm(q.name) === k; })[0];
+        if (hit) { hit.goals += +p.tore || 0; hit.games++; if (p.nr != null) hit.nr = p.nr; } else list.push({ nr: p.nr, name: p.name, goals: +p.tore || 0, games: 1 });
+      });
+    });
+    // Eigene Mannschaft und eigener Kader (mit Positionen) aus der App
+    var own = cfg.nameH ? (CL.matchTeam(dr.teams, cfg.nameH) || CL.addTeam(dr, cfg.nameH)) : '';
+    dr.own = own || '';
+    var named = (cfg.rosterH || []).filter(function (p) { return p && String(p.name || '').trim(); });
+    dr.ownRoster = named.map(function (p) { return (p.nr != null ? p.nr + ' ' : '') + String(p.name).trim() + (POS_TXT[p.pos] ? ' ' + POS_TXT[p.pos] : ''); }).join('\n');
+    if (!dr.ownRoster && dr.own && dr.rosters[dr.own]) dr.ownRoster = CL.rosterText(dr.rosters[dr.own]);
+    dr.reports = reps.length; dr.fromApp = team.label;
+    return dr;
+  };
+
   // Prüfen, ob der Entwurf spielbar ist
   CL.check = function (dr) {
     var errs = [];
@@ -216,6 +263,7 @@
       var pl = W.genPlayer(st, pos, R.clamp(Math.round(ovr), 20, 80), R.clamp(Math.round(R.gauss(age, 1.2)), Math.max(8, age - 2), age + 3), club.id);
       var nm = CL.splitName(p.name); pl.first = nm.first; pl.last = nm.last;
       if (p.nr != null) pl.shirt = p.nr;
+      if (p.detail && R.world.detailFor && ({ TW: 'TW', LA: 'AUS', RA: 'AUS', RL: 'RUE', RM: 'RUE', RR: 'RUE', KM: 'KRS' })[p.detail] === pos) pl.posDetail = p.detail;
       pl.imported = true; pl.contract = R.randInt(1, 3);
       if (W.recalc) W.recalc(pl);
       return pl;

@@ -470,9 +470,11 @@
     var opts = dr.teams.map(function (t) { return '<option value="' + esc(t) + '"' + (dr.own === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('');
     var rows = dr.teams.map(function (t) { var n = (dr.rosters[t] || []).length; return '<tr' + (dr.own === t ? ' class="me"' : '') + '><td>' + esc(t) + '</td><td class="muted small">' + esc(CL.shortName(t)) + '</td><td class="num">' + (dr.own === t ? CL.parseRoster(dr.ownRoster).length || n : n) + '</td></tr>'; }).join('');
     return '<div class="panel" style="margin-bottom:12px;border-left:4px solid #16a34a"><p class="small" style="margin:0">🔒 <b>Bleibt auf diesem Gerät.</b> Spielberichte, Namen und Kader werden nur hier gelesen und nur in Ihrem Spielstand gespeichert. Ins veröffentlichte Spiel (GitHub) gelangt davon nichts – deshalb braucht es auch kein Passwort.</p></div>' +
-      '<div class="grid g2"><div class="panel"><h2>1. Spielberichte von handball.net <span class="muted small">(optional)</span></h2>' +
-      '<p class="muted small">Auf handball.net beim jeweiligen Spiel den Spielbericht als PDF laden und hier auswählen (gern mehrere auf einmal). Daraus werden Liganame, Mannschaften und Kader mit Rückennummern und Toren übernommen.</p>' +
-      '<div class="row"><button class="primary" data-act="wizClPdf">📄 PDF-Spielberichte auswählen</button><span class="muted small" id="clPdfState">' + (dr.reports ? dr.reports + ' Bericht' + (dr.reports === 1 ? '' : 'e') + ' gelesen' : '') + '</span></div>' +
+      '<div class="grid g2"><div class="panel"><h2>1. Daten übernehmen <span class="muted small">(optional)</span></h2>' +
+      '<p class="muted small">Am einfachsten mit der Sicherung der Handball-Live-App:</p>' +
+      '<div class="row" style="margin-bottom:6px"><button class="primary" data-act="wizClApp">📲 Sicherung aus Handball-Live laden</button></div><p class="muted small">In der Handball-Live-App unter Einstellungen → Sync &amp; App die Sicherung als Datei speichern („Handball-Live-Daten.json“) und hier auswählen. Übernommen werden Liga, alle Mannschaften, Ihr Kader mit Positionen und die Kader aus den eingelesenen Spielberichten.' + (dr.fromApp ? ' <b>Geladen: ' + esc(dr.fromApp) + '</b>' : '') + '</p>' +
+      '<p class="muted small" style="margin-top:12px">Alternativ: auf handball.net beim jeweiligen Spiel den Spielbericht als PDF laden und hier auswählen (gern mehrere auf einmal). Daraus werden Liganame, Mannschaften und Kader mit Rückennummern und Toren übernommen.</p>' +
+      '<div class="row"><button data-act="wizClPdf">📄 PDF-Spielberichte auswählen</button><span class="muted small" id="clPdfState">' + (dr.reports ? dr.reports + ' Bericht' + (dr.reports === 1 ? '' : 'e') + ' gelesen' : '') + '</span></div>' +
       '<h2 style="margin-top:16px">2. Liga</h2><div class="grid g2">' +
       U.field('Name der Liga', '<input type="text" data-inp="wizClF" data-k="name" value="' + esc(dr.name) + '" maxlength="40" placeholder="z. B. Kreisliga Hamburg">') +
       U.field('Alter der Spieler (ca.)', '<input type="number" data-inp="wizClF" data-k="age" value="' + esc(dr.age) + '" min="8" max="45">') + '</div>' +
@@ -480,7 +482,7 @@
       '</div><div class="panel"><h2>3. Ihre Mannschaft</h2>' +
       U.field('Unsere Mannschaft', '<select data-chg="wizClOwn"><option value="">– bitte wählen –</option>' + opts + '</select>') +
       U.field('Unser Kader (eine Zeile pro Spieler: Nummer Name, Position optional)', '<textarea data-inp="wizClF" data-k="ownRoster" rows="11" style="width:100%" placeholder="1 Max Muster TW&#10;7 Tom Beispiel RL&#10;…">' + esc(dr.ownRoster) + '</textarea>') +
-      '<p class="muted small">Aus der Handball-Live-App (Einstellungen → „Unser Kader“) einfach hineinkopieren. Positionen: TW, LA, RA, RL, RM, RR, KM. Ohne Angabe wird die Position geschätzt; Stärke und Position lassen sich später im Editor anpassen. Fehlende Spieler werden aufgefüllt.</p></div></div>' +
+      '<p class="muted small">Wird beim Laden der Handball-Live-Sicherung automatisch ausgefüllt. Positionen: TW, LA, RA, RL, RM, RR, KM. Ohne Angabe wird die Position geschätzt; Stärke und Position lassen sich später im Editor anpassen. Fehlende Spieler werden aufgefüllt.</p></div></div>' +
       (dr.teams.length ? '<div class="panel" style="margin-top:12px"><h2>Übersicht</h2><table class="t small"><tr><th>Mannschaft</th><th>Kurzname</th><th class="num">Spieler bekannt</th></tr>' + rows + '</table><p class="muted small">Mannschaften ohne bekannte Spieler erhalten einen erzeugten Kader. Der Meister steigt am Saisonende in die 3. Liga auf.</p></div>' : '') +
       (errs.length ? '<ul class="small warn" style="margin-top:10px">' + errs.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul>' : '');
   };
@@ -499,6 +501,26 @@
       if (/^Sporthalle am Bahndamm$/.test(w.nc.stadium)) w.nc.stadium = 'Sporthalle ' + w.nc.city;
     }
     U.render();
+  };
+  U.acts.wizClApp = function () {
+    var CL = R.customLeague;
+    U.pickFile('.json,application/json,text/plain', function (text) {
+      var teams;
+      try { teams = CL.backupTeams(text); } catch (e) { U.toast((e && e.message) || 'Datei nicht lesbar'); return; }
+      if (!teams.length) { U.toast('In der Sicherung ist keine Mannschaft.'); return; }
+      if (teams.length === 1) { U.wizClUse(teams[0]); return; }
+      U.wizClTeams = teams;
+      U.modal('Welche Mannschaft?', '<p class="muted small">Die Sicherung enthält mehrere Mannschaften. Welche soll Ihr Verein werden?</p><div class="grid">' + teams.map(function (t, i) { return '<button data-act="wizClPick" data-i="' + i + '">' + esc(t.label) + '</button>'; }).join('') + '</div>');
+    });
+  };
+  U.acts.wizClPick = function (d) { var t = (U.wizClTeams || [])[+d.i]; U.closeModal(); U.wizClTeams = null; if (t) U.wizClUse(t); };
+  U.wizClUse = function (team) {
+    var CL = R.customLeague, w = U.wiz, dr = CL.draftFromBackup(team);
+    dr.age = (w.cl && w.cl.age) || dr.age;
+    w.cl = dr;
+    if (dr.own) { w.nc.name = dr.own; w.nc.short = CL.shortName(dr.own); w.nc.city = CL.cityOf(dr.own); if (/^Sporthalle am Bahndamm$/.test(w.nc.stadium)) w.nc.stadium = 'Sporthalle ' + w.nc.city; }
+    U.render();
+    U.toast('Übernommen: ' + dr.teams.length + ' Mannschaften, ' + CL.parseRoster(dr.ownRoster).length + ' eigene Spieler');
   };
   U.acts.wizClPdf = function () {
     var CL = R.customLeague, inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/pdf,.pdf'; inp.multiple = true;

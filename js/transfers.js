@@ -18,29 +18,43 @@
     }
     return { open: false, text: 'Transferfenster geschlossen – Wechsel zur neuen Saison möglich' + (st.phase === 'season' && st.week < 16 ? ' · Winterfenster öffnet vor dem 17. Spieltag' : '') };
   };
-  // Vereinbarte Wechsel zur neuen Saison: { pid, to, fee, wage, years, signOn, bonus, from }
+  // Ablösefreier Vorvertrag: Läuft der Vertrag eines Spielers in höchstens PRE_YEARS Jahren aus, kann er schon jetzt
+  // für die Zeit danach unterschreiben – ohne Ablöse, denn beim Wechsel ist er vertragsfrei. Im Handball werden solche Wechsel oft schon bis zu zwei Jahre vor Vertragsende vereinbart.
+  T.PRE_YEARS = 2;
+  T.canPreContract = function (st, p) { var c = p.clubId && st.clubs[p.clubId]; return !!c && !c.userControlled && !p.loan && !p.youth && !p.foreignClub && p.contract >= 1 && p.contract <= T.PRE_YEARS; };
+  // Saison, an deren Ende der Vertrag ausläuft (contract 1 = endet mit dieser Saison)
+  T.freeSeason = function (st, p) { return st.season + Math.max(1, p.contract || 1) - 1; };
+  // Bezeichnung der Saison, in der ein Spieler nach Ablauf der Saison 'at' antritt, z. B. „2027/28“
+  T.joinLabel = function (at) { return (at + 1) + '/' + String(at + 2).slice(2); };
+  // Vereinbarte Wechsel zur neuen Saison: { pid, to, fee, wage, years, signOn, bonus, from, free, at }
   T.addPending = function (st, p, club, n) {
     st.pendingTransfers = st.pendingTransfers || [];
     st.pendingTransfers = st.pendingTransfers.filter(function (x) { return x.pid !== p.id; });
-    st.pendingTransfers.push({ pid: p.id, to: club.id, from: p.clubId, fee: n.fee || 0, wage: n.wage, years: n.years, signOn: n.signOn || 0, bonus: n.bonus || 0, season: st.season });
+    var at = n.free ? T.freeSeason(st, p) : st.season;
+    st.pendingTransfers.push({ pid: p.id, to: club.id, from: p.clubId, fee: n.free ? 0 : (n.fee || 0), wage: n.wage, years: n.years, signOn: n.signOn || 0, bonus: n.bonus || 0, season: st.season, free: !!n.free, at: at });
     p.reservedFor = club.id;
+    if (n.free) { R.season.news(st, 'Vorvertrag: ' + W.playerName(p) + ' kommt ablösefrei zur Saison ' + T.joinLabel(at), (p.clubId ? st.clubs[p.clubId].name + ' → ' : '') + club.name + '. Der Vertrag beim bisherigen Verein läuft ' + (at > st.season ? 'im Sommer ' + (at + 1) : 'zum Saisonende') + ' aus, der Wechsel erfolgt danach ohne Ablöse.', 'transfer'); return; }
     R.season.news(st, 'Einigung: ' + W.playerName(p) + ' kommt zur neuen Saison', (p.clubId ? st.clubs[p.clubId].name + ' → ' : '') + club.name + (n.fee ? ' für ' + R.fmtMoney(n.fee) : ' ablösefrei') + '. Der Wechsel wird zum Start der Saisonvorbereitung vollzogen.', 'transfer');
   };
   T.isPending = function (st, p) { return (st.pendingTransfers || []).some(function (x) { return x.pid === p.id; }); };
   T.cancelPending = function (st, pid) { var p = st.players[pid]; if (p) p.reservedFor = null; st.pendingTransfers = (st.pendingTransfers || []).filter(function (x) { return x.pid !== pid; }); };
   T.executePending = function (st, beforeContracts) {
+    var later = [];
     (st.pendingTransfers || []).forEach(function (x) {
       var p = st.players[x.pid], to = st.clubs[x.to];
       if (!p || !to) return;
+      if ((x.at || st.season) > st.season) { later.push(x); return; } // Vorvertrag für eine spätere Saison: noch warten
       p.reservedFor = null;
-      var freed = !p.clubId && x.from; // Vertrag ausgelaufen → ablösefrei
+      // Ablösefrei, wenn der Vertrag beim abgebenden Verein jetzt ausläuft oder schon ausgelaufen ist.
+      // Wichtig: Dieser Schritt läuft VOR dem Herunterzählen der Laufzeiten – contract 1 heißt hier „endet jetzt“.
+      var freed = !!x.from && (!p.clubId || (p.clubId === x.from && (x.free || (beforeContracts && p.contract <= 1))));
       if (freed) x.fee = 0;
       if (p.retired || (!freed && (p.clubId || null) !== (x.from || null))) { R.season.news(st, 'Wechsel geplatzt: ' + W.playerName(p), 'Der Spieler steht nicht mehr zur Verfügung.', 'transfer'); return; }
       if (to.cash < x.fee + x.signOn && to.userControlled && st.manager.role !== 'trainer') { R.season.news(st, 'Wechsel geplatzt: ' + W.playerName(p), 'Nicht genug Geld für die vereinbarte Ablöse von ' + R.fmtMoney(x.fee) + '.', 'transfer'); return; }
       T.executeTransfer(st, p, to, x.fee, x.wage, x.years + (beforeContracts ? 1 : 0), { signOn: x.signOn, bonus: x.bonus }); // +1: Laufzeit wird gleich beim Saisonwechsel gezählt
       if (to.userControlled) to.manualLineup = false;
     });
-    st.pendingTransfers = [];
+    st.pendingTransfers = later;
   };
 
   // Höchste Ablöse, die ein Verein der jeweiligen Liga zahlt (Handball: Zweitligisten zahlen selten mehr als ein paar Zehntausend Euro)
@@ -91,7 +105,7 @@
   T.reachable = function (st, p, club) {
     if (!T.willingness(st, p, club) || p.reservedFor) return false;
     var budget = st.manager.role === 'trainer' ? (st.manager.transferBudget || 0) : club.cash;
-    var fee = p.clubId ? T.askingPrice(st, p) * W.diffSettings[st.settings.difficulty].nego * 0.82 : 0;
+    var fee = p.clubId && !T.canPreContract(st, p) ? T.askingPrice(st, p) * W.diffSettings[st.settings.difficulty].nego * 0.82 : 0;
     return fee <= Math.max(0, budget);
   };
   // Vertragsverhandlung: offer {wage, years, signOn, bonus}
@@ -189,7 +203,7 @@
     Object.keys(st.players).forEach(function (id) { var p = st.players[id]; if (p.trial && (st.tick || 0) >= p.trial.until) T.youthBack(st, p, true); });
   };
 
-  T.freeAgents = function (st) { return Object.keys(st.players).map(function (k) { return st.players[k]; }).filter(function (p) { return !p.clubId && !p.retired; }); };
+  T.freeAgents = function (st) { return Object.keys(st.players).map(function (k) { return st.players[k]; }).filter(function (p) { return !p.clubId && !p.retired && !p.reservedFor; }); };
 
   // KI: Angebote für gelistete Spieler des Nutzers erzeugen
   T.generateOffersForUser = function (st, club) {

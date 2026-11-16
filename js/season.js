@@ -109,7 +109,7 @@
 
   S.table = function (st, lvl, mode, uptoWeek) {
     var lg = st.leagues[lvl], rows = {};
-    lg.clubIds.forEach(function (id) { rows[id] = { id: id, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, form: [] }; });
+    lg.clubIds.forEach(function (id) { rows[id] = { id: id, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, form: [], games: [] }; });
     var lim = uptoWeek || lg.fixtures.length;
     for (var w = 0; w < lim && w < lg.fixtures.length; w++) {
       lg.fixtures[w].forEach(function (f) {
@@ -117,15 +117,15 @@
         var h = rows[f.h], a = rows[f.a]; if (!h || !a) return;
         var hg = f.r.hg, ag = f.r.ag;
         // Handball: 2 Punkte für einen Sieg, 1 für ein Unentschieden
-        if (mode !== 'away') { h.p++; h.gf += hg; h.ga += ag; if (hg > ag) { h.w++; h.pts += 2; h.form.push('S'); } else if (hg === ag) { h.d++; h.pts++; h.form.push('U'); } else { h.l++; h.form.push('N'); } }
-        if (mode !== 'home') { a.p++; a.gf += ag; a.ga += hg; if (ag > hg) { a.w++; a.pts += 2; a.form.push('S'); } else if (hg === ag) { a.d++; a.pts++; a.form.push('U'); } else { a.l++; a.form.push('N'); } }
-        if (mode === 'home') { a.form.push(ag > hg ? 'S' : ag === hg ? 'U' : 'N'); }
-        if (mode === 'away') { h.form.push(hg > ag ? 'S' : hg === ag ? 'U' : 'N'); }
+        if (mode !== 'away') { h.games.push([hg, ag]); h.p++; h.gf += hg; h.ga += ag; if (hg > ag) { h.w++; h.pts += 2; h.form.push('S'); } else if (hg === ag) { h.d++; h.pts++; h.form.push('U'); } else { h.l++; h.form.push('N'); } }
+        if (mode !== 'home') { a.games.push([ag, hg]); a.p++; a.gf += ag; a.ga += hg; if (ag > hg) { a.w++; a.pts += 2; a.form.push('S'); } else if (hg === ag) { a.d++; a.pts++; a.form.push('U'); } else { a.l++; a.form.push('N'); } }
       });
     }
     var arr = Object.keys(rows).map(function (k) { var r = rows[k]; var c = st.clubs[k]; if (!mode && c && c.pointsPenalty) r.pts -= c.pointsPenalty; r.pen = (!mode && c) ? c.pointsPenalty || 0 : 0; return r; });
     if (mode === 'form') {
-      arr.forEach(function (r) { var f = r.form.slice(-5); r.pts = R.sum(f, function (x) { return x === 'S' ? 2 : x === 'U' ? 1 : 0; }); r.p = f.length; });
+      // Formtabelle: nur die letzten 5 Spiele zählen (Punkte, S/U/N und Tore)
+      arr.forEach(function (r) { var g = r.games.slice(-5); r.p = g.length; r.w = 0; r.d = 0; r.l = 0; r.gf = 0; r.ga = 0; r.pts = 0;
+        g.forEach(function (x) { r.gf += x[0]; r.ga += x[1]; if (x[0] > x[1]) { r.w++; r.pts += 2; } else if (x[0] === x[1]) { r.d++; r.pts++; } else r.l++; }); });
     }
     arr.sort(function (a, b) { return b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf || (st.clubs[a.id].name < st.clubs[b.id].name ? -1 : 1); });
     return arr;

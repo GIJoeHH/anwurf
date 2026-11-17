@@ -42,6 +42,23 @@
   S.LEAGUE_PRIZE = { 1: [1200000, 300000], 2: [300000, 80000], 3: [60000, 15000], 4: [12000, 2000] };
   S.prizeFor = function (key) { return S.LEAGUE_PRIZE[D.leagueTier[key]]; };
 
+  // Einnahmen des eigenen Vereins im Pokal/Europapokal dieser Saison: { cup: {prize, gate}, euro: {gate} }
+  S.compEarn = function (st, k) {
+    if (!st.compEarn || st.compEarn.season !== st.season) st.compEarn = { season: st.season, cup: { prize: 0, gate: 0 }, euro: { prize: 0, gate: 0 } };
+    return st.compEarn[k];
+  };
+  S.compKey = function (fx) { return fx.comp === 'euro' ? 'euro' : fx.comp === 'cup' || fx.comp === 'final' ? 'cup' : null; };
+  // Zuschauereinnahmen des eigenen Vereins in einem Pokal-/Europapokalspiel mitschreiben
+  S.trackGate = function (st, fx, cash0) {
+    var uc = S.userClub(st), k = S.compKey(fx); if (!uc || !k || (fx.h !== uc.id && fx.a !== uc.id)) return;
+    var d = uc.cash - cash0; if (d > 0) S.compEarn(st, k).gate += d;
+  };
+  S.earnText = function (prize, gate) {
+    if (prize + gate <= 0) return 'Einnahmen gab es diesmal leider keine.';
+    return 'Insgesamt haben wir ' + R.fmtMoney(prize + gate) + ' eingenommen' + (gate > 0 ? ' (Prämien ' + R.fmtMoney(prize) + ', Zuschauereinnahmen ' + R.fmtMoney(gate) + ')' : '') + '.';
+  };
+  S.inRound = function (n) { return (/Runde|Qualifikation|Gruppenphase/.test(n) ? 'in der ' : 'im ') + n; };
+
   S.news = function (st, title, text, type) {
     st.news.unshift({ season: st.season, week: st.week, title: title, text: text || '', type: type || 'info' });
     if (st.news.length > 120) st.news.length = 120;
@@ -109,7 +126,7 @@
 
   S.table = function (st, lvl, mode, uptoWeek) {
     var lg = st.leagues[lvl], rows = {};
-    lg.clubIds.forEach(function (id) { rows[id] = { id: id, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, form: [], games: [] }; });
+    lg.clubIds.forEach(function (id) { rows[id] = { id: id, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, form: [] }; });
     var lim = uptoWeek || lg.fixtures.length;
     for (var w = 0; w < lim && w < lg.fixtures.length; w++) {
       lg.fixtures[w].forEach(function (f) {
@@ -117,15 +134,15 @@
         var h = rows[f.h], a = rows[f.a]; if (!h || !a) return;
         var hg = f.r.hg, ag = f.r.ag;
         // Handball: 2 Punkte für einen Sieg, 1 für ein Unentschieden
-        if (mode !== 'away') { h.games.push([hg, ag]); h.p++; h.gf += hg; h.ga += ag; if (hg > ag) { h.w++; h.pts += 2; h.form.push('S'); } else if (hg === ag) { h.d++; h.pts++; h.form.push('U'); } else { h.l++; h.form.push('N'); } }
-        if (mode !== 'home') { a.games.push([ag, hg]); a.p++; a.gf += ag; a.ga += hg; if (ag > hg) { a.w++; a.pts += 2; a.form.push('S'); } else if (hg === ag) { a.d++; a.pts++; a.form.push('U'); } else { a.l++; a.form.push('N'); } }
+        if (mode !== 'away') { h.p++; h.gf += hg; h.ga += ag; if (hg > ag) { h.w++; h.pts += 2; h.form.push('S'); } else if (hg === ag) { h.d++; h.pts++; h.form.push('U'); } else { h.l++; h.form.push('N'); } }
+        if (mode !== 'home') { a.p++; a.gf += ag; a.ga += hg; if (ag > hg) { a.w++; a.pts += 2; a.form.push('S'); } else if (hg === ag) { a.d++; a.pts++; a.form.push('U'); } else { a.l++; a.form.push('N'); } }
+        if (mode === 'home') { a.form.push(ag > hg ? 'S' : ag === hg ? 'U' : 'N'); }
+        if (mode === 'away') { h.form.push(hg > ag ? 'S' : hg === ag ? 'U' : 'N'); }
       });
     }
     var arr = Object.keys(rows).map(function (k) { var r = rows[k]; var c = st.clubs[k]; if (!mode && c && c.pointsPenalty) r.pts -= c.pointsPenalty; r.pen = (!mode && c) ? c.pointsPenalty || 0 : 0; return r; });
     if (mode === 'form') {
-      // Formtabelle: nur die letzten 5 Spiele zählen (Punkte, S/U/N und Tore)
-      arr.forEach(function (r) { var g = r.games.slice(-5); r.p = g.length; r.w = 0; r.d = 0; r.l = 0; r.gf = 0; r.ga = 0; r.pts = 0;
-        g.forEach(function (x) { r.gf += x[0]; r.ga += x[1]; if (x[0] > x[1]) { r.w++; r.pts += 2; } else if (x[0] === x[1]) { r.d++; r.pts++; } else r.l++; }); });
+      arr.forEach(function (r) { var f = r.form.slice(-5); r.pts = R.sum(f, function (x) { return x === 'S' ? 2 : x === 'U' ? 1 : 0; }); r.p = f.length; });
     }
     arr.sort(function (a, b) { return b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga) || b.gf - a.gf || (st.clubs[a.id].name < st.clubs[b.id].name ? -1 : 1); });
     return arr;
@@ -188,7 +205,22 @@
     if (!st.cup || !st.cup.rounds.length || st.cup.winner) return;
     var n = st.cup.rounds.length, last = st.cup.rounds[n - 1];
     if (!last.ties.every(function (t) { return t.winner; })) return;
+    S.cupUserNews(st, n - 1);
     if (n < S.CUP_NAMES.length) S.drawCup(st, n); else S.cupFinished(st);
+  };
+  // Meldung für den eigenen Verein nach einer Pokalrunde: Weiterkommen mit Prämie oder Ausscheiden mit Gesamteinnahmen
+  S.cupUserNews = function (st, ci) {
+    var uc = S.userClub(st), rd = st.cup.rounds[ci]; if (!uc || !rd) return;
+    var t = rd.ties.filter(function (x) { return x.h === uc.id || x.a === uc.id; })[0]; if (!t) return;
+    var opp = st.clubs[t.h === uc.id ? t.a : t.h], e = S.compEarn(st, 'cup'), prize = S.CUP_PRIZE[ci];
+    if (t.winner === uc.id && ci === S.CUP_FINAL) {
+      S.news(st, 'DHB-Pokal: Titelprämie überwiesen', 'Für den Pokalsieg gegen ' + opp.name + ' wurden ' + R.fmtMoney(prize) + ' überwiesen. ' + S.earnText(e.prize, e.gate), 'liga');
+    } else if (t.winner === uc.id) {
+      var nx = S.CUP_NAMES[ci + 1];
+      S.news(st, 'DHB-Pokal: Wir stehen ' + S.inRound(nx) + '!', 'Nach dem Sieg gegen ' + opp.name + ' haben wir ' + (/Runde/.test(nx) ? 'die ' : 'das ') + nx + ' erreicht. Die Prämie von ' + R.fmtMoney(prize) + ' wurde überwiesen.', 'liga');
+    } else {
+      S.news(st, 'DHB-Pokal: Unsere Reise endet ' + S.inRound(rd.name), 'Gegen ' + opp.name + ' ist ' + S.inRound(rd.name) + ' Schluss. ' + S.earnText(e.prize, e.gate), 'liga');
+    }
   };
   S.drawCup = function (st, round) {
     if (round === 0) {
@@ -292,7 +324,9 @@
       var m = played[fx.key];
       if (!m) { m = S.createMatch(st, fx); M.simulate(m); }
       m.st = st;
+      var ucF = S.userClub(st), cash0F = ucF ? ucF.cash : 0;
       var att = S.neutralGate(st, fx, st.clubs[fx.h], st.clubs[fx.a]);
+      S.trackGate(st, fx, cash0F);
       m.attendance = att.total; m.attInfo = att;
       M.finalize(m);
       var sum = M.summary(m);
@@ -330,7 +364,7 @@
       m.st = st;
       var home = st.clubs[fx.h], away = st.clubs[fx.a];
       // Zuschauer & Einnahmen
-      var att;
+      var att, ucG = S.userClub(st), cash0 = ucG ? ucG.cash : 0;
       if (fx.comp === 'friendly') {
         // Testspiel: kleine Kulisse, kleine Einnahme, keine Tabellen/Sperren
         att = E.attendance(st, home, away, 'friendly');
@@ -349,6 +383,7 @@
         home.freeTickets = 0; home.blockedArea = 0;
         if (att.total > home.records.attendance) home.records.attendance = att.total;
       }
+      if (fx.comp !== 'friendly') S.trackGate(st, fx, cash0);
       m.attendance = att.total; m.attInfo = att;
       M.finalize(m);
       var sum = M.summary(m);
@@ -408,6 +443,7 @@
       tie.winner = (sum.pens ? (sum.pens[0] > sum.pens[1]) : (sum.hg > sum.ag)) ? tie.h : tie.a;
       var winner = st.clubs[tie.winner];
       winner.cash += S.CUP_PRIZE[ci]; E.book(winner, 'Prämien', S.CUP_PRIZE[ci]);
+      if (winner.userControlled) S.compEarn(st, 'cup').prize += S.CUP_PRIZE[ci];
     } else if (parts[0] === 'R') {
       var rg = st.releg[+parts[1]], leg = rg.legs[+parts[2]];
       leg.r = sum;

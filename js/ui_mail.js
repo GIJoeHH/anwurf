@@ -25,13 +25,19 @@
       if (!m.read) n++;
       var bad = m.tone === 'bad', good = m.tone === 'good';
       h += '<div class="msg' + (m.important ? ' msg-imp' : '') + (m.read ? ' msg-read' : '') + '"><div class="ic-tile ' + (bad ? 'bad' : good ? 'ok' : 'info') + '">' + U.lc(m.icon || 'mail', 20) + '</div><div class="msg-b"><b>' + (m.important ? '<span class="tag imp">Wichtig</span> ' : '') + esc(m.title) + ' <span class="muted small">· ' + esc(when(m)) + '</span></b><span>' + esc(m.text) + '</span></div><div class="row" style="gap:6px">' +
-        (m.kind === 'markt' ? '<button class="sm" data-act="mailMarket" data-id="' + m.id + '">Zur Börse</button>' : '') + '<button class="sm ghost" data-act="mailDel" data-id="' + m.id + '" title="Mail löschen">' + U.lc('x', 14) + '</button></div></div>';
+        (m.kind === 'markt' ? '<button class="sm" data-act="mailMarket" data-id="' + m.id + '">' + (U.mailMarketTab(m) === 'krypto' ? 'Zu den Kryptos' : 'Zur Börse') + '</button>' : '') + '<button class="sm ghost" data-act="mailDel" data-id="' + m.id + '" title="Mail löschen">' + U.lc('x', 14) + '</button></div></div>';
     });
     return { n: n, html: h };
   };
   U.acts.mailEvent = function () { U.showEvent(); };
   U.acts.mailDel = function (d) { var st = U.st; st.inbox = st.inbox.filter(function (m) { return m.id !== d.id; }); U.render(); };
-  U.acts.mailMarket = function (d) { var st = U.st; st.inbox.forEach(function (m) { if (m.id === d.id) m.read = true; }); U.go('bank', { tab: 'aktien' }); };
+  // Sprungziel einer Börsenmail: Krypto-Crash/-Boom (oder Mail zu einer Kryptowährung) → Kryptos, sonst Aktien
+  U.mailMarketTab = function (m) {
+    if (m && /^c(crash|boom)$/.test(m.mk || '')) return 'krypto';
+    if (m && m.sym && (D.cryptos || []).some(function (c) { return c.id === m.sym; })) return 'krypto';
+    return 'aktien';
+  };
+  U.acts.mailMarket = function (d) { var st = U.st, tab = 'aktien'; st.inbox.forEach(function (m) { if (m.id === d.id) { m.read = true; tab = U.mailMarketTab(m); } }); U.go('bank', { tab: tab }); };
   // Erledigte Ereigniskarte als (normale) Mail festhalten
   U.mailEventDone = function (st, ev, opt, msg) {
     if (!ev || !R.econ.addMail) return;

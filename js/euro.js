@@ -183,6 +183,7 @@
   };
   X.venueIdx = function (season, k) { return ((season || 0) * 3 + (k === 'tl' ? 7 : 0)) % C.venues.length; };
   X.venue = function (st, k) { var c = st.euro && st.euro[k], v = C.venues[c && c.venue != null ? c.venue : X.venueIdx(st.season, k)]; return { name: v[0], city: v[1], country: v[2], cap: v[3] }; };
+  function earnText(st, id) { var g = S.compEarn(st, 'euro').gate; return S.earnText(X.earned(st, id), g); }
   function pay(st, id, amount) { if (X.defs[id] || !(amount > 0)) return; var c = st.clubs[id]; if (!c) return; amount = Math.round(amount); c.cash += amount; E.book(c, 'Prämien', amount); var e = st.euro; if (e) { e.earn = e.earn || {}; e.earn[id] = (e.earn[id] || 0) + amount; } }
   function groupFixtures(t) {
     var a = t[0], b = t[1], c = t[2], d = t[3];
@@ -367,13 +368,13 @@
       var opp = X.info(st, mine.h === uc.id ? mine.a : mine.h);
       S.news(st, n + ': ' + def.n + ' gegen ' + opp.short + '!', uc.name + ' trifft im ' + def.n + ' der ' + n + ' auf ' + opp.name + ' (' + X.countryOf(st, opp.id) + '). ' +
         (def.neutral ? 'Gespielt wird ' + (def.f4 ? 'beim Final 4 ' : '') + 'in ' + v.city + ' (' + v.name + ', ' + R.fmtNum(v.cap) + ' Plätze). ' : legs === 2 ? (mine.a === uc.id ? 'Das Rückspiel findet zu Hause statt. ' : 'Das Hinspiel findet zu Hause statt. ') : '') +
-        'Prämie für das Weiterkommen: ' + R.fmtMoney(C.prize[k].ko[ri]) + '.', 'liga');
+        'Wir haben das ' + def.n + ' erreicht – die Prämie von ' + R.fmtMoney(C.prize[k].ko[ri]) + ' wurde überwiesen.', 'liga');
     } else if (ri === 0) {
       var gi = X.groupOf(st, k, uc.id), pos = X.table(st, k, gi).map(function (r) { return r.id; }).indexOf(uc.id) + 1;
-      S.news(st, n + ': Aus in der Gruppenphase', uc.name + ' beendet die Gruppe ' + X.GROUP_LETTERS[gi] + ' auf Platz ' + pos + ' und scheidet aus dem Europapokal aus.', 'liga');
+      S.news(st, n + ': Aus in der Gruppenphase', uc.name + ' beendet die Gruppe ' + X.GROUP_LETTERS[gi] + ' auf Platz ' + pos + ' und scheidet aus dem Europapokal aus. Unsere Reise endet leider in der Gruppenphase. ' + earnText(st, uc.id), 'liga');
     } else {
       var lost = c.ko[ri - 1].ties.filter(function (t) { return t.h === uc.id || t.a === uc.id; })[0];
-      if (lost) S.news(st, n + ': Endstation ' + X.ROUNDS[ri - 1].n, uc.name + ' scheidet im ' + X.ROUNDS[ri - 1].n + ' gegen ' + X.info(st, lost.winner).name + ' aus.', 'liga');
+      if (lost) S.news(st, n + ': Endstation ' + X.ROUNDS[ri - 1].n, uc.name + ' scheidet im ' + X.ROUNDS[ri - 1].n + ' gegen ' + X.info(st, lost.winner).name + ' aus. Unsere Reise endet leider ' + S.inRound(X.ROUNDS[ri - 1].n) + '. ' + earnText(st, uc.id), 'liga');
     }
   };
   X.finished = function (st, k) {
@@ -385,6 +386,11 @@
     st.euro.hist.push({ season: st.season, comp: k, club: w.name, city: v.city });
     S.news(st, n.toUpperCase() + ': ' + w.name + ' triumphiert in ' + v.city + '!', 'Finale in ' + v.name + ': ' + X.info(st, fin.h).short + ' – ' + X.info(st, fin.a).short + ' ' + r.hg + ':' + r.ag +
       (r.pens ? ' (' + C.shootoutText + ' ' + r.pens[0] + ':' + r.pens[1] + ')' : '') + '. ' + l.name + ' bleibt nur der zweite Platz.', 'titel');
+    var uc = S.userClub(st);
+    if (uc && (fin.h === uc.id || fin.a === uc.id)) {
+      if (fin.winner === uc.id) S.news(st, n + ': Titelprämie überwiesen', 'Für den Titel wurden ' + R.fmtMoney(C.prize[k].title) + ' überwiesen. ' + earnText(st, uc.id), 'liga');
+      else S.news(st, n + ': Unsere Reise endet erst im Finale', 'Im Endspiel war gegen ' + w.name + ' Schluss – trotzdem eine Saison zum Erinnern. ' + earnText(st, uc.id), 'liga');
+    }
     if (X.defs[fin.winner]) return;
     var club = st.clubs[fin.winner];
     club.titles.euro = (club.titles.euro || 0) + 1;

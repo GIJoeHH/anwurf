@@ -494,6 +494,7 @@
     st.inbox = st.inbox.filter(function (m) { return m.type !== 'mail' || m.important || tick - (m.tick || 0) <= 6; });
     var m = { id: R.world.nextId(st, 'mail'), type: 'mail', kind: o.kind || 'info', important: !!o.important, tone: o.tone || '', icon: o.icon || 'mail', title: o.title, text: o.text || '', season: st.season, week: st.week, tick: tick, read: !!o.read };
     if (o.sym) m.sym = o.sym;
+    if (o.mk) m.mk = o.mk;
     st.inbox.unshift(m);
     var mails = st.inbox.filter(function (x) { return x.type === 'mail'; });
     if (mails.length > E.MAIL_MAX) { var drop = mails.slice(E.MAIL_MAX); st.inbox = st.inbox.filter(function (x) { return drop.indexOf(x) < 0; }); }
@@ -616,7 +617,7 @@
     // Alle Börsenmeldungen landen als Mail im Posteingang der Zentrale, Crashs als wichtige Mail
     alerts.forEach(function (a) {
       var badA = /crash/.test(a.k);
-      E.addMail(st, { kind: 'markt', important: badA, tone: badA ? 'bad' : 'good', icon: badA ? 'trending-down' : /ath/.test(a.k) ? 'trophy' : 'trending-up', title: a.t, text: a.x, sym: a.sym });
+      E.addMail(st, { kind: 'markt', important: badA, tone: badA ? 'bad' : 'good', icon: badA ? 'trending-down' : /ath/.test(a.k) ? 'trophy' : 'trending-up', title: a.t, text: a.x, sym: a.sym, mk: a.k });
     });
   };
   // Rekordhöhen: Marktindex (Aktien), einzelne Werte im eigenen Depot, Depotwert des eigenen Vereins

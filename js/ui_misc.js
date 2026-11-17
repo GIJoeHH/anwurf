@@ -98,8 +98,11 @@
   var TROPHY = {
     meister: '<circle cx="55" cy="49" r="38" fill="url(#vgGold)"/><circle cx="55" cy="49" r="29" fill="none" stroke="#f5dc95"/><circle cx="55" cy="49" r="14" fill="#8c703b"/>' + (function () { var s = ''; for (var i = 0; i < 12; i++) { var a = i / 12 * Math.PI * 2; s += '<circle cx="' + (55 + Math.cos(a) * 23).toFixed(1) + '" cy="' + (49 + Math.sin(a) * 23).toFixed(1) + '" r="2.5" fill="#ebd394"/>'; } return s; })(),
     pokal: '<path d="M30 12H80L75 52Q72 69 55 73Q38 69 35 52Z" fill="url(#vgGold)"/><path d="M31 21H14V36Q14 55 37 55M79 21H96V36Q96 55 73 55" fill="none" stroke="#b8964d" stroke-width="6"/><path d="M50 72H60V93H77V101H33V93H50Z" fill="url(#vgGold)"/>',
-    aufstieg: '<path d="M35 88V51H15L55 12L95 51H75V88Z" fill="url(#vgGold)"/>'
+    aufstieg: '<path d="M35 88V51H15L55 12L95 51H75V88Z" fill="url(#vgGold)"/>',
+    euro: '<path d="M36 10H74Q76 44 64 60Q60 66 60 72H50Q50 66 46 60Q34 44 36 10Z" fill="url(#vgGold)"/><path d="M37 16Q12 14 14 34Q16 50 42 52M73 16Q98 14 96 34Q94 50 68 52" fill="none" stroke="#c9a85a" stroke-width="5"/><path d="M47 72H63L66 92H78V101H32V92H44Z" fill="url(#vgGold)"/>'
   };
+  // Pokalgrafik für andere Bildschirme (Titel-Screens in js/ui_celebrate.js): meister, pokal, aufstieg, euro
+  U.trophyArt = function (k, size) { return '<svg viewBox="0 0 110 112" width="' + (size || 64) + '" height="' + (size || 64) + '" aria-hidden="true">' + GOLD.replace('vgGold', 'vgGold' + k) + (TROPHY[k] || TROPHY.pokal).replace(/vgGold/g, 'vgGold' + k) + '</svg>'; };
   function trophy(kind, n, label) {
     return '<div class="vg-trophy"><svg viewBox="0 0 110 112" width="110" height="112">' + GOLD + '<ellipse cx="55" cy="106" rx="38" ry="5" fill="#070f1b" opacity=".6"/>' + TROPHY[kind] + '</svg><b>' + n + '</b><span>' + label + '</span><small>' + (n ? 'Teil unserer Geschichte' : 'Noch nicht erreicht') + '</small></div>';
   }
@@ -121,6 +124,13 @@
     var best = seasons.slice().sort(function (a, b) { return a.league - b.league || a.pos - b.pos; })[0];
     h += '<div class="panel vg-club"><div class="vg-kicker">' + esc(c.name).toUpperCase() + '</div><h2 class="vg-h">Erfolge, die bleiben.</h2>' +
       '<div class="vg-trophies">' + trophy('meister', c.titles.league, 'Meisterschaften') + trophy('pokal', c.titles.cup, 'DHB-Pokale') + trophy('aufstieg', c.titles.promo, 'Aufstiege') + '</div>' +
+      (function () {
+        var log = (st.celebrationLog || []).map(function (o, i) { return { o: o, i: i }; }).filter(function (x) { return x.o.club === c.id; });
+        if (!log.length || !U.celebrationTitle) return '';
+        return '<div class="vg-label">GROSSE MOMENTE</div><div class="vg-moments">' + log.slice().reverse().map(function (x) {
+          return '<button class="vg-moment ' + (x.o.win ? 'win' : 'lose') + '" data-act="celReplay" data-i="' + x.i + '">' + U.lc(x.o.win ? 'trophy' : 'flag', 16) + '<span><b>' + esc(U.celebrationTitle(x.o)) + '</b><em>Saison ' + x.o.season + '/' + String(x.o.season + 1).slice(2) + '</em></span></button>';
+        }).join('') + '</div>';
+      })() +
       '<div class="vg-label">BILANZ ABGESCHLOSSENER SAISONS</div><div class="vg-bil"><div><span>Spiele</span><b>' + at.p + '</b></div><div><span>Siege</span><b>' + at.w + '</b></div><div><span>Unentschieden</span><b>' + at.d + '</b></div><div><span>Niederlagen</span><b>' + at.l + '</b></div></div>' +
       '<div class="vg-record"><span>Vereinsrekord</span><b>' + (best ? 'Beste Saison: Platz ' + best.pos + ' in der ' + esc(D.leagueNames[best.league] || '') + ' (' + best.season + '/' + String(best.season + 1).slice(2) + ', ' + best.pts + ' Punkte)' : 'Die beste Saison bleibt unser nächstes Ziel.') + '</b>' +
       (c.records.attendance ? '<small>Zuschauerrekord: ' + R.fmtNum(c.records.attendance) + '</small>' : '') + '</div>' +

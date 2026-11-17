@@ -57,6 +57,17 @@
     if (prize + gate <= 0) return 'Einnahmen gab es diesmal leider keine.';
     return 'Insgesamt haben wir ' + R.fmtMoney(prize + gate) + ' eingenommen' + (gate > 0 ? ' (Prämien ' + R.fmtMoney(prize) + ', Zuschauereinnahmen ' + R.fmtMoney(gate) + ')' : '') + '.';
   };
+  // Große Momente (Meisterschaft, Pokal- und Europapokalfinale): eigener Bildschirm (js/ui_celebrate.js)
+  S.celebrate = function (st, o) {
+    o.season = st.season; o.week = st.week;
+    (st.celebrations || (st.celebrations = [])).push(o);
+    var log = st.celebrationLog || (st.celebrationLog = []); log.push(JSON.parse(JSON.stringify(o))); if (log.length > 60) log.shift();
+  };
+  // Ergebnis aus Sicht des eigenen Vereins, z. B. „31:28“ oder „30:30 (n. 7m 4:3)“
+  S.resFor = function (r, home) {
+    if (!r) return '';
+    return (home ? r.hg + ':' + r.ag : r.ag + ':' + r.hg) + (r.pens ? ' (n. 7m ' + (home ? r.pens[0] + ':' + r.pens[1] : r.pens[1] + ':' + r.pens[0]) + ')' : '');
+  };
   S.inRound = function (n) { return (/Runde|Qualifikation|Gruppenphase/.test(n) ? 'in der ' : 'im ') + n; };
 
   S.news = function (st, title, text, type) {
@@ -213,6 +224,7 @@
     var uc = S.userClub(st), rd = st.cup.rounds[ci]; if (!uc || !rd) return;
     var t = rd.ties.filter(function (x) { return x.h === uc.id || x.a === uc.id; })[0]; if (!t) return;
     var opp = st.clubs[t.h === uc.id ? t.a : t.h], e = S.compEarn(st, 'cup'), prize = S.CUP_PRIZE[ci];
+    if (ci === S.CUP_FINAL) S.celebrate(st, { kind: 'cup', win: t.winner === uc.id, club: uc.id, opp: opp.id, oppName: opp.name, res: S.resFor(t.r, t.h === uc.id), prize: t.winner === uc.id ? prize : 0, earn: e.prize + e.gate });
     if (t.winner === uc.id && ci === S.CUP_FINAL) {
       S.news(st, 'DHB-Pokal: Titelprämie überwiesen', 'Für den Pokalsieg gegen ' + opp.name + ' wurden ' + R.fmtMoney(prize) + ' überwiesen. ' + S.earnText(e.prize, e.gate), 'liga');
     } else if (t.winner === uc.id) {
@@ -1187,6 +1199,12 @@
   S.toRelegation = function (st) {
     st.finalTables = {}; st.finalRows = {};
     D.leagueKeys.forEach(function (l) { var t = S.table(st, l); st.finalTables[l] = t.map(function (r) { return r.id; }); st.finalRows[l] = t; });
+    var ucR = S.userClub(st);
+    if (ucR) D.leagueKeys.forEach(function (l) {
+      var t = st.finalRows[l]; if (!t || !t.length || t[0].id !== ucR.id) return;
+      var a = t[0], b = t[1] || { pts: a.pts };
+      S.celebrate(st, { kind: 'league', win: true, level: l, club: ucR.id, pts: a.pts, w: a.w, d: a.d, l: a.l, gf: a.gf, ga: a.ga, gap: a.pts - b.pts });
+    });
     var champs = R.shuffle([3, 4, 5, 6].map(function (l) { return st.finalTables[l][0]; }).filter(Boolean));
     st.releg = [];
     for (var i = 0; i + 1 < champs.length; i += 2) {

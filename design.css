@@ -566,3 +566,50 @@ table.t tr.sel td:first-child { box-shadow: inset 3px 0 var(--act); }
 
 /* Gästerang im Stadioneditor */
 button.gtier-on { background: rgba(239, 68, 68, .14); border-color: #ef4444; color: #ef4444; }
+
+/* Große Momente: Titel-Screens (js/ui_celebrate.js), nach ANPFIFF! */
+#celebrate { display: none; }
+#celebrate.show { display: block; position: fixed; inset: 0; z-index: 80; }
+.cel { position: absolute; inset: 0; overflow: hidden; background: #050a14; animation: celIn .45s ease both; }
+.cel-bg { position: absolute; inset: 0; background-size: cover; background-position: center 30%; transform: scale(1.06); animation: celZoom 14s ease-out both; }
+.cel.lose .cel-bg { filter: saturate(.55) brightness(.85); }
+.cel-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5,10,20,.92) 0%, rgba(5,10,20,.72) 34%, rgba(5,10,20,.05) 68%), linear-gradient(0deg, rgba(5,10,20,.7) 0%, rgba(5,10,20,0) 40%); }
+.cel-card { position: absolute; left: clamp(20px, 5vw, 72px); bottom: clamp(24px, 7vh, 80px); width: min(520px, calc(100% - 40px)); display: flex; flex-direction: column; gap: 14px; animation: celUp .6s .15s ease both; }
+.cel-head { display: flex; align-items: center; gap: 16px; }
+.cel-art { flex: none; width: 92px; height: 92px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 50% 40%, rgba(245,220,149,.28), rgba(10,18,32,.85) 70%); border: 1px solid rgba(237,211,148,.55); box-shadow: 0 0 40px rgba(237,211,148,.25); }
+.cel.lose .cel-art { filter: grayscale(.7); border-color: rgba(156,175,201,.45); box-shadow: none; }
+.cel-kick { font-size: 12px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #edd394; }
+.cel.lose .cel-kick { color: var(--muted); }
+.cel-title { margin: 2px 0 0; font-size: clamp(34px, 4.6vw, 58px); line-height: 1; font-weight: 900; letter-spacing: -.5px; text-transform: uppercase; background: linear-gradient(180deg, #fff3c8 0%, #edd394 45%, #b8893a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 3px 10px rgba(0,0,0,.6)); }
+.cel.lose .cel-title { background: none; color: #EDF4FC; }
+.cel.lose .cel-title::after { content: ''; display: block; width: 84px; height: 4px; margin-top: 10px; background: var(--bad); border-radius: 2px; }
+.cel-club { display: flex; align-items: center; gap: 10px; font-size: 17px; color: #fff; }
+.cel-text { margin: 0; font-size: 15px; line-height: 1.55; color: #dfe8f5; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+.cel-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.cel-stat { background: rgba(10,18,32,.72); border: 1px solid rgba(237,211,148,.28); border-radius: var(--r); padding: 8px 12px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.cel.lose .cel-stat { border-color: rgba(156,175,201,.25); }
+.cel-stat span { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
+.cel-stat b { display: flex; align-items: center; gap: 4px; font-size: 16px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cel-actions { display: flex; gap: 10px; margin-top: 4px; }
+.cel-actions .primary { min-width: 180px; min-height: 44px; font-size: 15px; }
+.cel.win .cel-actions .primary { background: linear-gradient(180deg, #f1d68e, #b98d3e); border-color: #edd394; color: #1a1406; }
+.cel-confetti { position: absolute; inset: 0; pointer-events: none; }
+.cel-confetti i { position: absolute; top: -20px; width: 8px; height: 14px; border-radius: 2px; opacity: .9; animation: celFall 4s linear infinite; }
+.cel-confetti i.c0 { background: #f5dc95; } .cel-confetti i.c1 { background: #fff; width: 6px; height: 10px; } .cel-confetti i.c2 { background: #d6a640; } .cel-confetti i.c3 { background: #fff3c8; width: 10px; height: 6px; }
+@keyframes celFall { 0% { transform: translate3d(0, -20px, 0) rotate(0); } 100% { transform: translate3d(40px, 110vh, 0) rotate(540deg); } }
+@keyframes celIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes celUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes celZoom { from { transform: scale(1.14); } to { transform: scale(1.04); } }
+@media (prefers-reduced-motion: reduce) { .cel, .cel-bg, .cel-card { animation: none; } .cel-confetti { display: none; } }
+@media (max-width: 900px), (orientation: portrait) {
+  .cel-bg { background-position: 60% 20%; }
+  .cel-shade { background: linear-gradient(0deg, rgba(5,10,20,.96) 0%, rgba(5,10,20,.82) 42%, rgba(5,10,20,0) 72%); }
+  .cel-card { left: 20px; right: 20px; width: auto; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+}
+/* Vereinsgeschichte: Große Momente */
+.cel-title small { display: block; font-size: .42em; letter-spacing: 1px; margin-bottom: 4px; }
+.cel-card { width: min(580px, calc(100% - 40px)); }
+.vg-moments { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.vg-moment { display: inline-flex; align-items: center; gap: 8px; text-align: left; padding: 8px 12px; background: var(--card2); border: 1px solid var(--line); border-radius: var(--r); color: var(--text); }
+.vg-moment.win { border-color: #6b5a2c; color: #edd394; }
+.vg-moment span { display: flex; flex-direction: column; } .vg-moment b { color: var(--text); font-size: 13px; } .vg-moment em { font-style: normal; font-size: 11px; color: var(--muted); }

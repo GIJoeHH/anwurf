@@ -390,6 +390,8 @@
     if (uc && (fin.h === uc.id || fin.a === uc.id)) {
       if (fin.winner === uc.id) S.news(st, n + ': Titelprämie überwiesen', 'Für den Titel wurden ' + R.fmtMoney(C.prize[k].title) + ' überwiesen. ' + earnText(st, uc.id), 'liga');
       else S.news(st, n + ': Unsere Reise endet erst im Finale', 'Im Endspiel war gegen ' + w.name + ' Schluss – trotzdem eine Saison zum Erinnern. ' + earnText(st, uc.id), 'liga');
+      if (S.celebrate) { var wonF = fin.winner === uc.id, oppId = fin.h === uc.id ? fin.a : fin.h;
+        S.celebrate(st, { kind: k, win: wonF, club: uc.id, opp: oppId, oppName: X.info(st, oppId).name, res: S.resFor(r, fin.h === uc.id), city: v.city, prize: wonF ? C.prize[k].title : 0, earn: X.earned(st, uc.id) + S.compEarn(st, 'euro').gate }); }
     }
     if (X.defs[fin.winner]) return;
     var club = st.clubs[fin.winner];

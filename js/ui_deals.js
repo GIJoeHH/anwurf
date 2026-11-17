@@ -85,6 +85,7 @@
   U.afterWeekPopups = function () {
     var st = U.st;
     // Ereigniskarten und Börsenmeldungen stehen als Mail im Posteingang der Zentrale (js/ui_mail.js)
+    if (U.showCelebration && U.showCelebration()) return; // Titel-Screens zuerst (js/ui_celebrate.js)
     if (st.dealReport) { U.showDealReport(); return; }
     if (st.deal && st.dealPopup) { U.showDeal(); return; }
   };

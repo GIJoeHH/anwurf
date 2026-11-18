@@ -339,6 +339,13 @@
     if (T.isPending(st, p)) { U.toast('Mit diesem Spieler ist bereits ein Wechsel vereinbart.'); return; }
     if (!T.willingness(st, p, c)) { U.modal('Kein Interesse', '<p>' + esc(W.playerName(p)) + ' möchte nicht zu ' + esc(c.short) + ' wechseln – die Liga oder der Ruf des Vereins passen nicht.</p>'); return; }
     U.nego = { future: !!p.clubId && !T.windowOpen(st), pid: p.id, stage: p.clubId ? 'fee' : 'contract', fee: p.clubId ? R.round(p.value, 50000) : 0, wage: T.wageDemand(st, p, c), years: 3, signOn: 0, bonus: 0, msg: '', rounds: 0 };
+    if (p.clubId && T.canPreContract(st, p)) U.nego.stage = 'mode'; // auslaufender Vertrag: ablösefreien Wechsel anbieten
+    U.showNego();
+  };
+  U.acts.negoMode = function (d) {
+    var n = U.nego; if (!n) return;
+    if (d.m === 'free') { n.free = true; n.future = true; n.fee = 0; n.stage = 'contract'; n.msg = ''; }
+    else { n.free = false; n.stage = 'fee'; n.msg = ''; }
     U.showNego();
   };
   U.acts.renew = function (d) {
@@ -350,12 +357,17 @@
     var st = U.st, n = U.nego, p = st.players[n.pid], c = U.club(), h = '', f = '';
     var budgetInfo = st.manager.role === 'trainer' ? '<p class="small">Ihr Transferbudget: <b>' + money(st.manager.transferBudget || 0) + '</b></p>' : '<p class="small">Kontostand: <b>' + money(c.cash) + '</b></p>';
     h += '<p><b>' + esc(W.playerName(p)) + '</b> (' + p.pos + ', ' + p.age + ' J., Stärke ' + p.ovr + ') · Marktwert ' + money(p.value) + '</p>' + budgetInfo;
-    if (n.future) h += '<div class="help" style="margin-bottom:8px">🗓 Das Transferfenster ist geschlossen. Sie verhandeln einen <b>Wechsel zur neuen Saison</b>: Der Spieler kommt zum Start der Saisonvorbereitung, Ablöse und Handgeld werden erst dann fällig.</div>';
-    if (n.stage === 'fee') {
+    if (n.free) h += '<div class="help" style="margin-bottom:8px">🗓 <b>Ablösefreier Wechsel zur Saison ' + T.joinLabel(T.freeSeason(st, p)) + '</b>: ' + esc(p.last) + ' unterschreibt jetzt und kommt nach Ablauf seines Vertrags. Es wird keine Ablöse fällig, das Handgeld zahlen Sie erst beim Wechsel.</div>';
+    else if (n.future) h += '<div class="help" style="margin-bottom:8px">🗓 Das Transferfenster ist geschlossen. Sie verhandeln einen <b>Wechsel zur neuen Saison</b>: Der Spieler kommt zum Start der Saisonvorbereitung, Ablöse und Handgeld werden erst dann fällig.</div>';
+    if (n.stage === 'mode') {
+      var fs = T.freeSeason(st, p), open = T.windowOpen(st);
+      h += '<h3>Art des Wechsels</h3><p>Der Vertrag bei ' + esc(st.clubs[p.clubId].name) + ' läuft ' + (fs > st.season ? 'im Sommer ' + (fs + 1) : 'zum Saisonende') + ' aus. Für die Zeit danach ist ' + esc(p.last) + ' vertragsfrei und kann schon jetzt <b>ohne Ablöse</b> unterschreiben.</p>';
+      f = '<button data-act="closeModal">Abbrechen</button>' + (open ? '<button data-act="negoMode" data-m="fee">Sofort holen (mit Ablöse)</button>' : fs > st.season ? '<button data-act="negoMode" data-m="fee">Zur neuen Saison (mit Ablöse)</button>' : '') + '<button class="primary" data-act="negoMode" data-m="free">Ablösefrei zur Saison ' + T.joinLabel(fs) + '</button>';
+    } else if (n.stage === 'fee') {
       h += '<h3>Schritt 1: Ablöse mit ' + esc(st.clubs[p.clubId].name) + '</h3>' + U.field('Ihr Angebot (€)', '<input type="number" id="feeIn" value="' + n.fee + '" step="50000">');
       f = '<button data-act="closeModal">Abbrechen</button><button class="primary" data-act="negoFee">Angebot abgeben</button>';
     } else if (n.stage === 'contract') {
-      h += '<h3>' + (n.renew ? 'Vertragsverlängerung' : 'Schritt 2: Vertrag mit dem Spieler') + '</h3><div class="grid g2">' +
+      h += '<h3>' + (n.renew ? 'Vertragsverlängerung' : n.free ? 'Vertrag mit dem Spieler (ablösefrei)' : 'Schritt 2: Vertrag mit dem Spieler') + '</h3><div class="grid g2">' +
         U.field('Jahresgehalt (€)', '<input type="number" id="wIn" value="' + n.wage + '" step="5000">') + U.field('Laufzeit (Jahre)', '<select id="yIn">' + [1, 2, 3, 4, 5].map(function (y) { return '<option' + (y === n.years ? ' selected' : '') + '>' + y + '</option>'; }).join('') + '</select>') +
         U.field('Handgeld (€, einmalig)', '<input type="number" id="sIn" value="' + n.signOn + '" step="10000">') + U.field('Erfolgsbonus (€/Saison)', '<input type="number" id="bIn" value="' + n.bonus + '" step="10000">') + '</div>';
       f = '<button data-act="closeModal">Abbrechen</button><button class="primary" data-act="negoContract">Vertrag anbieten</button>';
@@ -398,7 +410,7 @@
   };
   U.acts.negoFinish = function () {
     var st = U.st, n = U.nego, p = st.players[n.pid], c = U.club();
-    if (n.future) { T.addPending(st, p, c, n); n.stage = 'done'; n.msg = W.playerName(p) + ' wechselt zur neuen Saison zu ' + c.name + '.'; U.showNego(); U.render(); return; }
+    if (n.future) { T.addPending(st, p, c, n); n.stage = 'done'; n.msg = n.free ? W.playerName(p) + ' wechselt zur Saison ' + T.joinLabel(T.freeSeason(st, p)) + ' ablösefrei zu ' + c.name + '.' : W.playerName(p) + ' wechselt zur neuen Saison zu ' + c.name + '.'; U.showNego(); U.render(); return; }
     if (c.cash < n.fee + n.signOn && st.manager.role !== 'trainer') { n.msg = 'Nicht genug Geld auf dem Konto.'; n.stage = 'done'; return U.showNego(); }
     T.executeTransfer(st, p, c, n.fee, n.wage, n.years, { signOn: n.signOn, bonus: n.bonus });
     if (st.manager.role === 'trainer') st.manager.transferBudget = Math.max(0, (st.manager.transferBudget || 0) - n.fee - n.signOn);
@@ -433,7 +445,7 @@
       '<div class="flt-g"><div class="flt-h">' + U.lc('euro', 14) + 'Finanzen</div><div class="flt-f">' + U.num('valueMax', 'Marktwert bis (Mio. €)') + U.num('wageMax', 'Gehalt bis (Tsd. €)') + U.num('contractMax', 'Vertrag bis (Jahre)') + '</div></div></div>';
     h += '</div>';
     var pend = (st.pendingTransfers || []).filter(function (x) { return x.to === c.id; });
-    if (pend.length) h += '<div class="panel" style="margin-bottom:12px"><h2>' + U.lc('handshake', 17) + ' Vereinbart zur neuen Saison</h2>' + pend.map(function (x) { var p = st.players[x.pid]; return p ? '<div class="news-item row between"><div><div class="h">' + esc(W.playerName(p)) + ' (' + p.pos + ', ' + p.ovr + ')</div><div class="tx">' + (x.from && st.clubs[x.from] ? esc(st.clubs[x.from].name) + ' · ' : '') + 'Ablöse ' + money(x.fee) + ' · ' + money(x.wage) + '/Jahr · ' + x.years + ' J.</div></div><button class="sm danger" data-act="pendCancel" data-id="' + p.id + '">Zurückziehen</button></div>' : ''; }).join('') + '</div>';
+    if (pend.length) h += '<div class="panel" style="margin-bottom:12px"><h2>' + U.lc('handshake', 17) + ' Vereinbarte Wechsel</h2>' + pend.map(function (x) { var p = st.players[x.pid]; return p ? '<div class="news-item row between"><div><div class="h">' + esc(W.playerName(p)) + ' (' + p.pos + ', ' + p.ovr + ')</div><div class="tx">' + (x.from && st.clubs[x.from] ? esc(st.clubs[x.from].name) + ' · ' : '') + (x.free || !x.fee ? 'ablösefrei' : 'Ablöse ' + money(x.fee)) + ' · zur Saison ' + T.joinLabel(x.at || st.season) + ' · ' + money(x.wage) + '/Jahr · ' + x.years + ' J.</div></div><button class="sm danger" data-act="pendCancel" data-id="' + p.id + '">Zurückziehen</button></div>' : ''; }).join('') + '</div>';
     var list = [];
     st.favs = st.favs || {};
     for (var id in st.players) {
@@ -449,7 +461,7 @@
       if (p.contract > f.contractMax) continue;
       if (f.status === 'listed' && !p.listed) continue;
       if (f.status === 'free' && p.clubId) continue;
-      if (f.status === 'expiring' && (p.contract > 1 || !p.clubId)) continue;
+      if (f.status === 'expiring' && (p.contract > T.PRE_YEARS || !p.clubId)) continue;
       if (f.status === 'young' && p.age > 21) continue;
       if (f.status === 'fav' && !st.favs[p.id]) continue;
       if (f.status === 'loan' && (!p.clubId || p.ovr > R.avg(W.squad(st, p.clubId), function (x) { return x.ovr; }) - 2)) continue;
@@ -528,7 +540,7 @@
     var can = S.planOwnerIsUser(st) && U.can('business') || st.manager.role === 'manager';
     var cur = S.isBreak(st) ? S.breakKey(st) : null, opps = S.friendlyOpponents(st, c), plan = st.plan || {};
     var title = weeks[0].k.charAt(0) === 'p' ? 'Saisonvorbereitung planen' : 'Winterpause planen';
-    var h = '<div class="panel" style="margin-bottom:16px"><div class="panel-h"><h2>' + U.lc('calendar', 17) + ' ' + title + '</h2><span class="muted small">' + (can ? 'Planung: Sie (' + S.roleName(st.manager.role) + ')' : 'Planung: Vereinsführung') + '</span></div><table class="t plan-t"><tr><th>Woche</th><th>Programm</th><th></th></tr>';
+    var h = '<div class="panel" id="planPanel" style="margin-bottom:16px"><div class="panel-h"><h2>' + U.lc('calendar', 17) + ' ' + title + '</h2><span class="muted small">' + (can ? 'Planung: Sie (' + S.roleName(st.manager.role) + ')' : 'Planung: Vereinsführung') + '</span></div><table class="t plan-t"><tr><th>Woche</th><th>Programm</th><th></th></tr>';
     weeks.forEach(function (w) {
       var it = plan[w.k], past = w.past || (it && it.done), now = cur === w.k;
       var desc = w.cup ? '<span class="plan-ev cup">' + U.lc('trophy', 14) + '1. Pokalrunde</span>' + (it && it.type === 'camp' ? ' ' : '') : '';

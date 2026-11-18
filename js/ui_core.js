@@ -236,13 +236,32 @@
     // Nach dem Spielbericht geht es erst in die Zentrale (Posteingang mit Ereignissen und Meldungen)
     if (U.screen === 'bericht') { U.go('zentrale'); setTimeout(function () { if (U.afterWeekPopups) U.afterWeekPopups(); }, 300); return; }
     if (st.pendingEvent) { U.showEvent(); return; }
+    if (S.planEventOpen(st)) { U.showPlanEvent(); return; }
     if (st.phase === 'seasonEnd') {
       if (U.screen !== 'saisonende') { U.go('saisonende'); return; }
-      S.newSeason(st); U.autosave(); U.go(st.manager.unemployed ? 'karriere' : 'zentrale'); U.toast('Neue Saison ' + st.season + '/' + String(st.season + 1).slice(2) + ' – Saisonvorbereitung!'); return;
+      S.newSeason(st); U.autosave(); U.go(st.manager.unemployed ? 'karriere' : 'zentrale'); U.toast('Neue Saison ' + st.season + '/' + String(st.season + 1).slice(2) + ' – Saisonvorbereitung!'); if (S.planEventOpen(st)) setTimeout(U.showPlanEvent, 250); return;
     }
     var prep = S.prepareWeek(st), mine = prep.list.filter(function (x) { return x.user; });
     if (mine.length && st.settings.matchSpeed !== 'sofort' && !U.autoRun) { U.startLive(mine); return; }
     U.finishWeek({});
+  };
+  // Ereignis „Saisonvorbereitung“ / „Winterpause“: einziger Ausweg ist die Planungsseite
+  U.showPlanEvent = function () {
+    var st = U.st, e = st.planEvent; if (!S.planEventOpen(st)) return;
+    var w = e.kind === 'winter', c = U.club();
+    var body = '<div class="plan-event"><div class="ic-tile big ' + (w ? 'info' : 'ok') + '">' + U.lc(w ? 'snowflake' : 'sun', 30) + '</div><div>' +
+      (w ? '<p><b>Winterpause!</b> Nach dem ' + S.WINTER_AFTER + '. Spieltag ist Pause für ' + S.WINTER_WEEKS + ' Wochen.</p>'
+         : '<p><b>Die Saisonvorbereitung ' + st.season + '/' + String(st.season + 1).slice(2) + ' beginnt!</b> ' + S.PREP_WEEKS + ' Wochen bis zum 1. Spieltag, in den letzten beiden Wochen stehen die ersten Runden im DHB-Pokal an.</p>') +
+      '<p>Lege jetzt fest, was ' + esc(c.name) + ' in jeder Woche macht: Training, Testspiele gegen stärkere, gleich starke oder schwächere Gegner und ein Trainingslager.</p>' +
+      '<p class="muted small">Ungeplante Wochen sind reine Trainingswochen. Weiter geht es erst, wenn du dir den Plan angesehen hast.</p></div></div>';
+    U.modal(U.lc('calendar', 16) + (w ? ' Winterpause' : ' Saisonvorbereitung'), body, '<button class="primary" data-act="planEventGo">' + U.lc('calendar-check', 15) + ' Zur Planung</button>');
+    var x = document.querySelector('#modal .dlg-h [data-act="closeModal"]'); if (x) x.remove();
+    U.modalLock = true;
+  };
+  U.acts.planEventGo = function () {
+    var st = U.st; if (st.planEvent) st.planEvent.seen = true;
+    U.modalLock = false; U.closeModal(); U.go('training');
+    setTimeout(function () { var el = document.getElementById('planPanel'); if (el) { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); el.classList.add('flash-in'); } }, 80);
   };
   U.finishWeek = function (played) {
     var st = U.st;
@@ -262,7 +281,7 @@
     (function loop() {
       if (!U.autoRun) return;
       var st = U.st;
-      if (st.pendingEvent || (st.deal && U.can('business')) || st.dealReport || st.phase === 'seasonEnd' || (st.manager.unemployed && st.manager.offers.length) || st.inbox.some(function (o) { return o.type === 'sponsor'; }) && st.manager.role !== 'trainer') {
+      if (st.pendingEvent || S.planEventOpen(st) || (st.deal && U.can('business')) || st.dealReport || st.phase === 'seasonEnd' || (st.manager.unemployed && st.manager.offers.length) || st.inbox.some(function (o) { return o.type === 'sponsor'; }) && st.manager.role !== 'trainer') {
         U.autoRun = false; U.render(); if (U.afterWeekPopups) U.afterWeekPopups(); if (st.phase === 'seasonEnd') U.go('saisonende'); return;
       }
       U.finishWeek({});

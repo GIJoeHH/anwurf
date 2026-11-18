@@ -175,6 +175,7 @@
       if (c.userControlled) S.news(st, 'Ligaklausel: Gehalt von ' + W.playerName(p) + ' angepasst', 'Wegen der Ligazugehörigkeit sinkt sein Jahresgehalt von ' + R.fmtMoney(p.wage) + ' auf ' + R.fmtMoney(cap) + '.', 'finanz');
       p.wage = cap;
     });
+    S.setPlanEvent(st, 'preseason');
     var keep = {}; Object.keys(st.plan || {}).forEach(function (k) { if (k.charAt(0) === 'p' && !st.plan[k].done) keep[k] = st.plan[k]; }); st.plan = keep;
     // Saisonziele / Vorstandserwartung
     D.leagueKeys.forEach(function (l) {
@@ -418,6 +419,7 @@
       if (st.week >= S.SEASON_WEEKS) S.toRelegation(st);
       else if (st.week === S.WINTER_AFTER) {
         st.phase = 'winter'; st.winter = 1; st.winterCampDone = false;
+        S.setPlanEvent(st, 'winter');
         S.news(st, 'Winterpause!', 'Nach dem ' + S.WINTER_AFTER + '. Spieltag ruht der Ball für ' + S.WINTER_WEEKS + ' Wochen. Zeit für Trainingslager, Testspiele und Transfers (Transferfenster bis einschließlich 19. Spieltag).', 'liga');
       }
     } else if (st.phase === 'preseason' || st.phase === 'winter') {
@@ -567,6 +569,9 @@
   };
   // Wer plant Vorbereitung/Winterpause? Manager und Geschäftsführer selbst, beim Trainer die Vereinsführung
   S.planOwnerIsUser = function (st) { return st.manager.role !== 'trainer'; };
+  // Ereignis zu Beginn von Vorbereitung/Winterpause: führt den Spieler verpflichtend zur Planungsseite
+  S.setPlanEvent = function (st, kind) { st.planEvent = (st.manager && !st.manager.unemployed && S.planOwnerIsUser(st)) ? { kind: kind, season: st.season, seen: false } : null; };
+  S.planEventOpen = function (st) { var e = st.planEvent; return !!(e && !e.seen && e.season === st.season && ((e.kind === 'winter' && st.phase === 'winter') || (e.kind === 'preseason' && st.phase === 'preseason'))); };
   // Testspiel-Gegner: Vorschläge (stärker/ähnlich/schwächer)
   S.friendlyOpponents = function (st, club) {
     var all = Object.keys(st.clubs).map(function (k) { return st.clubs[k]; }).filter(function (c) { return c.id !== club.id; });

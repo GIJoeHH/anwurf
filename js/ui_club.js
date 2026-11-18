@@ -92,6 +92,11 @@
     return h;
   };
   // Sponsorenfenster: bestehender Vertrag bzw. drei Angebote nebeneinander
+  // Hinweis zur Auszahlung: Jahressumme in Wochenraten nach jedem Pflichtspieltag, Boni am Saisonende
+  U.sponsorPayNote = function (st, amount) {
+    var n = E.WEEKS, nxt = st.phase === 'season' ? 'ab dem nächsten Spieltag' : 'ab dem 1. Spieltag';
+    return '<p class="muted small" style="margin-top:10px">' + U.lc('coins', 13) + ' <b>Auszahlung:</b> Kein Geld auf einen Schlag – der Sponsor zahlt die Jahressumme in ' + n + ' Wochenraten' + (amount ? ' (je ca. ' + money(Math.round(amount / n)) + ')' : '') + ', jeweils nach einem Spieltag, ' + nxt + '. In Vorbereitung und Winterpause wird nichts gezahlt. Boni für Platzierung, Aufstieg und Meisterschaft kommen am Saisonende.</p>';
+  };
   U.acts.sponsorOpen = function (d) {
     var st = U.st, c = U.club(), cat = d.k, can = U.can('business');
     var s = c.sponsors.filter(function (x) { return x.cat === cat; })[0], off = st.inbox.filter(function (o) { return o.type === 'sponsor' && o.cat === cat; })[0];
@@ -100,6 +105,7 @@
     function rows(x) { return [['Pro Jahr', x.amount], ['Laufzeit', x.years], ['Gesamtwert', x.amount * x.years], ['Bonus Top-' + x.topN, x.bonusTop], ['Bonus Aufstieg', x.bonusPromo], ['Bonus Meister', x.bonusTitle]]; }
     if (s) {
       h += '<div class="cmp"><div class="cmp-card best"><div class="logo">' + U.brandLogo(s.name, 84, cat === 'ausruester') + '</div><b>' + esc(s.name) + '</b><span class="tag green">Laufender Vertrag</span><table>' + rows(s).map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + (r[0] === 'Laufzeit' ? r[1] + ' J.' : money(r[1])) + '</td></tr>'; }).join('') + '</table></div></div><p class="muted small" style="margin-top:10px">Läuft der Vertrag aus, können Sie hier neue Angebote einholen.</p>';
+      h += U.sponsorPayNote(st, s.amount);
       U.modal(title, h, '<button class="primary" data-act="closeModal">Schließen</button>');
       return;
     }
@@ -109,7 +115,7 @@
     h += '<div class="cmp">' + off.offers.map(function (x, i) {
       return '<div class="cmp-card' + (x.amount * x.years === bestTotal ? ' best' : '') + '"><div class="logo">' + U.brandLogo(x.name, 84, cat === 'ausruester') + '</div><b>' + esc(x.name) + '</b><table>' + all[i].map(function (r, j) { return '<tr><td>' + r[0] + '</td><td class="' + (r[1] === best[j] && j !== 1 ? 'top' : '') + '">' + (j === 1 ? r[1] + ' J.' : money(r[1])) + '</td></tr>'; }).join('') + '</table>' +
         (can ? '<button class="primary" data-act="sponsorPick" data-id="' + off.id + '" data-i="' + i + '">Unterschreiben</button>' : '') + '</div>';
-    }).join('') + '</div><p class="muted small" style="margin-top:10px">★ = bester Wert. Höhe der Angebote: Liga, Ruf, Fanbasis, Erfolg; Verwaltung und Marketing auf „Premium“ verbessern die Konditionen.</p>';
+    }).join('') + '</div><p class="muted small" style="margin-top:10px">★ = bester Wert. Höhe der Angebote: Liga, Ruf, Fanbasis, Erfolg; Verwaltung und Marketing auf „Premium“ verbessern die Konditionen.</p>' + U.sponsorPayNote(st, 0);
     U.modal(title + ' – Angebote vergleichen', h, (can ? '<button data-act="sponsorRefresh" data-k="' + cat + '">Neue Angebote einholen</button>' : '') + '<button data-act="closeModal">Später</button>', true);
   };
   // ---------- Bandenwerbung: Übersichtsplan und einzelne Banden ----------
@@ -182,7 +188,7 @@
     });
     bandeInbox(st, c); U.toast(n + ' Banden vermietet · ' + money(sum) + '/Saison'); U.render(); U.acts.bandeOpen();
   };
-  U.acts.sponsorPick = function (d) { S.acceptSponsor(U.st, d.id, +d.i); U.closeModal(); U.render(); U.toast('Vertrag unterschrieben!'); };
+  U.acts.sponsorPick = function (d) { S.acceptSponsor(U.st, d.id, +d.i); U.closeModal(); U.render(); U.toast('Vertrag unterschrieben! Die erste Rate kommt ' + (U.st.phase === 'season' ? 'nach dem nächsten Spieltag.' : 'nach dem 1. Spieltag.')); };
   U.acts.sponsorSearch = function (d, silent) {
     var st = U.st, c = U.club();
     st.inbox = st.inbox.filter(function (o) { return !(o.type === 'sponsor' && o.cat === d.k); });

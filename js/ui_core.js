@@ -281,7 +281,7 @@
     (function loop() {
       if (!U.autoRun) return;
       var st = U.st;
-      if (st.pendingEvent || S.planEventOpen(st) || (st.deal && U.can('business')) || st.dealReport || st.phase === 'seasonEnd' || (st.manager.unemployed && st.manager.offers.length) || st.inbox.some(function (o) { return o.type === 'sponsor'; }) && st.manager.role !== 'trainer') {
+      if (st.pendingEvent || (st.pc && !st.pc.retired && st.pc.offers.length && st.pc.offersSeen !== st.pc.offerSeason) || S.planEventOpen(st) || (st.deal && U.can('business')) || st.dealReport || st.phase === 'seasonEnd' || (st.manager.unemployed && st.manager.offers.length) || st.inbox.some(function (o) { return o.type === 'sponsor'; }) && st.manager.role !== 'trainer') {
         U.autoRun = false; U.render(); if (U.afterWeekPopups) U.afterWeekPopups(); if (st.phase === 'seasonEnd') U.go('saisonende'); return;
       }
       U.finishWeek({});
@@ -396,13 +396,13 @@
   };
   U.screens.wizard = function () {
     var w = U.wiz, h = '';
-    var steps = ['Karrieremodus', 'Verein', w.mode === 'found' ? 'Gründung & Rolle' : 'Rolle', 'Start'];
+    var steps = w.mode === 'player' ? ['Karrieremodus', 'Startverein', 'Dein Spieler', 'Start'] : ['Karrieremodus', 'Verein', w.mode === 'found' ? 'Gründung & Rolle' : 'Rolle', 'Start'];
     h += '<div class="title-screen" style="align-items:flex-start"><div class="title-box" style="width:min(1100px,100%);text-align:left"><h1>Neue Karriere</h1><div class="wiz-step">' + steps.map(function (s, i) { return '<span class="' + (w.step === i + 1 ? 'on' : '') + '">' + (i + 1) + '. ' + s + '</span>'; }).join('') + '</div>';
     if (w.step === 1) {
-      h += '<div class="grid g3">' +
+      h += '<div class="grid ' + (U.pcChoice ? 'g2' : 'g3') + '">' +
         U.choice('mode', 'existing', w.mode, '🏟️ Verein übernehmen', 'Übernehmen Sie einen beliebigen Verein aus Bundesliga, 2. Bundesliga oder 3. Liga.') +
         U.choice('mode', 'found', w.mode, '🛠️ Eigenen Verein gründen', 'Präsident + Geschäftsführer + Trainer in einer Person. Start in der 3. Liga – oder mit Ihrer echten Mannschaft in Ihrer eigenen Liga. Unkündbar.') +
-        U.choice('mode', 'project', w.mode, '🚀 Vom Drittligisten zum Spitzenclub', 'Schnellstart mit einem schwachen Drittligisten als Aufbauprojekt.') + '</div>';
+        U.choice('mode', 'project', w.mode, '🚀 Vom Drittligisten zum Spitzenclub', 'Schnellstart mit einem schwachen Drittligisten als Aufbauprojekt.') + (U.pcChoice ? U.pcChoice(w) : '') + '</div>';
       if (W.hasRealWorld()) h += '<div class="panel" style="margin-top:14px"><h2>Spielwelt 2026/27</h2><p class="small">🇩🇪 <b>100 echte Vereine</b>: Bundesliga (18), 2. Bundesliga (18) und 3. Liga in vier Staffeln (Nord-Ost, Nord-West, Süd-West, Süd mit je 16) – mit ' + R.fmtNum(D.real.players.length) + ' echten Spielern. Daten: ' + esc(D.real.source) + '.</p></div>';
       h += '<div class="row" style="margin-top:18px"><button data-act="toStart">← Zurück</button><div class="tb-spacer"></div><button class="primary" data-act="wizNext"' + (w.mode ? '' : ' disabled') + '>Weiter →</button></div>';
     } else if (w.step === 2) {

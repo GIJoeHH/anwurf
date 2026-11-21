@@ -1,5 +1,5 @@
 /* ANWURF! – Service Worker für den Offline-Betrieb (automatisch erzeugt von web/deploy.sh, nicht von Hand ändern) */
-const VERSION = '72134b65ed';
+const VERSION = '10ed99b6a6';
 const CACHE = 'anwurf-' + VERSION;
 const CORE = [
   './',
@@ -26,6 +26,7 @@ const CORE = [
   './js/logos.js',
   './js/match.js',
   './js/numpad.js',
+  './js/playercareer.js',
   './js/realty.js',
   './js/save.js',
   './js/season.js',
@@ -44,6 +45,7 @@ const CORE = [
   './js/ui_mail.js',
   './js/ui_match.js',
   './js/ui_misc.js',
+  './js/ui_pc.js',
   './js/ui_plus.js',
   './js/ui_realty.js',
   './js/ui_stadium.js',

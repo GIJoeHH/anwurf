@@ -8,6 +8,8 @@
   var K = D.MONEY || 1;
   function tick(st) { return st.tick || 0; }
   function uc(st) { return S.userClub(st); }
+  function host(st) { return uc(st) || (R.pc && R.pc.active(st) ? R.pc.club(st) : null); } // Verein mit Jugendliga-Ansicht (Manager oder eigener Spieler)
+  function isHost(st, c) { return c && (c.userControlled || (R.pc && R.pc.active(st) && R.pc.club(st) === c)); }
   function lk(c) { return W.lk ? W.lk(c) : c.league; }
   function news(st, t, x, cat) { if (S.news) S.news(st, t, x, cat || 'verein'); }
   function poisson(l) { if (l > 30) return Math.max(0, Math.round(R.gauss(l, Math.sqrt(l)))); var L = Math.exp(-l), k = 0, p = 1; do { k++; p *= R.rand(); } while (p > L); return k - 1; }
@@ -146,10 +148,11 @@
       f += P.alumniF(club, 'cotrainer');
       if (p.loan && p.loan.care && p.loan.care.plan === st.season) f += 0.12;
     }
-    return Math.max(0.3, f);
+    return Math.max(0.3, f) * (R.pc && R.pc.isPc(st, p) && !st.pc.retired ? R.pc.devF(st, p) : 1);
   };
   // Aufstellungsgewicht der KI: Leihspieler mit Einsatzgarantie spielen bevorzugt
   P.lineupBias = function (st, club, p) {
+    if (R.pc && st.pc && !st.pc.retired && p.id === st.pc.pid) return R.pc.lineupBias(st, p);
     if (club.userControlled || !p.loan || !p.loan.role) return 1;
     var r = P.LOAN_ROLES[p.loan.role]; if (!r) return 1;
     var b = r.bias; if (p.loan.care && p.loan.care.demand === st.season) b += 0.08;
@@ -178,7 +181,7 @@
     return rounds.concat(rounds.map(function (md) { return md.map(function (f) { return [f[1], f[0]]; }); }));
   }
   P.ensureYL = function (st) {
-    var club = uc(st); if (!club) return null;
+    var club = host(st); if (!club) return null;
     if (st.ylg && st.ylg.season === st.season && st.ylg.club === club.id) return st.ylg;
     var ids = P.ylClubs(st, club), y = { season: st.season, club: club.id, groups: {} };
     P.GROUPS.forEach(function (g, gi) {
@@ -212,9 +215,10 @@
       A.p++; B.p++; A.gf += ga; A.ga += gb; B.gf += gb; B.ga += ga;
       if (ga > gb) { A.w++; B.l++; A.pts += 3; } else if (ga < gb) { B.w++; A.l++; B.pts += 3; } else { A.d++; B.d++; A.pts++; B.pts++; }
       [[f[0], a, ga], [f[1], b, gb]].forEach(function (x) {
-        var c = st.clubs[x[0]]; if (!c || !c.userControlled) return;
+        var c = st.clubs[x[0]]; if (!isHost(st, c)) return;
         x[1].xi.forEach(function (p) { if (!p.ys || p.ys.s !== st.season) p.ys = { s: st.season, a: 0, g: 0 }; p.ys.a++; });
-        for (var k = 0; k < x[2]; k++) { var pl = R.weighted(x[1].xi.length ? x[1].xi : [null], function (p) { return p ? 1 + Math.max(0, p.attr.sho - 30) / 10 : 1; }); if (pl) pl.ys.g++; }
+        var pool = x[1].xi.slice(); while (pool.length < CFG.teamSize) pool.push(null); // aufgefüllte Plätze treffen auch
+        for (var k = 0; k < x[2]; k++) { var pl = R.weighted(pool, function (p) { return p ? 1 + Math.max(0, p.attr.sho - 30) / 10 : 2.5; }); if (pl) pl.ys.g++; }
         G.last.unshift({ r: G.round + 1, h: f[0], a: f[1], gh: ga, ga: gb }); G.last = G.last.slice(0, 6);
       });
     });
@@ -235,7 +239,7 @@
     });
   };
   P.ylSeasonEnd = function (st) {
-    var y = st.ylg, club = uc(st); if (!y || y.season !== st.season || !club) return;
+    var y = st.ylg, club = host(st); if (!y || y.season !== st.season || !club || y.club !== club.id) return;
     P.GROUPS.forEach(function (g) { var G = y.groups[g]; while (G.round < G.sched.length) P.ylPlayRound(st, y, g); });
     st.ylgHist = st.ylgHist || [];
     P.GROUPS.forEach(function (g) {
@@ -440,8 +444,8 @@
   // Haken in den Spielablauf
   // =====================================================================
   P.weekly = function (st) {
-    var club = uc(st); if (!club) return;
     P.ylWeekly(st);
+    var club = uc(st); if (!club) return;
     P.retireCheck(st);
     P.flushRetireQueue(st);
   };

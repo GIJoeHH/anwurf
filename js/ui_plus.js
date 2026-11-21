@@ -47,7 +47,7 @@
     if (tab === 'kader') {
       var h = baseNachwuchs();
       var cut = h.indexOf('<div class="panel tight">');
-      var own = U.canYouth() ? '<div class="row" style="margin:0 0 10px;gap:8px"><button class="secondary" data-act="yOwnNew">' + U.lc('user-plus', 15) + ' Eigenen Spieler in die Jugend</button><span class="muted small">Z. B. dich selbst – spielt dann in der Jugendliga mit.</span></div>' : '';
+      var own = '';
       return cut > 0 ? h.slice(0, cut) + bar + own + h.slice(cut) : bar + own + h;
     }
     var st = U.st, c = U.club();
@@ -150,7 +150,7 @@
   // ---------- Eigener Spieler in der Jugend ----------
   U.acts.yOwnNew = function () {
     var pos = Object.keys(D.posWeights);
-    U.modal(U.lc('user-plus', 16) + ' Eigenen Spieler in die Jugend', '<p class="small">Der Spieler kommt ins Nachwuchszentrum und spielt in der passenden Jugendliga (bis 17 Jahre B-Jugend, ab 18 A-Jugend).</p>' +
+    U.modal(U.lc('user-plus', 16) + ' Eigenen Spieler in die Jugend', '<p class="small">Der Spieler kommt ins Nachwuchszentrum von ' + esc(U.club().name) + ' und spielt in der passenden Jugendliga (bis 17 Jahre B-Jugend, ab 18 A-Jugend).</p>' +
       U.field('Vorname', '<input type="text" id="yoFirst" maxlength="30" value="">') + U.field('Nachname', '<input type="text" id="yoLast" maxlength="30" value="">') +
       U.field('Position', '<select id="yoPos">' + pos.map(function (k) { return '<option value="' + k + '">' + esc((D.posNames && D.posNames[k]) || k) + '</option>'; }).join('') + '</select>') +
       U.field('Alter', '<input type="number" id="yoAge" min="15" max="19" value="16">') + U.field('Stärke (25–75)', '<input type="number" id="yoOvr" min="25" max="75" value="45">') + U.field('Potenzial (bis 99)', '<input type="number" id="yoPot" min="30" max="99" value="75">'),
@@ -160,7 +160,7 @@
     function v(id) { var e = document.getElementById(id); return e ? e.value : ''; }
     if (!v('yoLast').trim()) { U.toast('Bitte einen Nachnamen eingeben.'); return; }
     var p = P.createYouth(U.st, U.club(), { first: v('yoFirst').trim(), last: v('yoLast').trim(), pos: v('yoPos'), age: v('yoAge'), ovr: v('yoOvr'), pot: v('yoPot') });
-    U.closeModal(); U.render(); U.toast(W.playerName(p) + ' ist jetzt in der Jugend (' + (P.groupOf(p) === 'u19' ? 'A' : 'B') + '-Jugend).');
+    U.closeModal(); if (U.screen === 'editor') U.p.pc = p.clubId; U.render(); U.toast(W.playerName(p) + ' ist jetzt in der Jugend (' + (P.groupOf(p) === 'u19' ? 'A' : 'B') + '-Jugend).');
   };
 
   // =====================================================================

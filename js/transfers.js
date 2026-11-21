@@ -354,7 +354,7 @@
   };
   T.aiRenewals = function (st, club) {
     var squad = W.squad(st, club.id), avg = R.avg(squad, function (x) { return x.ovr; });
-    var expiring = squad.filter(function (p) { return p.contract <= 1 && !p.loan && !p.listed; }).sort(function (a, b) { return b.ovr - a.ovr; });
+    var expiring = squad.filter(function (p) { return p.contract <= 1 && !p.loan && !p.listed && !(R.pc && R.pc.isPc(st, p)); }).sort(function (a, b) { return b.ovr - a.ovr; });
     var staying = squad.length - expiring.length;
     expiring.forEach(function (p) {
       if (p.topLeave) { p.topLeave = false; p.topFree = true; R.season.news(st, W.playerName(p) + ' verlässt ' + club.short + ' ablösefrei', 'Der Vertrag des ' + p.age + '-Jährigen (Stärke ' + p.ovr + ') wird nicht verlängert – ein Hochkaräter ist auf dem Markt.', 'transfer'); return; }

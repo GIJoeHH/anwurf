@@ -568,7 +568,7 @@
     if (st.manager.unemployed) S.careerWeek(st);
   };
   // Wer plant Vorbereitung/Winterpause? Manager und Geschäftsführer selbst, beim Trainer die Vereinsführung
-  S.planOwnerIsUser = function (st) { return st.manager.role !== 'trainer'; };
+  S.planOwnerIsUser = function (st) { return st.manager.role !== 'trainer' && st.manager.role !== 'player'; };
   // Ereignis zu Beginn von Vorbereitung/Winterpause: führt den Spieler verpflichtend zur Planungsseite
   S.setPlanEvent = function (st, kind) { st.planEvent = (st.manager && !st.manager.unemployed && S.planOwnerIsUser(st)) ? { kind: kind, season: st.season, seen: false } : null; };
   S.planEventOpen = function (st) { var e = st.planEvent; return !!(e && !e.seen && e.season === st.season && ((e.kind === 'winter' && st.phase === 'winter') || (e.kind === 'preseason' && st.phase === 'preseason'))); };
@@ -658,7 +658,8 @@
       if (!light) S.boardCheck(st, uc);
       if (st.manager.role !== 'manager') S.autoDelegate(st, uc);
     }
-    if (uc && R.plus) R.plus.weekly(st); // Jugendligen, Karriereende
+    if (R.plus && (uc || (R.pc && R.pc.active(st)))) R.plus.weekly(st); // Jugendligen, Karriereende
+    if (R.pc && R.pc.active(st)) R.pc.weekly(st); // Spielerkarriere
     if (st.manager.unemployed) S.careerWeek(st);
     S.leagueNews(st);
   };
@@ -832,7 +833,7 @@
     var tired = R.avg(W.squad(st, club.id), function (p) { return p.fitness; });
     if (!club.trainingByUser) club.training = tired < 80 ? 'regeneration' : prof === 'Offensiv' ? 'angriff' : prof === 'Defensiv' ? 'defensive' : prof === 'Erfahrener Taktiker' ? 'taktik' : 'technik';
     // Jugend hochziehen
-    W.youthOf(st, club.id).forEach(function (p) { if (p.ovr >= R.avg(W.squad(st, club.id), function (x) { return x.ovr; }) - 6 && W.squad(st, club.id).length < 26) p.youth = false; });
+    W.youthOf(st, club.id).forEach(function (p) { if (!(R.pc && R.pc.isPc(st, p)) && p.ovr >= R.avg(W.squad(st, club.id), function (x) { return x.ovr; }) - 6 && W.squad(st, club.id).length < 26) p.youth = false; });
   };
   // Automatische Aufgaben, die nicht in der Rolle des Spielers liegen
   S.autoDelegate = function (st, club) {
@@ -846,7 +847,7 @@
     if (st.week !== 20) return;
     var squad = W.squad(st, club.id), avg = R.avg(squad, function (p) { return p.ovr; });
     W.youthOf(st, club.id).forEach(function (p) {
-      if ((p.ovr >= avg - 8 || p.pot >= avg + 8) && squad.length < 26) { p.youth = false; p.wage = Math.max(p.wage, Math.round(W.capWage(W.fairWage(p) * 0.7, club) / 500) * 500); }
+      if (!(R.pc && R.pc.isPc(st, p)) && (p.ovr >= avg - 8 || p.pot >= avg + 8) && squad.length < 26) { p.youth = false; p.wage = Math.max(p.wage, Math.round(W.capWage(W.fairWage(p) * 0.7, club) / 500) * 500); }
     });
   };
 
@@ -1059,6 +1060,7 @@
     if (!o) { st.pendingEvent = null; return null; }
     if (o.wear && club && club.stadium) club.stadium.wear = R.clamp((club.stadium.wear || 0) + o.wear, 0, 100);
     st.pendingEvent = null;
+    if (o.plusAct && o.plusAct.k === 'pc' && R.pc) { var pcm = R.pc.act(st, o.plusAct) || (o.l + '.'); S.news(st, 'Entscheidung', pcm, 'karriere'); return pcm; }
     if (!club) return null;
     if (o.legalAct) return S.legalAct(st, club, o);
     if (ev.legal && st.legalCase && !o.legalOpen) st.legalCase = null; // Sonderoption (z. B. Abwarten) beendet das Verfahren
@@ -1188,7 +1190,7 @@
     club.history.push({ season: st.season, type: 'trainer', text: mg.name + ' übernimmt (' + S.roleName(o.role) + ')' });
     S.news(st, mg.name + ' übernimmt bei ' + club.name, 'Neue Aufgabe als ' + S.roleName(o.role) + '.', 'karriere');
   };
-  S.roleName = function (r) { return { manager: 'Manager', trainer: 'Trainer', gf: 'Geschäftsführer' }[r]; };
+  S.roleName = function (r) { return { manager: 'Manager', trainer: 'Trainer', gf: 'Geschäftsführer', player: 'Spieler' }[r]; };
 
   // ---------- Pokal / Relegation / Saisonende ----------
   S.cupFinished = function (st) {
@@ -1353,6 +1355,7 @@
     st.history.push({ season: st.season, champions: sum.champions, cup: sum.cup, promoted: sum.promoted, relegated: sum.relegated, scorers: sum.scorers, userClub: uc ? uc.id : null, userPos: userPos, userLeague: oldLeague, userKey: uc ? (oldLeague < 3 ? oldLeague : null) : null });
 
     // Vereinbarte Wechsel zur neuen Saison (vor dem Vertragsablauf, damit niemand dazwischenfunkt)
+    if (R.pc && st.pc) R.pc.seasonEnd(st); // Spielerkarriere: Saisonbilanz
     T.executePending(st, true);
     // Spieler: Verträge, Altern, Karriereende
     T.pickTopLeavers(st);
@@ -1377,12 +1380,13 @@
       }
       var retireP = p.age >= 38 ? 1 : p.age >= 35 ? 0.45 : p.age >= 33 ? 0.15 : 0;
       if (!p.clubId && p.age >= 32) retireP += 0.4;
+      var isPc = R.pc && R.pc.isPc(st, p); if (isPc) retireP = 0; // eigener Spieler: Karriereende entscheidest du
       if (R.chance(retireP)) {
         if (p.clubId) { var cl = st.clubs[p.clubId]; if (p.career.apps > 250 || p.career.goals > 80) cl.legends.push({ name: W.playerName(p), apps: p.career.apps, goals: p.career.goals, season: st.season }); T.release(st, p); }
         delete st.players[id]; retired++;
         return;
       }
-      if (!p.clubId && p.freeSince != null && st.season - p.freeSince >= 1 && p.ovr < 50) { delete st.players[id]; }
+      if (!isPc && !p.clubId && p.freeSince != null && st.season - p.freeSince >= 1 && p.ovr < 50) { delete st.players[id]; }
     });
 
     // Jugend: Neuzugänge, Abgänge 19+
@@ -1393,7 +1397,8 @@
       W.youthOf(st, c.id).forEach(function (p) {
         if (p.age >= 20) {
           var squad = W.squad(st, c.id);
-          if (!c.userControlled && (p.ovr >= R.avg(squad, function (x) { return x.ovr; }) - 10 || p.pot > 70) && squad.length < 20) p.youth = false;
+          if (R.pc && R.pc.isPc(st, p)) { if (p.youth) R.pc.promote(st, 'Mit 20 rückt er automatisch in den Profikader auf.'); }
+          else if (!c.userControlled && (p.ovr >= R.avg(squad, function (x) { return x.ovr; }) - 10 || p.pot > 70) && squad.length < 20) p.youth = false;
           else if (!c.userControlled || p.age >= 21) { if (c.userControlled) S.news(st, W.playerName(p) + ' verlässt die Jugend', 'Zu alt für das Nachwuchszentrum – er sucht einen neuen Verein.', 'jugend'); T.release(st, p); }
         }
       });
@@ -1431,6 +1436,7 @@
 
     st.season++;
     if (R.plus) R.plus.newSeason(st);
+    if (R.pc && st.pc) R.pc.newSeason(st);
     S.startSeason(st);
     if (uc && !mg.unemployed) { S.news(st, 'Saison ' + st.season + '/' + String(st.season + 1).slice(2) + ' – Saisonvorbereitung', 'Saisonziel des Vorstands: ' + mg.boardTarget.text + '. Transferbudget: ' + R.fmtMoney(mg.transferBudget) + '.', 'vorstand'); }
     if (mg.unemployed) S.generateJobOffers(st, 2);

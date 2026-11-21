@@ -222,7 +222,7 @@
     if (tab === 'spieler') {
       var pc = U.p.pc != null ? U.p.pc : (st.manager.clubId || 'c1');
       var list = Object.keys(st.players).map(function (k) { return st.players[k]; }).filter(function (p) { return pc === '' ? !p.clubId : p.clubId === pc; });
-      h += '<div class="row" style="margin-bottom:10px"><select data-chg="edPlayerClub">' + clubOpts(pc, true) + '</select><button class="primary" data-act="edNewPlayer">+ Neuer Spieler</button></div>';
+      h += '<div class="row" style="margin-bottom:10px"><select data-chg="edPlayerClub">' + clubOpts(pc, true) + '</select><button class="primary" data-act="edNewPlayer">+ Neuer Spieler</button>' + (R.plus && U.club() ? '<button data-act="yOwnNew">' + U.lc('user-plus', 15) + ' Eigener Spieler in die eigene Jugend</button>' : '') + '</div>';
       h += '<div class="panel tight"><div class="scroll">' + U.table('edp', [
         { k: 'last', l: 'Name', f: function (p) { return esc(W.playerName(p)) + (p.youth ? ' <span class="tag">Jugend</span>' : ''); } }, { k: 'pos', l: 'Pos', f: function (p) { return U.posTag(p.pos); } },
         { k: 'age', l: 'Alter', num: true }, { k: 'ovr', l: 'Stärke', num: true }, { k: 'pot', l: 'Pot.', num: true }, { k: 'wage', l: 'Gehalt', num: true, f: function (p) { return money(p.wage); } }, { k: 'contract', l: 'Vertr.', num: true }

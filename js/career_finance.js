@@ -244,11 +244,17 @@
   PF.unsave = function (st, amt) { var w = PF.wallet(st); amt = Math.min(rnd(amt, 100), w.savings); if (amt <= 0) return; w.savings -= amt; w.cash += amt; st.pc.cash = w.cash; };
 
   // Börse über das bestehende Marktmodell (Transaktionskosten im Kurs, Abgeltungsteuer auf realisierte Gewinne)
-  PF.canTrade = function (st) { return !PF.minor(st); };
+  // Wie im Managerspiel jederzeit handelbar; Minderjährige über ein Junior-Depot mit Zustimmung der Eltern
+  PF.canTrade = function (st) { return true; };
   PF.buy = function (st, sym, amountEur, via) {
     if (!PF.canTrade(st)) return { ok: false, why: 'Wertpapiere und Kryptowährungen erst ab 18 Jahren.' };
     var price = E.price(st, sym); if (!price) return { ok: false, why: 'Unbekannter Wert.' };
     var qty = Math.floor(amountEur / (price * 1.006)); if (price < 5 && qty < 1) qty = 0;
+    return PF.buyQty(st, sym, qty, via);
+  };
+  // Kauf nach Stückzahl über dieselbe Marktlogik wie im Managerspiel (0,5 % Gebühr, Kurs der aktuellen Woche)
+  PF.buyQty = function (st, sym, qty, via) {
+    if (!PF.canTrade(st)) return { ok: false, why: 'Handel nicht möglich.' };
     var r = E.buyAsset(st, PF.wallet(st), sym, qty); st.pc.cash = PF.wallet(st).cash;
     if (r.ok && R.fa) R.fa.onTrade(st, sym, r.cost, via);
     return r;

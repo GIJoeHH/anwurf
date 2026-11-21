@@ -370,16 +370,10 @@
     var w = PF.wallet(st), can = PF.canTrade(st);
     var h = '<div class="grid g2"><div class="panel"><h2>Konto & Tagesgeld</h2><table class="t small"><tr><td>Girokonto</td><td class="num">' + money(Math.round(w.cash)) + '</td></tr><tr><td>Tagesgeld</td><td class="num">' + money(Math.round(w.savings)) + '</td></tr><tr><td>Dispolimit</td><td class="num">' + money(PF.odLimit(st)) + '</td></tr></table>' +
       '<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="sm" data-act="pfSave" data-v="10000">10.000 aufs Tagesgeld</button><button class="sm" data-act="pfSave" data-v="all">Alles aufs Tagesgeld</button><button class="sm" data-act="pfUnsave" data-v="10000">10.000 abheben</button><button class="sm" data-act="pfUnsave" data-v="all">Alles abheben</button></div></div>';
-    h += '<div class="panel"><h2>Hinweis</h2><p class="small">' + (can ? 'Käufe und Verkäufe laufen über den echten Markt des Spiels (Kurse, Transaktionskosten). Realisierte Gewinne werden vereinfacht versteuert.' : 'Wertpapiere und Kryptowährungen erst ab 18 Jahren – bis dahin verwalten deine Eltern das Geld.') + '</p>' + (FA.current(st) && FA.ensure(st).con.power.trade ? '<p class="muted small">Dein Finanzberater hat eine Handelsvollmacht und kann innerhalb seiner Befugnisse handeln.</p>' : '') + '</div></div>';
-    function list(syms, cryptoF) {
-      return '<div class="scroll"><table class="t small"><tr><th>Wert</th><th class="num">Kurs</th><th class="num">Bestand</th><th class="num">Wert</th><th></th></tr>' + syms.map(function (s) {
-        var d = E.marketDef(s) || { name: s }, pr = E.price(st, s), q = w.portfolio[s] ? w.portfolio[s].qty : 0;
-        return '<tr><td>' + esc(d.name) + '</td><td class="num">' + money(Math.round(pr * 100) / 100) + '</td><td class="num">' + (q ? num(q) : '–') + '</td><td class="num">' + (q ? money(Math.round(q * pr)) : '–') + '</td><td class="num">' + (can ? '<button class="sm" data-act="pfBuy" data-s="' + s + '" data-v="1000">+1.000</button> <button class="sm" data-act="pfBuy" data-s="' + s + '" data-v="10000">+10.000</button>' + (q ? ' <button class="sm" data-act="pfSell" data-s="' + s + '">Verkaufen</button>' : '') : '') + '</td></tr>';
-      }).join('') + '</table></div>';
-    }
-    var stocks = D.stocks.filter(function (s) { return !s.club && st.market.stocks[s.id]; }).map(function (s) { return s.id; });
-    var cryptos = Object.keys(st.market.crypto || {});
-    h += '<div class="panel" style="margin-top:14px"><h2>Aktien</h2>' + list(stocks) + '</div><div class="panel" style="margin-top:14px"><h2>Kryptowährungen</h2><p class="muted small">Hohe Schwankungen – Totalverlust möglich.</p>' + list(cryptos, true) + '</div>';
+    h += '<div class="panel"><h2>Depot</h2><p class="small">Gleicher Markt wie im Managerspiel: Wochenkurse, Börsencrashs, 0,5 % Gebühr pro Kauf und Verkauf, Kauf nach Stück oder Eurobetrag. Realisierte Gewinne werden vereinfacht versteuert (Abgeltungsteuer).</p>' + (PF.minor(st) ? '<p class="muted small">' + U.lc('info', 13) + ' Du bist noch nicht volljährig: Gehandelt wird über ein Junior-Depot, deine Eltern zeichnen mit.</p>' : '') + (FA.current(st) && FA.ensure(st).con.power.trade ? '<p class="muted small">Dein Finanzberater hat eine Handelsvollmacht und kann innerhalb seiner Befugnisse handeln.</p>' : '') + '</div></div>';
+    var sub = U.p.mk === 'krypto' ? 'krypto' : 'aktien';
+    h += '<div class="seg" style="margin:14px 0">' + [['aktien', 'Aktienmarkt', 'chart-line'], ['krypto', 'Kryptowährungen', 'bitcoin']].map(function (x) { return '<button class="' + (sub === x[0] ? 'on' : '') + '" data-act="pfMk" data-v="' + x[0] + '">' + U.lc(x[2], 15) + x[1] + '</button>'; }).join('') + '</div>';
+    h += U.marketView(st, w, sub, can, { noClub: true, w: 'pc', acts: { buy: 'pfAssetBuy', sell: 'pfAssetSell', detail: 'assetDetail' } });
     return h;
   };
   FIN.immo = function (st) {
@@ -438,6 +432,21 @@
   U.acts.pfIns = function (d) { var f = PF.ensure(U.st); PF.setIns(U.st, d.k, !f.ins[d.k]); U.autosave(); U.render(); };
   U.acts.pfSave = function (d) { var w = PF.wallet(U.st); PF.save(U.st, d.v === 'all' ? w.cash : +d.v); U.autosave(); U.render(); U.renderTop(); };
   U.acts.pfUnsave = function (d) { var w = PF.wallet(U.st); PF.unsave(U.st, d.v === 'all' ? w.savings : +d.v); U.autosave(); U.render(); U.renderTop(); };
+  U.acts.pfMk = function (d) { U.p.mk = d.v; U.render(); };
+  function ordQty(st, k, sell) { var el = document.getElementById('q_' + k), v = el ? +el.value || 0 : 0; if (U.p.tradeMode !== 'eur') return { raw: v, q: Math.floor(v) }; var pr = E.price(st, k); return { raw: v, q: pr && v ? Math.floor(v / (pr * (sell ? 1 : 1.005))) : 0 }; }
+  U.acts.pfAssetBuy = function (d) {
+    var st = U.st, o = ordQty(st, d.k, false);
+    if (!o.raw) { U.toast(U.p.tradeMode === 'eur' ? 'Bitte einen Betrag eingeben.' : 'Bitte eine Stückzahl eingeben.'); return; }
+    if (!o.q) { U.toast('Betrag reicht nicht für ein Stück'); return; }
+    var r = PF.buyQty(st, d.k, o.q); fmsg(r.ok ? 'Gekauft: ' + num(o.q) + ' Stück für ' + money(Math.round(r.cost)) + '.' : r.why || 'Nicht möglich.');
+  };
+  U.acts.pfAssetSell = function (d) {
+    var st = U.st, w = PF.wallet(st), pf = w.portfolio[d.k], o = ordQty(st, d.k, true);
+    function go(n) { var r = PF.sell(st, d.k, n); fmsg(r.ok ? 'Verkauft für ' + money(Math.round(r.revenue)) + ' (' + (r.profit >= 0 ? '+' : '') + money(Math.round(r.profit)) + ').' : r.why || 'Nicht möglich.'); }
+    if (!o.raw) { U.confirm('Alles verkaufen?', 'Keine Menge eingegeben. Die gesamte Position (' + num(pf ? pf.qty : 0) + ' Stück) verkaufen?', function () { go(1e12); }); return; }
+    if (!o.q) { U.toast('Betrag reicht nicht für ein Stück'); return; }
+    go(o.q);
+  };
   U.acts.pfBuy = function (d) { var r = PF.buy(U.st, d.s, +d.v); fmsg(r.ok ? 'Gekauft für ' + money(Math.round(r.cost)) + '.' : r.why || 'Nicht möglich.'); };
   U.acts.pfSell = function (d) { var w = PF.wallet(U.st), q = w.portfolio[d.s] ? w.portfolio[d.s].qty : 0; var r = PF.sell(U.st, d.s, q); fmsg(r.ok ? 'Verkauft für ' + money(Math.round(r.revenue)) + '.' : r.why || 'Nicht möglich.'); };
   U.acts.pfBuyHome = function (d) { var st = U.st, o = PF.homeOffer(st, d.k, d.r === '1'); U.confirm('Immobilie kaufen', esc(o.n) + ' für ' + money(o.price) + ' zzgl. ' + money(o.fees) + ' Nebenkosten kaufen? Der Rest wird über ein Darlehen finanziert.', function () { var r = PF.buyHome(st, d.k, d.r === '1'); fmsg(r.ok ? 'Gekauft!' : r.why); }); };

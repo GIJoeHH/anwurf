@@ -375,8 +375,8 @@
   var RANGES = [[26, '6 Mon.'], [52, '1 Jahr'], [104, '2 Jahre']];
   function chgOver(m, weeks) { var h = m.hist, n = Math.min(weeks, h.length - 1); var first = h[h.length - 1 - n]; return first ? (m.price / first - 1) * 100 : 0; }
   function pct(v) { return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1).replace('.', ',') + ' %'; }
-  U.marketView = function (st, c, tab, can) {
-    E.ensureMarkets(st);
+  U.marketView = function (st, c, tab, can, o) {
+    E.ensureMarkets(st); o = o || {}; var ac = o.acts || { buy: 'assetBuy', sell: 'assetSell', detail: 'assetDetail' };
     var defs = tab === 'aktien' ? D.stocks : D.cryptos, mk = tab === 'aktien' ? st.market.stocks : st.market.crypto, range = U.p.range || 52, crypto = tab === 'krypto';
     var depot = 0, cost = 0; defs.forEach(function (sd) { var pf = c.portfolio[sd.id]; if (pf && mk[sd.id]) { depot += pf.qty * mk[sd.id].price; cost += pf.cost; } });
     var h = '<div class="mkt-head"><div class="help" style="margin:0;flex:1">' + U.lc(crypto ? 'triangle-alert' : 'info', 15) + ' ' + (crypto ? 'Fiktive Kryptowährungen – extrem schwankend: Kurssprünge, Crashs und Spekulationsblasen jederzeit möglich. Kein Echtgeld.' : 'Fiktiver Aktienmarkt – Kurse ändern sich wöchentlich, 0,5 % Gebühr pro Kauf/Verkauf. Börsencrashs kommen unregelmäßig und drücken alle Kurse.') + '</div>' +
@@ -387,7 +387,7 @@
       var pf = c.portfolio[sd.id], hist = m.hist.slice(-range - 1), chg = chgOver(m, range), wk = chgOver(m, 1);
       var val = pf ? pf.qty * m.price : 0, buyIn = pf ? pf.cost / pf.qty : null;
       var bvb = sd.club ? E.bvbClub(st) : null, stake = sd.club ? E.bvbStake(st, c) : 0;
-      if (sd.club && (!bvb || bvb.id === c.id)) return;
+      if (sd.club && (o.noClub || !bvb || bvb.id === c.id)) return;
       var rl = { 26: '6 Monate', 52: '12 Monate', 104: '24 Monate' }[range];
       h += '<div class="panel mkt-card' + (sd.club ? ' club' : '') + '"><div class="mkt-top"><div class="mkt-name">' + (sd.club && bvb ? U.crest(bvb, 28) : '<div class="ic-tile ' + (crypto ? 'warn' : '') + '">' + U.lc(crypto ? 'coins' : 'factory', 18) + '</div>') + '<div><b>' + esc(sd.club && bvb ? bvb.name + ' (Aktie)' : sd.name) + '</b><span>' + sd.id + (crypto ? ' · Volatilität ' + (sd.vol > 0.2 ? 'extrem' : 'hoch') : '') + '</span></div></div>' +
         '<div class="mkt-price"><b>' + U.fmtPrice(m.price) + '</b><span class="' + (wk >= 0 ? 'pos' : 'neg') + '">' + pct(wk) + ' <small>Woche</small></span></div></div>' +
@@ -400,7 +400,7 @@
           var eur = U.p.tradeMode === 'eur', maxQ = Math.floor(Math.max(0, c.cash) / (m.price * 1.005));
           return '<div class="mkt-act"><div class="seg seg-xs"><button class="sm ' + (eur ? '' : 'on') + '" data-act="tradeMode" data-v="qty">Stück</button><button class="sm ' + (eur ? 'on' : '') + '" data-act="tradeMode" data-v="eur">€</button></div>' +
             '<input type="number" id="q_' + sd.id + '" placeholder="' + (eur ? 'Betrag in €' : 'Stück') + '" min="1" data-pad data-mult' + (eur ? ' data-money' : '') + '>' +
-            '<button class="sm primary" data-act="assetBuy" data-k="' + sd.id + '">Kaufen</button><button class="sm" data-act="assetSell" data-k="' + sd.id + '"' + (pf ? '' : ' disabled') + '>Verkaufen</button><button class="sm ghost" data-act="assetDetail" data-k="' + sd.id + '" data-t="' + tab + '">Details</button>' +
+            '<button class="sm primary" data-act="' + ac.buy + '" data-k="' + sd.id + '">Kaufen</button><button class="sm" data-act="' + ac.sell + '" data-k="' + sd.id + '"' + (pf ? '' : ' disabled') + '>Verkaufen</button><button class="sm ghost" data-act="' + ac.detail + '" data-k="' + sd.id + '" data-t="' + tab + '"' + (o.w ? ' data-w="' + o.w + '"' : '') + '>Details</button>' +
             '<span class="muted small">max. ' + (eur ? money(Math.max(0, c.cash)) : R.fmtNum(maxQ) + ' Stück') + '</span></div>';
         })() : '') + '</div>';
     });
@@ -408,7 +408,7 @@
   };
   // Detailansicht eines Wertpapiers: alle Zeiträume, großer Chart
   U.acts.assetDetail = function (d) {
-    var st = U.st, c = U.club(), crypto = d.t === 'krypto', mk = crypto ? st.market.crypto : st.market.stocks, m = mk[d.k], sd = (crypto ? D.cryptos : D.stocks).filter(function (x) { return x.id === d.k; })[0], pf = c.portfolio[d.k];
+    var st = U.st, c = d.w === 'pc' && R.pf ? R.pf.wallet(st) : U.club(), crypto = d.t === 'krypto', mk = crypto ? st.market.crypto : st.market.stocks, m = mk[d.k], sd = (crypto ? D.cryptos : D.stocks).filter(function (x) { return x.id === d.k; })[0], pf = c.portfolio[d.k];
     var h = '<div class="mkt-price" style="margin-bottom:10px"><b style="font-size:26px">' + U.fmtPrice(m.price) + '</b></div><div class="pp-kpis">' + RANGES.concat([[1, '1 Woche']]).map(function (x) { var v = chgOver(m, x[0]); return '<div><span>' + x[1] + '</span><b class="' + (v >= 0 ? 'pos' : 'neg') + '">' + pct(v) + '</b></div>'; }).join('') +
       '<div><span>Bestand</span><b>' + (pf ? R.fmtNum(pf.qty) : '–') + '</b></div><div><span>Depotwert</span><b>' + (pf ? money(pf.qty * m.price) : '–') + '</b></div></div><div class="sub-h">Kursverlauf 2 Jahre</div>' + U.priceChart(m, { range: 104, buyIn: pf ? pf.cost / pf.qty : null, h: 220 }) +
       '<p class="muted small">Alle Kurse stammen aus der gespeicherten Marktsimulation und ändern sich nur mit den Spielwochen.</p>';

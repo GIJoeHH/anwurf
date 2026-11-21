@@ -658,6 +658,7 @@
       if (!light) S.boardCheck(st, uc);
       if (st.manager.role !== 'manager') S.autoDelegate(st, uc);
     }
+    if (uc && R.plus) R.plus.weekly(st); // Jugendligen, Karriereende
     if (st.manager.unemployed) S.careerWeek(st);
     S.leagueNews(st);
   };
@@ -697,7 +698,7 @@
       var gap = p.pot - W.overallFor(p, p.pos);
       var ageF = p.age <= 19 ? 1.35 : p.age <= 22 ? 1.1 : p.age <= 25 ? 0.65 : p.age <= 28 ? 0.3 : 0.1;
       var playF = p.youth ? 0.85 : 0.75 + 0.5 * Math.min(1, p.stats.apps / weekNo);
-      var q = p.youth ? youthQ : trainQ;
+      var q = (p.youth ? youthQ : trainQ) * (R.plus ? R.plus.devF(st, club, p) : 1);
       if (gap > 0) {
         var g = gap * 0.0075 * ageF * playF * q * growthF;
         var w = D.posWeights[p.pos];
@@ -706,6 +707,7 @@
           if (share > 0) p.attr[k] = Math.min(99, p.attr[k] + g * share * 1.6);
         });
       }
+      if (p.youth && gap > 0 && R.plus) R.plus.youthBias(st, club, p, gap * 0.0075 * ageF * playF * q * growthF); // Vereinsphilosophie
       if (focus === 'fitness') p.attr.sta = Math.min(99, p.attr.sta + 0.02);
       if (p.age >= 30) {
         var dec = 0.012 * (p.age - 29);
@@ -1071,6 +1073,7 @@
     if (mor) W.squad(st, club.id).forEach(function (p) { p.morale = R.clamp(p.morale + mor, 0, 100); });
     if (fans) club.fans = Math.round(club.fans * (1 + fans / 100));
     if (o.rep) club.reputation = R.clamp(club.reputation + o.rep, 1, 100);
+    if (o.plusAct && R.plus) { var pm = R.plus.act(st, club, o.plusAct); if (pm) msg = pm; }
     if (o.youth) { var y = W.genYouth(st, club, E.level(club, 'jugend').q + 1); y.pot = Math.min(95, y.pot + 5); msg += ' ' + W.playerName(y) + ' (' + y.age + ', ' + y.pos + ') ist jetzt in der Jugend.'; }
     S.news(st, 'Entscheidung: ' + ev.t.slice(0, 60) + (ev.t.length > 60 ? '…' : ''), msg, 'event');
     if (o.legalOpen) S.openCase(st, club, o.legalOpen);
@@ -1354,6 +1357,7 @@
     // Spieler: Verträge, Altern, Karriereende
     T.pickTopLeavers(st);
     Object.keys(st.clubs).forEach(function (k) { var c = st.clubs[k]; if (!c.userControlled) T.aiRenewals(st, c); });
+    if (R.plus) { R.plus.seasonEnd(st); R.plus.beforeReturnLoans(st); } // Jugendligen, TV-Prämie, Karriereende, Leihbilanz
     T.returnLoans(st);
     var retired = 0;
     Object.keys(st.players).forEach(function (id) {
@@ -1426,6 +1430,7 @@
     });
 
     st.season++;
+    if (R.plus) R.plus.newSeason(st);
     S.startSeason(st);
     if (uc && !mg.unemployed) { S.news(st, 'Saison ' + st.season + '/' + String(st.season + 1).slice(2) + ' – Saisonvorbereitung', 'Saisonziel des Vorstands: ' + mg.boardTarget.text + '. Transferbudget: ' + R.fmtMoney(mg.transferBudget) + '.', 'vorstand'); }
     if (mg.unemployed) S.generateJobOffers(st, 2);

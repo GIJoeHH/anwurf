@@ -32,7 +32,7 @@
       var role = slots[i][0], best = null, bestV = -1, want = M.slotDetail(slots[i]);
       squad.forEach(function (p) {
         if (used[p.id]) return;
-        var v = W.roleRating(p, role) * (0.55 + 0.45 * p.fitness / 100) * (p.posDetail === want ? 1.04 : 1);
+        var v = W.roleRating(p, role) * (0.55 + 0.45 * p.fitness / 100) * (R.plus ? R.plus.lineupBias(st, club, p) : 1) * (p.posDetail === want ? 1.04 : 1);
         if (v > bestV) { bestV = v; best = p; }
       });
       if (best) { used[best.id] = 1; lineup[i] = best.id; } else lineup[i] = null;

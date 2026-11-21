@@ -241,14 +241,17 @@
     h += '<div class="grid g2"><div><h3>Objekt & Kaufnebenkosten</h3>' + row(o.mode === 'neubau' ? 'Grundstück' : 'Kaufpreis', o.mode === 'neubau' ? o.land : o.price) + (o.mode === 'neubau' ? '<div class="rt-row"><span>Baukosten (Standard)</span><b id="rtBuild">–</b></div>' : '') +
       row('Grunderwerbsteuer (5 %)', fees.grunderwerb) + row('Notar & Grundbuch (1,5 %)', fees.notar) + (fees.makler ? row('Makler (3 %)', fees.makler) : '') + '<div class="rt-row b"><span>Gesamtkapitalbedarf</span><b id="rtTotal">–</b></div>' +
       '<p class="muted small">Kaufnebenkosten werden immer aus Eigenkapital bezahlt.</p></div>';
-    h += '<div><h3>Finanzierung</h3>' +
+    var qc = RE.quote(st, c, o, { cash: true, standard: f.standard });
+    h += '<div><h3>Finanzierung</h3><div class="seg" style="margin-bottom:8px"><button class="' + (f.cash ? '' : 'on') + '" data-act="rtCash" data-v="0">' + U.lc('landmark', 14) + ' Mit Bankkredit</button><button class="' + (f.cash ? 'on' : '') + '" data-act="rtCash" data-v="1"' + (qc.ok || f.cash ? '' : ' disabled title="Nicht genug Geld auf dem Girokonto"') + '>' + U.lc('banknote', 14) + ' Barkauf</button></div>' +
+      (qc.ok ? '' : '<p class="muted small">Barkauf ab ' + money(qc.total) + ' auf dem Girokonto möglich (aktuell ' + money(c.cash) + ').</p>') +
       (o.mode === 'neubau' ? '<label class="rt-f">Baustandard <select data-chg="rtBuyF" data-k="standard">' + Object.keys(RE.STANDARDS).map(function (k) { return '<option value="' + k + '"' + (f.standard === k ? ' selected' : '') + '>' + RE.STANDARDS[k].n + '</option>'; }).join('') + '</select></label>' : '') +
-      '<label class="rt-f">Eigenkapital (€) <input type="number" step="10000" min="0" value="' + Math.round(f.equity) + '" data-inp="rtBuyF" data-k="equity"></label>' +
+      (f.cash ? '<p class="small">' + U.lc('banknote', 14) + ' <b>Barkauf:</b> Der Verein zahlt alles aus der Kasse – kein Kredit, keine Zinsen, keine Prüfung durch die Bank.' + (o.mode === 'neubau' ? ' Grundstück und Nebenkosten sofort, die Baukosten während der Bauphasen.' : '') + '</p>' : '<label class="rt-f">Eigenkapital (€) <input type="number" step="10000" min="0" value="' + Math.round(f.equity) + '" data-inp="rtBuyF" data-k="equity"></label>' +
       '<label class="rt-f">Zinsbindung <select data-chg="rtBuyF" data-k="fix">' + [5, 10, 15, 20].map(function (y) { return '<option value="' + y + '"' + (+f.fix === y ? ' selected' : '') + '>' + y + ' Jahre</option>'; }).join('') + '</select></label>' +
-      '<label class="rt-f">Tilgung <select data-chg="rtBuyF" data-k="tilgsel">' + ['0.01', '0.015', '0.02', '0.03', '0.04', '0.05', 'L20', 'L25', 'L30'].map(function (v) { var on = v.charAt(0) === 'L' ? (f.mode === 'laufzeit' && +v.slice(1) === +f.years) : (f.mode !== 'laufzeit' && Math.abs(+v - f.tilg) < 1e-9); return '<option value="' + v + '"' + (on ? ' selected' : '') + '>' + (v.charAt(0) === 'L' ? 'Volltilgung in ' + v.slice(1) + ' Jahren' : pct(+v, 1) + ' Anfangstilgung') + '</option>'; }).join('') + '</select></label>' +
+      '<label class="rt-f">Tilgung <select data-chg="rtBuyF" data-k="tilgsel">' + ['0.01', '0.015', '0.02', '0.03', '0.04', '0.05', 'L20', 'L25', 'L30'].map(function (v) { var on = v.charAt(0) === 'L' ? (f.mode === 'laufzeit' && +v.slice(1) === +f.years) : (f.mode !== 'laufzeit' && Math.abs(+v - f.tilg) < 1e-9); return '<option value="' + v + '"' + (on ? ' selected' : '') + '>' + (v.charAt(0) === 'L' ? 'Volltilgung in ' + v.slice(1) + ' Jahren' : pct(+v, 1) + ' Anfangstilgung') + '</option>'; }).join('') + '</select></label>') +
       '</div></div><div id="rtBuyRes"></div></div>';
     return h;
   }
+  U.acts.rtCash = function (d) { var st = U.st, c = U.club(), b = U.rtBuy; if (!b) return; var o = st.realty.offers.filter(function (x) { return x.id === b.id; })[0]; if (!o) return; b.fin.cash = d.v === '1'; var el = document.getElementById('rtBuyBody'); if (el) el.innerHTML = buyBody(st, c, o); updBuy(); };
   U.acts.rtBuyF = function (d, el) {
     var f = U.rtBuy.fin;
     if (d.k === 'tilgsel') { if (el.value.charAt(0) === 'L') { f.mode = 'laufzeit'; f.years = +el.value.slice(1); } else { f.mode = 'tilgung'; f.tilg = +el.value; } }
@@ -259,6 +262,13 @@
   function updBuy() {
     var st = U.st, c = U.club(), b = U.rtBuy, o = st.realty.offers.filter(function (x) { return x.id === b.id; })[0], box = document.getElementById('rtBuyRes'); if (!o || !box) return;
     var q = RE.quote(st, c, o, b.fin);
+    if (q.cashBuy) {
+      box.innerHTML = '<div class="rt-result" style="margin-top:10px"><h3>Barkauf</h3>' + row('Gesamtkosten', q.total) + row('Jetzt vom Girokonto', -(q.cashNow || q.total)) + (o.mode === 'neubau' ? row('Später (Baukosten)', -(q.total - (q.cashNow || 0))) : '') + row('Kontostand danach', c.cash - (q.cashNow || q.total)) + row('Erwartete Miete im Monat', q.rentM) + row('Bewirtschaftung im Monat', -q.costM) + row('Erwarteter Cashflow im Monat', q.rentM - q.costM, 'b') + '</div>' +
+        (q.ok ? '<div class="note ok">' + U.lc('circle-check', 15) + ' Genug Geld vorhanden – das Objekt wird ohne Kredit gekauft.</div>' : '<div class="note bad">' + U.lc('circle-x', 15) + ' ' + q.reasons.map(esc).join(' ') + '</div>');
+      var gb = document.getElementById('rtBuyGo'); if (gb) { gb.disabled = !q.ok; gb.textContent = (o.mode === 'neubau' ? 'Projekt bar starten · ' : 'Bar kaufen · ') + money(q.total); }
+      var tt = document.getElementById('rtTotal'); if (tt) tt.textContent = money(q.total);
+      return;
+    }
     var set = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
     set('rtTotal', money(q.total)); if (o.mode === 'neubau') set('rtBuild', money(q.price - o.land));
     var h = '<div class="grid g2" style="margin-top:10px"><div class="rt-result"><h3>Ergebnis (live)</h3>' +

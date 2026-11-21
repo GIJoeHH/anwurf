@@ -770,16 +770,17 @@
     var costF = club.userControlled ? (0.9 + 0.1 * diff.econ) : 1;
     var lines = {};
     function add(cat, v) { lines[cat] = (lines[cat] || 0) + v; }
-    add('TV-Gelder', D.leagueTV[club.league] / n);
+    add('TV-Gelder', (R.plus ? R.plus.tvSeason(st, club) : D.leagueTV[club.league]) / n);
     add('Sponsoren', E.sponsorTotal(club) / n);
     var city = 0;
     ['fanshop', 'restaurant', 'cafe', 'hotel', 'museum', 'eventhalle', 'erlebnis', 'gewerbe'].forEach(function (k) { city += E.buildingRevenue(st, club, k); });
     add('Vereinsstadt', city / n);
     var wages = 0, youthW = 0;
-    for (var id in st.players) { var p = st.players[id]; if (p.clubId === club.id) { if (p.youth) youthW += p.wage; else wages += p.wage; } }
+    for (var id in st.players) { var p = st.players[id], lw = p.loan && p.loan.share != null ? p.loan.share : 1; if (p.clubId === club.id) { if (p.youth) youthW += p.wage; else wages += p.wage * lw; } else if (p.loan && p.loan.from === club.id && lw < 1) wages += p.wage * (1 - lw); } // Leihe: Gehalt wird geteilt
     add('Spielergehälter', -wages / n);
     add('Nachwuchsgehälter', -youthW / n);
     add('Trainer & Personal', -((club.coach ? club.coach.wage : 0) + E.staffWages(club) + { 1: 1500000, 2: 500000, 3: 150000, 4: 30000 }[club.league] * D.MONEY) / n);
+    if (R.plus && club.alumni && club.alumni.length) add('Trainer & Personal', -R.plus.alumniWage(club) / n);
     if (club.lawyer && club.lawyer.wage) add('Rechtsberatung', -club.lawyer.wage / n);
     add('Unterhalt Anlagen', -E.upkeepTotal(club) * costF / n);
     var budgets = 0; Object.keys(D.budgetAreas).forEach(function (a) { budgets += E.budgetCost(club, a); });

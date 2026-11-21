@@ -230,12 +230,13 @@
 
   // ---------- Finanzierung prüfen (Ablehnung immer mit Begründung) ----------
   // fin: { equity (eingesetztes Eigenkapital inkl. Nebenkosten), fix, mode, tilg, months, standard (Neubau) }
+  RE.canCashBuy = function (st, club, o) { var q = RE.quote(st, club, o, { cash: true }); return q.ok; };
   RE.quote = function (st, club, o, fin) {
     fin = fin || {};
     var fix = +fin.fix || 10, T = RE.terms(st, club, o, fix), f = RE.fees(o), std = RE.STANDARDS[fin.standard || 'modern'];
     var price = o.mode === 'neubau' ? o.land + Math.round(o.build * std.cost) : o.price;
     var total = price + f.total, maxLoan = Math.round(price * T.ltv);
-    var equity = fin.equity != null && isFinite(+fin.equity) ? Math.min(total, Math.max(0, Math.round(fin.equity))) : Math.max(f.total, total - maxLoan);
+    var equity = fin.cash ? total : fin.equity != null && isFinite(+fin.equity) ? Math.min(total, Math.max(0, Math.round(fin.equity))) : Math.max(f.total, total - maxLoan);
     var loan = Math.max(0, total - equity);
     var feeAmt = Math.round(loan * T.fee);
     var terms = { principal: loan, rate: T.rate, mode: fin.mode === 'laufzeit' ? 'laufzeit' : 'tilgung', tilg: fin.tilg != null && isFinite(+fin.tilg) ? +fin.tilg : 0.02, months: (+fin.years || 25) * 12 };
@@ -248,6 +249,12 @@
     var dscr = A > 0 ? (rentM - costM) / A : Infinity;
     var q = { price: price, fees: f, total: total, equity: equity, loan: loan, maxLoan: maxLoan, fee: feeAmt, rate: T.rate, normalRate: T.normal, disc: T.disc, promo: T.promo, promoName: T.promoName, bank: T.bank, ltv: T.ltv,
       fix: fix, terms: terms, annuity: A, zinsY1: y1.zins, tilgY1: y1.tilg, restFix: restFix, rentM: rentM, costM: costM, cfM: rentM - costM - A, dscr: dscr, schedule: sched, credit: T.credit, reasons: [] };
+    q.cashBuy = !!fin.cash;
+    if (fin.cash) { // Barkauf: alles aus der Kasse, keine Bank
+      var nowCash = o.mode === 'neubau' ? o.land + f.total : total;
+      if (total > club.cash) q.reasons.push('Für einen Barkauf fehlen ' + R.fmtMoney(total - club.cash) + ': benötigt ' + R.fmtMoney(total) + ', auf dem Girokonto sind ' + R.fmtMoney(club.cash) + '.');
+      q.cashNow = nowCash; q.ok = !q.reasons.length; return q;
+    }
     // Kreditentscheidung
     var cr = T.credit, cash = club.cash, needCash = equity + feeAmt;
     if (equity < f.total) q.reasons.push('Die Kaufnebenkosten (' + R.fmtMoney(f.total) + ') müssen aus Eigenkapital bezahlt werden.');

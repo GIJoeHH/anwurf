@@ -60,7 +60,7 @@
       return '<div class="ccard' + (s ? '' : ' empty') + (off ? ' attn' : '') + '" data-act="sponsorOpen" data-k="' + cat + '" tabindex="0" role="button"><div class="cc-top"><div class="ic-tile ' + (s ? 'ok' : 'neutral') + '">' + U.lc(SP_IC[cat], 19) + '</div><div class="cc-t"><b>' + D.sponsorCategories[cat] + '</b><span>' + (s ? s.years + ' J. Laufzeit' : 'kein Vertrag') + '</span></div>' + status + '</div>' +
         (s ? '<div class="cc-brand">' + U.brandLogo(s.name, 36, cat === 'ausruester') + '<span>' + esc(s.name) + '</span></div><div class="cc-val"><b>' + money(s.amount) + '</b><small>/Saison</small></div>' + (bonus.length ? '<div class="cc-sub">Prämien: ' + bonus.join(' · ') + '</div>' : '')
           : '<div class="cc-sub">' + (off ? 'Angebote vergleichen und unterschreiben' : can ? 'Antippen, um Angebote einzuholen' : 'Noch kein Sponsor') + '</div>') + '</div>';
-    }).join('') + '</div>';
+    }).join('') + (U.tvCard ? U.tvCard(st, c) : '') + '</div>';
     // Trainerteam
     h += '<div class="sec-h">' + U.lc('users', 17) + ' Trainerteam <span style="margin-left:auto">Personalkosten ' + money((c.coach ? c.coach.wage : 0) + E.staffWages(c)) + ' pro Saison</span></div><div class="cards3">' +
       '<div class="ccard" data-act="coachOpen" tabindex="0" role="button"><div class="cc-top"><div class="ic-tile ok">' + U.lc('user-round', 19) + '</div><div class="cc-t"><b>Cheftrainer</b><span>' + esc(c.coach.profile) + '</span></div>' + U.stars(Math.round(c.coach.quality / 20), 5) + '</div><div class="cc-name">' + esc(U.coachName(c)) + '</div><div class="cc-sub">Taktik, Aufstellung und Trainingsarbeit · ' + money(c.coach.wage) + '/Saison</div></div>' +

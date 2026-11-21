@@ -276,6 +276,7 @@
     if (own) {
       if (U.canYouth()) f += p.youth ? '<button class="primary" data-act="promoteYouth" data-id="' + p.id + '">In die 1. Mannschaft …</button>' : p.trial ? '<button class="primary" data-act="promoteYouth" data-id="' + p.id + '">Profivertrag …</button><button data-act="youthBack" data-id="' + p.id + '">Zurück in die Jugend</button>' : '';
       f += '<button data-act="toggleList" data-id="' + p.id + '">' + (p.listed ? 'Von Transferliste nehmen' : 'Auf Transferliste') + '</button><button data-act="renew" data-id="' + p.id + '">Vertrag verlängern</button><button data-act="loanOut" data-id="' + p.id + '">Ausleihen</button><button class="danger" data-act="releasePlayer" data-id="' + p.id + '">Entlassen</button>';
+      if (R.plus && R.plus.canTalkRetire(st, p) && U.can('business')) f += '<button data-act="retireTalk" data-id="' + p.id + '">Karriereende besprechen</button>';
     } else if (c) {
       st.favs = st.favs || {};
       f += '<button data-act="fav" data-id="' + p.id + '">' + U.lc('star', 15) + (st.favs[p.id] ? 'Favorit' : 'Merken') + '</button>';

@@ -179,6 +179,10 @@
       // erste Saison bzw. Lücken: nach Kaderstärke auffüllen
       l1.slice().sort(function (a, b) { return M.squadStrength(st, b) - M.squadStrength(st, a); }).forEach(function (c) { if (ids.length < 8 && ids.indexOf(c.id) < 0) ids.push(c.id); });
     }
+    // Pokalsieger: automatisch in der Top-Liga (Platz 8 rückt dafür heraus), wenn er nicht ohnehin dabei ist
+    var lastH = st.history && st.history.length ? st.history[st.history.length - 1] : null, cw = lastH && lastH.cup;
+    X.cupQual = null;
+    if (cw && st.clubs[cw] && !st.clubs[cw].foreign && ids.length >= 8 && ids.slice(0, 8).indexOf(cw) < 0) { ids = ids.slice(0, 7).concat([cw]); X.cupQual = cw; }
     return ids;
   };
   X.venueIdx = function (season, k) { return ((season || 0) * 3 + (k === 'tl' ? 7 : 0)) % C.venues.length; };
@@ -197,6 +201,8 @@
     var ger = X.homeQualifiers(st);
     st.euro = { season: st.season, rs: hash('euro' + st.season) ^ (st.seed || 1), str: {}, hist: hist };
     st.euro.band = X.band(st);
+    st.euro.cupQ = X.cupQual || null;
+    if (st.euro.cupQ && S.news) S.news(st, 'Pokalsieger in der Top-Liga', st.clubs[st.euro.cupQ].name + ' spielt als Pokalsieger in der Top-Liga. Der Achte der Liga ist dafür nicht dabei.', 'liga');
     withRng(st, function () {
       var e = st.euro, lists = { ml: [ger.slice(0, 4)], tl: [ger.slice(4, 8)] };
       C.countries.forEach(function (co) {

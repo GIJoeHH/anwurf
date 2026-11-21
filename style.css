@@ -530,3 +530,23 @@ button.crumb svg { transform: rotate(180deg); }
 .ic-tile.big { width: 56px; height: 56px; flex: 0 0 56px; border-radius: 14px; }
 #planPanel.flash-in { animation: planFlash 1.6s ease-out 1; }
 @keyframes planFlash { 0% { box-shadow: 0 0 0 3px rgba(34,197,94,.9); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
+
+/* Managerkarriere: Titel umbrechen */
+.car-titles { display: flex; flex-wrap: wrap; gap: 4px; }
+.car-titles span { background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+.car-row { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.car-row:last-child { border-bottom: 0; }
+.car-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.car-years { font-weight: 700; min-width: 86px; }
+.car-club { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.car-titles { margin-top: 6px; }
+table.t tr.plus-sub td { white-space: normal; padding-top: 0; }
+table.t tr:has(+ tr.plus-sub) td { border-bottom: 0; }
+/* Vereinsausbau */
+.yl-t td, .yl-t th { padding: 5px 6px; font-size: 12.5px; }
+.yl-me td { background: rgba(34,197,94,.12); font-weight: 600; }
+.plus-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.plus-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: rgba(255,255,255,.02); }
+.plus-card h3 { margin: 0 0 4px; font-size: 14px; }
+.plus-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.plus-card.on { border-color: var(--ok, #22c55e); }

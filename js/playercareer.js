@@ -39,12 +39,21 @@
     W.recalc(p);
     var mg = st.manager; mg.clubId = null; mg.role = 'player'; mg.name = W.playerName(p); mg.unemployed = false; mg.offers = [];
     st.pc = { pid: p.id, start: st.season, talent: o.talent || 'normal', trust: 50, fame: 3, cash: 0, focus: 'normal', offers: [], offerSeason: null, log: [], ms: {}, last: { a: 0, r: 0, g: 0 }, club: club.id, seasons: [], agent: false, retired: false, nat: 0 };
+    fire('start', st, o);
     news(st, 'Die Karriere beginnt', W.playerName(p) + ' (' + p.age + ', ' + (D.posNames[pos] || pos) + ') startet ' + (youth ? 'in der Jugend' : 'im Profikader') + ' von ' + club.name + '.');
     return p;
   };
 
   // ---------- Entwicklung und Einsatz ----------
-  C.devF = function (st, p) { var f = C.FOCUS[st.pc.focus] || C.FOCUS.normal; return Math.max(0.4, 1 + (f.dev || 0) + ((p.morale || 60) - 60) / 400); };
+  // Andockpunkte für die Karriere-Engine (career_*.js): Wochenwirkung, Einnahmen, Ereignisse, Hooks
+  C.on = { weekly: [], seasonEnd: [], newSeason: [], start: [], retire: [], offers: [] };
+  function fire(k, st, a) { (C.on[k] || []).forEach(function (fn) { try { fn(st, a); } catch (e) { if (typeof console !== 'undefined') console.error(e); } }); }
+  C.fire = fire;
+  C.focusFx = function (st) { return C.FOCUS[st.pc.focus] || C.FOCUS.normal; };
+  C.pay = function (st, amt, cat) { st.pc.cash += amt; };
+  C.agentFee = function (st, p) { if (st.pc.agent) st.pc.cash -= Math.round(p.wage / E.WEEKS * 0.1); };
+  C.director = function (st) { if (!st.pendingEvent && st.phase === 'season' && R.chance(0.13)) { var ev = C.randomEvent(st); if (ev) st.pendingEvent = ev; } };
+  C.devF = function (st, p) { var f = C.focusFx(st); return Math.max(0.4, 1 + (f.dev || 0) + ((p.morale || 60) - 60) / 400); };
   C.lineupBias = function (st, p) { var t = st.pc.trust, form = p.form || 6; return clamp(1 + (t - 50) / 220 + (form - 6) / 60, 0.75, 1.3); };
   C.avgRating = function (p) { return p.stats.apps ? Math.round(p.stats.rsum / p.stats.apps * 10) / 10 : 0; };
   C.squadRank = function (st, p) { if (!p.clubId) return 0; var same = W.squad(st, p.clubId).filter(function (x) { return x.pos === p.pos && !x.youth; }).sort(function (a, b) { return b.ovr - a.ovr; }); return same.indexOf(p) + 1 || same.filter(function (x) { return x.ovr > p.ovr; }).length + 1; };
@@ -55,12 +64,13 @@
   C.weekly = function (st) {
     var pc = st.pc; if (!pc || pc.retired) return;
     var p = C.player(st); if (!p) { pc.retired = true; return; }
-    var f = C.FOCUS[pc.focus] || C.FOCUS.normal;
+    var f = C.focusFx(st);
     // Vereinswechsel bemerken
     C.checkClub(st, p);
     // Gehalt und Nebeneinnahmen
-    pc.cash += Math.round(p.wage / E.WEEKS) + (f.cash ? Math.round(p.wage / E.WEEKS * f.cash * (0.5 + pc.fame / 50)) : 0);
-    if (pc.agent) pc.cash -= Math.round(p.wage / E.WEEKS * 0.1);
+    C.pay(st, Math.round(p.wage / E.WEEKS), 'Gehalt');
+    if (f.cash) C.pay(st, Math.round(p.wage / E.WEEKS * f.cash * (0.5 + pc.fame / 50)), 'Medien');
+    C.agentFee(st, p);
     // Wochenfokus
     if (f.fit) p.fitness = clamp((p.fitness || 80) + f.fit, 20, 100);
     if (f.mor) p.morale = clamp((p.morale || 60) + f.mor * 0.5, 0, 100);
@@ -96,7 +106,8 @@
     // Angebote ab der Rückrunde
     if (st.phase === 'season' && st.week >= S.WINTER_AFTER + 3 && pc.offerSeason !== st.season) C.makeOffers(st);
     // Ereignisse
-    if (!st.pendingEvent && st.phase === 'season' && R.chance(0.13)) { var ev = C.randomEvent(st); if (ev) st.pendingEvent = ev; }
+    C.director(st);
+    fire('weekly', st);
   };
   C.checkClub = function (st, p) { var pc = st.pc; if (p.clubId && p.clubId !== pc.club) { var nc = st.clubs[p.clubId]; news(st, 'Neuer Verein: ' + nc.name, W.playerName(p) + ' spielt ab sofort für ' + nc.short + '.'); pc.club = p.clubId; pc.trust = 45; } };
   C.promote = function (st, why) {
@@ -131,6 +142,7 @@
     cands.slice(0, 12).sort(function () { return R.rand() - 0.5; }).slice(0, n).forEach(function (x, i) {
       pc.offers.push({ id: 'o' + i, clubId: x.c.id, wage: Math.round(fair * R.randRange(1.0, 1.2) / 1000) * 1000, years: R.randInt(2, 4), fee: p.contract > 1 ? Math.round(p.value / 50000) * 50000 : 0, role: x.gap > 3 ? 'Stammspieler' : x.gap > -1 ? 'Rotation' : 'Herausforderer' });
     });
+    fire('offers', st);
     if (pc.offers.length) news(st, 'Vertragsangebote', pc.offers.length + ' Angebot(e) liegen vor – siehe „Mein Spieler“.');
   };
   C.acceptOffer = function (st, id) {
@@ -181,7 +193,8 @@
     if (e === 'mor') { p.morale = clamp(p.morale + v, 0, 100); return 'Nett war’s.'; }
     if (e === 'trust') { pc.trust = clamp(pc.trust + v * 2, 0, 100); return 'Der Trainer registriert deine Professionalität.'; }
     if (e === 'agent') { pc.agent = true; return 'Du hast jetzt einen Berater. Er kümmert sich um Angebote.'; }
-    if (e === 'ad') { var m = Math.max(5000 * K, Math.round(p.wage * 0.15 * (1 + pc.fame / 25) / 1000) * 1000); pc.cash += m; pc.fame = clamp(pc.fame + 3, 0, 100); return 'Kampagne läuft: ' + R.fmtMoney(m) + ' für dich.'; }
+    if (e === 'cx' && R.cx) return R.cx.resolve(st, a.uid, a.i);
+    if (e === 'ad') { var m = Math.max(5000 * K, Math.round(p.wage * 0.15 * (1 + pc.fame / 25) / 1000) * 1000); C.pay(st, m, 'Werbung'); pc.fame = clamp(pc.fame + 3, 0, 100); return 'Kampagne läuft: ' + R.fmtMoney(m) + ' für dich.'; }
     if (e === 'accept') { pc.trust = clamp(pc.trust + 6, 0, 100); pc.focus = 'extra'; return 'Du gibst Gas – Fokus auf Extraschichten.'; }
     if (e === 'argue') { if (R.chance(0.4)) { pc.trust = clamp(pc.trust + 4, 0, 100); return 'Der Trainer respektiert deine Meinung.'; } pc.trust = clamp(pc.trust - 10, 0, 100); return 'Das kam gar nicht gut an.'; }
     if (e === 'away') { pc.trust = clamp(pc.trust - 15, 0, 100); pc.offerSeason = null; C.makeOffers(st); return 'Dein Wechselwunsch ist öffentlich. Andere Vereine melden sich.'; }
@@ -202,6 +215,7 @@
     if (c && pos === 1 && lg === 1 && !p.youth && p.stats.apps >= 5) { pc.titles = (pc.titles || []).concat(['Meister ' + st.season]); C.milestone(st, 'title' + st.season, 'Meister!', 'Der Titel mit ' + c.short + '!'); }
     var hs = st.history && st.history[st.history.length - 1]; if (hs && hs.season === st.season && c && hs.cup === c.id && !p.youth) pc.titles = (pc.titles || []).concat(['Pokalsieger ' + st.season]);
     pc.last = { a: 0, g: 0, r: 0 };
+    fire('seasonEnd', st);
   };
   C.newSeason = function (st) { // nach st.season++
     var pc = st.pc, p = C.player(st); if (!pc || pc.retired) return;
@@ -213,6 +227,7 @@
       var c = cands[0];
       if (c) { T.executeTransfer(st, p, c, 0, Math.round(W.fairWage(p) / 1000) * 1000, 2); pc.club = c.id; pc.trust = 45; news(st, 'Neuer Verein: ' + c.name, 'Nach dem Vertragsende unterschreibt ' + W.playerName(p) + ' für zwei Jahre bei ' + c.short + '.'); }
     }
+    fire('newSeason', st);
     if (p.age >= 38) { C.retire(st); return; }
     if (p.age >= 33 && pc.retireAsked !== st.season && !st.pendingEvent) {
       st.pendingEvent = { custom: { t: 'Mit ' + p.age + ' Jahren stellt sich die Frage: Noch eine Saison – oder ist jetzt der richtige Moment für das Karriereende? Danach kannst du als Manager weitermachen.', ic: '👋', o: [opt('Weiterspielen', { k: 'pc', e: 'goon' }), opt('Karriere beenden', { k: 'pc', e: 'retire' }, 'als Manager weitermachen')] } };
@@ -224,7 +239,8 @@
   C.retire = function (st) {
     var pc = st.pc, p = C.player(st); if (!pc || pc.retired) return;
     pc.retired = true; pc.retiredSeason = st.season;
-    if (p) { pc.final = { name: W.playerName(p), apps: p.career ? p.career.apps : 0, goals: p.career ? p.career.goals : 0, ovr: p.ovr, age: p.age }; var c = p.clubId && st.clubs[p.clubId]; if (c && c.legends && pc.final.apps > 200) c.legends.push({ name: pc.final.name, apps: pc.final.apps, goals: pc.final.goals, season: st.season }); T.release(st, p); delete st.players[p.id]; }
+    if (p) { pc.final = { name: W.playerName(p), apps: p.career ? p.career.apps : 0, goals: p.career ? p.career.goals : 0, ovr: p.ovr, age: p.age, wage: p.wage }; var c = p.clubId && st.clubs[p.clubId]; if (c && c.legends && pc.final.apps > 200) c.legends.push({ name: pc.final.name, apps: pc.final.apps, goals: pc.final.goals, season: st.season }); T.release(st, p); delete st.players[p.id]; }
+    fire('retire', st);
     var mg = st.manager; mg.unemployed = true; mg.clubId = null; mg.role = 'manager'; mg.offers = []; mg.jobWeeks = 0; mg.reputation = clamp(Math.round(15 + pc.fame * 0.5), 10, 70); mg.history = mg.history || [];
     news(st, 'Karriereende', (pc.final ? pc.final.name + ' hängt die Schuhe an den Nagel: ' + pc.final.apps + ' Spiele, ' + pc.final.goals + ' ' + CFG.goalWord + '.' : '') + ' Als Manager-Neuling wartest du jetzt auf erste Jobangebote.');
   };

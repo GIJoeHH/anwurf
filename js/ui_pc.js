@@ -58,7 +58,7 @@
       h += '<div class="row" style="margin-top:18px"><button data-act="wizBack">← Zurück</button><div class="tb-spacer"></div><button class="primary" data-act="wizNext">Weiter →</button></div>';
     } else {
       h += '<div class="panel"><h2>Zusammenfassung</h2><p><b>' + esc(o.first + ' ' + o.last) + '</b> · ' + esc(D.posNames[o.pos] || o.pos) + ' · ' + esc(C.TALENT[o.talent].n) + ' · ' + (o.youth ? '16 Jahre, Jugend' : '18 Jahre, Profikader') + ' bei <b>' + esc(c ? c.name : '–') + '</b></p>' +
-        '<p class="muted small">Die Spiele bestreitet die KI. Ob du spielst, hängt von deiner Stärke, deiner Form und dem Vertrauen des Trainers ab. Jede Woche wählst du deinen Fokus, triffst Entscheidungen und verhandelst Verträge.</p></div>' +
+        '<p class="muted small">Im Spiel entscheidest du in Schlüsselsituationen selbst, den Rest spielt die Simulation. Ob du spielst, hängt von deiner Stärke, deiner Form und dem Vertrauen des Trainers ab. Jede Woche planst du deine Zeit, triffst Entscheidungen, wählst Berater und verhandelst Verträge.</p></div>' +
         '<div class="panel" style="margin-top:14px"><h2>Schwierigkeitsgrad</h2><div class="grid g4">' +
         U.choice('difficulty', 'einsteiger', w.difficulty, 'Einsteiger', 'Weniger schwere Verletzungen.') + U.choice('difficulty', 'normal', w.difficulty, 'Normal', 'Ausgewogen.') + U.choice('difficulty', 'schwer', w.difficulty, 'Schwer', 'Stärkere Konkurrenz.') + U.choice('difficulty', 'chaos', w.difficulty, 'Chaos-Modus', 'Mehr verrückte Ereignisse.') + '</div></div>';
       h += '<div class="row" style="margin-top:18px"><button data-act="wizBack">← Zurück</button><div class="tb-spacer"></div><button class="primary" data-act="pcStart" style="padding:12px 24px;font-size:15px">' + U.lc('ball', 15) + ' Karriere starten</button></div>';
@@ -76,10 +76,10 @@
       if (R.crests) R.crests.applyLibrary(U.st);
       U.st.settings.difficulty = w.difficulty;
       U.st.planEvent = null;
-      C.start(U.st, { first: o.first, last: o.last, pos: o.pos, clubId: w.clubId, talent: o.talent, youth: o.youth });
+      C.start(U.st, U.pcStartOpts ? U.pcStartOpts(o, w.clubId) : { first: o.first, last: o.last, pos: o.pos, clubId: w.clubId, talent: o.talent, youth: o.youth });
       U.wiz = null; U.autosave(); U.go('pkarriere');
       var c = C.club(U.st);
-      U.modal('Willkommen, ' + esc(o.first) + '!', '<div class="row" style="gap:16px;flex-wrap:nowrap">' + U.crest(c, 80) + '<div><h3>' + esc(c.name) + '</h3><p>Deine Karriere beginnt ' + (o.youth ? 'in der Jugend' : 'im Profikader') + '. Wähle jede Woche deinen Fokus, sammle Vertrauen beim Trainer und arbeite dich nach oben.</p><p class="muted small">Mit „Weiter“ geht es Woche für Woche voran. Angebote und Entscheidungen findest du unter „Mein Spieler“.</p></div></div>', '<button class="primary" data-act="closeModal">Los geht’s</button>');
+      U.modal('Willkommen, ' + esc(o.first) + '!', '<div class="row" style="gap:16px;flex-wrap:nowrap">' + U.crest(c, 80) + '<div><h3>' + esc(c.name) + '</h3><p>Deine Karriere beginnt ' + (o.youth ? 'in der Jugend' : 'im Profikader') + '. Plane deine Woche, triff Entscheidungen auf und neben dem Platz, sammle Vertrauen beim Trainer und arbeite dich nach oben.</p><p class="muted small">Mit „Weiter“ geht es Woche für Woche voran. Angebote und Entscheidungen findest du unter „Mein Spieler“.</p></div></div>', '<button class="primary" data-act="closeModal">Los geht’s</button>');
     }, 30);
   };
 
@@ -90,7 +90,7 @@
     if (pc.retired) return '<h1>Spielerkarriere beendet</h1>' + finalPanel(st) + '<div class="row" style="margin-top:12px"><button class="primary" data-act="nav" data-s="karriere">Zur Managerkarriere</button></div>';
     var p = C.player(st), c = C.club(st), f = C.FOCUS[pc.focus];
     if (pc.offers.length) pc.offersSeen = pc.offerSeason;
-    var h = '<h1>Mein Spieler</h1>';
+    var h = '<h1>' + (R.cx ? 'Spielerprofil' : 'Mein Spieler') + '</h1>';
     // Steckbrief
     h += '<div class="grid g21"><div class="panel"><div class="row" style="gap:16px;flex-wrap:nowrap;align-items:center">' + (c ? U.crest(c, 72) : '') + '<div style="min-width:0"><h2 style="margin:0">' + esc(W.playerName(p)) + ' ' + U.posTag(p.pos) + '</h2>' +
       '<div class="muted">' + p.age + ' Jahre · ' + esc(D.posNames[p.pos] || p.pos) + ' · ' + (c ? U.clubLink(c) + ' (' + (p.youth ? 'Jugend' : D.leagueNames[c.league]) + ')' : 'vereinslos') + '</div>' +
@@ -105,10 +105,11 @@
       (p.youth && p.ys && p.ys.s === st.season ? '<p class="small muted" style="margin-top:8px">Jugendliga: ' + p.ys.a + ' Spiele, ' + p.ys.g + ' ' + esc(R.pc.CFG.goalWord) + '</p>' : '') +
       (log.length ? '<table class="t small" style="margin-top:8px"><tr><th>Woche</th><th>Verein</th><th class="num">Note</th><th class="num">' + esc(R.pc.CFG.goalWord) + '</th></tr>' + log.slice(0, 8).map(function (x) { return '<tr><td>' + x.w + '</td><td>' + esc(x.c) + '</td><td class="num"><b>' + String(x.r).replace('.', ',') + '</b></td><td class="num">' + (x.g || '') + '</td></tr>'; }).join('') + '</table>' : '<p class="muted small" style="margin-top:8px">' + (p.youth ? 'Noch kein Einsatz bei den Profis.' : 'Noch kein Pflichtspieleinsatz in dieser Saison.') + '</p>') + '</div></div>';
     if (p.youth && R.plus && R.plus.ylTable) h += ylPanel(st, p);
-    // Fokus
-    h += '<div class="panel" style="margin-top:14px"><h2>Wochenfokus</h2><p class="muted small">Gilt jede Woche, bis du ihn änderst. Aktuell: <b>' + esc(f.n) + '</b></p><div class="grid g3">' +
+    // Fokus (mit Karriere-Engine: Wochenplan und Bereich „Berater & Verträge“)
+    if (!R.cx) h += '<div class="panel" style="margin-top:14px"><h2>Wochenfokus</h2><p class="muted small">Gilt jede Woche, bis du ihn änderst. Aktuell: <b>' + esc(f.n) + '</b></p><div class="grid g3">' +
       Object.keys(C.FOCUS).map(function (k) { var x = C.FOCUS[k]; return '<div class="choice ' + (pc.focus === k ? 'on' : '') + '" data-act="pcFocus" data-k="' + k + '"><h3>' + esc(x.n) + '</h3><div class="muted small">' + esc(x.d) + '</div></div>'; }).join('') + '</div></div>';
     // Angebote
+    if (!R.cx) {
     h += '<div class="panel" style="margin-top:14px"><h2>Verträge & Angebote</h2>';
     if (pc.moving) { var to = st.clubs[pc.moving.to]; h += '<p>' + U.lc('arrow-left-right', 15) + ' Wechsel zu <b>' + esc(to.name) + '</b> zur neuen Saison ist vereinbart.</p>'; }
     else if (!pc.offers.length) h += '<p class="muted small">Zurzeit keine Angebote. Ab der Rückrunde melden sich Vereine – öfter mit Berater, guter Form und hoher Bekanntheit.</p>';
@@ -117,6 +118,7 @@
       return '<tr><td>' + U.clubLink(oc, true) + ' <span class="muted small">' + D.leagueNames[oc.league] + '</span></td><td>' + (o.renew ? 'Verlängerung' : esc(o.role)) + '</td><td class="num">' + money(o.wage) + '</td><td class="num">' + o.years + ' J.</td><td class="num">' + (o.renew ? '–' : o.fee ? money(o.fee) : 'ablösefrei') + '</td><td class="num"><button class="sm primary" data-act="pcAccept" data-id="' + o.id + '">Annehmen</button> <button class="sm" data-act="pcDecline" data-id="' + o.id + '">Ablehnen</button></td></tr>';
     }).join('') + '</table></div>';
     h += '</div>';
+    }
     // Meilensteine & Karriere
     var ms = Object.keys(pc.ms).map(function (k) { return pc.ms[k]; }).sort(function (a, b) { return a.s - b.s || a.w - b.w; });
     h += '<div class="grid g2" style="margin-top:14px"><div class="panel"><h2>Meilensteine</h2>' + (ms.length ? '<ul class="small" style="margin:0;padding-left:18px">' + ms.map(function (m) { return '<li>' + esc(m.t || '') + ' <span class="muted">(' + m.s + ')</span></li>'; }).join('') + '</ul>' : '<p class="muted small">Noch keine – das Profidebüt wartet.</p>') +

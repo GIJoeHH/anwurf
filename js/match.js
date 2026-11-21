@@ -170,6 +170,14 @@
     if (!cands.length) return null;
     return R.weighted(cands, function (c) { return wfn(c.p, c.role); }).p;
   }
+  // Spielerkarriere: Abschlüsse, die der Spieler in einer interaktiven Szene schon genommen hat, ersetzen spätere eigene Abschlüsse
+  function pcOwn(m, side, p, wfn) {
+    if (!p || !m.pcOwn || !(m.pcOwn[side] > 0) || !m.pc || p.id !== m.pc.pid) return p;
+    m.pcOwn[side]--;
+    var q = pickPlayer(m, side, function (x, r) { return x.id === p.id ? 0 : wfn(x, r); });
+    return q || p;
+  }
+  M.pcOwn = pcOwn;
   function goalkeeper(m, side) {
     for (var i = 0; i < m.onPitch[side].length; i++) if (slotRole(m, side, i) === 'TW' && m.onPitch[side][i]) return m.st.players[m.onPitch[side][i]];
     return null;
@@ -228,7 +236,8 @@
   // Tempogegenstoß nach Ballgewinn oder schneller Parade
   function fastBreak(m, side, starter) {
     var opp = 1 - side, st = m.st;
-    var shooter = pickPlayer(m, side, function (p, role) { return role === 'TW' ? 0 : (role === 'AUS' ? 4 : role === 'RUE' ? 1.2 : 0.8) * Math.pow(p.attr.spd, 1.5); });
+    var fbW = function (p, role) { return role === 'TW' ? 0 : (role === 'AUS' ? 4 : role === 'RUE' ? 1.2 : 0.8) * Math.pow(p.attr.spd, 1.5); };
+    var shooter = pcOwn(m, side, pickPlayer(m, side, fbW), fbW);
     if (!shooter) return;
     m.stats.shots[side]++; m.stats.chances[side]++; m.stats.fastBreaks[side]++;
     var gkp = goalkeeper(m, opp);
@@ -338,7 +347,8 @@
     }
     // Wurf
     m.stats.shots[side]++;
-    var shooter = pickPlayer(m, side, function (p, role) { return ({ TW: 0, AUS: 1.7, RUE: 2.6, KRS: 1.8 })[role] * Math.pow(p.attr.sho, 1.2) / 100; });
+    var shW = function (p, role) { return ({ TW: 0, AUS: 1.7, RUE: 2.6, KRS: 1.8 })[role] * Math.pow(p.attr.sho, 1.2) / 100; };
+    var shooter = pcOwn(m, side, pickPlayer(m, side, shW), shW);
     if (!shooter) return;
     var role = 'RUE';
     m.onPitch[side].forEach(function (pid, i) { if (pid === shooter.id) role = slotRole(m, side, i); });
@@ -380,7 +390,8 @@
     var first = m.ball, order = [first, 1 - first];
     order.forEach(function (side) {
       var tempoF = [0.9, 1, 1.1][t[side].tempo] * (m.minute > M.FULL ? 0.95 : 1);
-      if (R.rand() < 0.86 * tempoF) attack(m, side, S);
+      if (m.pcSkip && m.pcSkip[side] > 0) m.pcSkip[side]--; // Spielerkarriere: Angriff wurde als interaktive Szene ausgespielt
+      else if (R.rand() < 0.86 * tempoF) attack(m, side, S);
     });
     // Verletzungen, Ermüdung
     [0, 1].forEach(function (s) {

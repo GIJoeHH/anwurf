@@ -1,5 +1,5 @@
 /* ANWURF! – Service Worker für den Offline-Betrieb (automatisch erzeugt von web/deploy.sh, nicht von Hand ändern) */
-const VERSION = '10ed99b6a6';
+const VERSION = '540dbb1201';
 const CACHE = 'anwurf-' + VERSION;
 const CORE = [
   './',
@@ -11,6 +11,12 @@ const CORE = [
   './img/cel/meister1.jpg',
   './img/tecis.jpg',
   './index.html',
+  './js/career_agents.js',
+  './js/career_core.js',
+  './js/career_events.js',
+  './js/career_finadv.js',
+  './js/career_finance.js',
+  './js/career_match.js',
   './js/clubplus.js',
   './js/crests.js',
   './js/customleague.js',
@@ -36,6 +42,7 @@ const CORE = [
   './js/touch.js',
   './js/transfers.js',
   './js/ui_art.js',
+  './js/ui_career.js',
   './js/ui_celebrate.js',
   './js/ui_club.js',
   './js/ui_core.js',

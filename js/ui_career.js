@@ -49,7 +49,7 @@
     var cx = X.ensure(st), open = cx.inbox.length;
     return [['pkarriere', 'layout-dashboard', 'Karriere-Zentrale', open, 'Karriere'], ['pwoche', 'calendar-days', 'Wochenplan', 0, 'Karriere'], ['pprofil', 'user-round', 'Spielerprofil', 0, 'Karriere'],
       ['pbez', 'users', 'Beziehungen', 0, 'Umfeld'], ['pleben', 'heart-pulse', 'Mein Leben', 0, 'Umfeld'], ['pverein', 'building-2', 'Vereinsgelände', 0, 'Umfeld'], ['pmedien', 'megaphone', 'Fans & Medien', 0, 'Umfeld'], ['pberater', 'briefcase', 'Berater & Verträge', st.pc.offers.length, 'Umfeld'], ['pfin', 'wallet', 'Meine Finanzen', 0, 'Umfeld'], ['pchronik', 'bookmark', 'Karriere-Chronik', 0, 'Umfeld'],
-      ['liga', 'chart-column', 'Liga & Statistiken', 0, 'Wettbewerb'], ['einstellungen', 'settings', 'Einstellungen', 0, 'System']].map(function (it, i, all) { if (i && all[i - 1][4] === it[4]) { it = it.slice(); it[4] = ''; } return it; });
+      ['liga', 'chart-column', 'Liga & Statistiken', 0, 'Wettbewerb'], ['europa', 'globe', 'Europapokal', 0, 'Wettbewerb'], ['einstellungen', 'settings', 'Einstellungen', 0, 'System']].map(function (it, i, all) { if (i && all[i - 1][4] === it[4]) { it = it.slice(); it[4] = ''; } return it; });
   };
   var baseTop = U.renderTop;
   U.renderTop = function () {

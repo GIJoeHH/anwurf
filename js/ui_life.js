@@ -77,7 +77,10 @@
   U.acts.dlgStart = function (d) {
     var st = U.st, data = {}; Object.keys(d).forEach(function (k) { if (k !== 'act' && k !== 'dlg') data[k] = isNaN(+d[k]) || d[k] === '' ? d[k] : +d[k]; });
     if (d.oid) data.oid = d.oid; if (d.friend) data.friend = d.friend; if (d.cid) data.cid = d.cid;
-    var cur = L.active(st); if (cur && !cur.done) { U.showDlg(); return; } if (cur) L.close(st);
+    var cur = L.active(st);
+    var same = cur && cur.id === d.dlg && Object.keys(d).every(function (k) { return ['act', 'dlg', 'ap', 'cost'].indexOf(k) >= 0 || String(cur.data[k]) === String(d[k]); });
+    if (cur && !cur.done && same) { U.showDlg(); return; } // dasselbe Gespräch fortsetzen
+    if (cur) { var cx0 = st.pc.cx; cx0.dlg = null; } // anderes Gespräch gewählt: offenes Gespräch ohne weitere Wirkung beenden
     if (d.ap) { var r = L.spend(st, +d.ap, +(d.cost || 0)); if (!r.ok) { U.toast(r.why, 4000); return; } }
     var s = L.start(st, d.dlg, data); if (!s) { U.toast('Gerade nicht möglich.'); return; }
     if (s.done) { var v = L.view(st); L.close(st); U.toast((v && v.sum) || 'Gerade nicht möglich.', 4500); U.render(); return; }

@@ -392,7 +392,8 @@
     st.euro.hist.push({ season: st.season, comp: k, club: w.name, city: v.city });
     S.news(st, n.toUpperCase() + ': ' + w.name + ' triumphiert in ' + v.city + '!', 'Finale in ' + v.name + ': ' + X.info(st, fin.h).short + ' – ' + X.info(st, fin.a).short + ' ' + r.hg + ':' + r.ag +
       (r.pens ? ' (' + C.shootoutText + ' ' + r.pens[0] + ':' + r.pens[1] + ')' : '') + '. ' + l.name + ' bleibt nur der zweite Platz.', 'titel');
-    var uc = S.userClub(st);
+    var uc = S.userClub(st), cF = !uc && S.celebClub ? S.celebClub(st) : null;
+    if (cF && (fin.h === cF.id || fin.a === cF.id) && S.celebrate) { var oC = fin.h === cF.id ? fin.a : fin.h; S.celebrate(st, { kind: k, win: fin.winner === cF.id, club: cF.id, opp: oC, oppName: X.info(st, oC).name, res: S.resFor(r, fin.h === cF.id), city: v.city, prize: 0, earn: 0, career: true }); }
     if (uc && (fin.h === uc.id || fin.a === uc.id)) {
       if (fin.winner === uc.id) S.news(st, n + ': Titelprämie überwiesen', 'Für den Titel wurden ' + R.fmtMoney(C.prize[k].title) + ' überwiesen. ' + earnText(st, uc.id), 'liga');
       else S.news(st, n + ': Unsere Reise endet erst im Finale', 'Im Endspiel war gegen ' + w.name + ' Schluss – trotzdem eine Saison zum Erinnern. ' + earnText(st, uc.id), 'liga');

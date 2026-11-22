@@ -1,5 +1,5 @@
 /* ANWURF! – Service Worker für den Offline-Betrieb (automatisch erzeugt von web/deploy.sh, nicht von Hand ändern) */
-const VERSION = '8c440fabe0';
+const VERSION = '08d76834ef';
 const CACHE = 'anwurf-' + VERSION;
 const CORE = [
   './',
@@ -21,6 +21,7 @@ const CORE = [
   './img/events/ev_press_conference_01.webp',
   './img/tecis.jpg',
   './index.html',
+  './js/career_affairs.js',
   './js/career_agents.js',
   './js/career_core.js',
   './js/career_dialogs.js',
@@ -30,6 +31,9 @@ const CORE = [
   './js/career_life.js',
   './js/career_lifesim.js',
   './js/career_match.js',
+  './js/career_partner.js',
+  './js/career_partner_lib.js',
+  './js/career_partner_lib2.js',
   './js/clubplus.js',
   './js/crests.js',
   './js/customleague.js',
@@ -67,6 +71,7 @@ const CORE = [
   './js/ui_mail.js',
   './js/ui_match.js',
   './js/ui_misc.js',
+  './js/ui_partner.js',
   './js/ui_pc.js',
   './js/ui_plus.js',
   './js/ui_realty.js',

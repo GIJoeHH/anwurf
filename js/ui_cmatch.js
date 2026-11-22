@@ -20,7 +20,10 @@
       '.cm-head-fix .mch-team b,.cm-head-fix .mch-team span{display:block}',
       '.cm-speed{display:flex;gap:4px;flex-wrap:wrap}.cm-speed button.on{background:var(--green2);color:#fff;font-weight:700}',
       '.cm-me{display:flex;gap:10px;align-items:center;margin-bottom:8px}.cm-me .dot{width:14px;height:14px;border-radius:50%;background:#facc15;box-shadow:0 0 0 3px rgba(250,204,21,.35)}',
-      '@media (max-width:640px){.cm-ov .card{padding:10px}.cm-ov .opts button{font-size:13px;padding:8px}}'
+      '.cm-kick{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:rgba(5,10,20,.28)}',
+      '.cm-kick button{font-size:20px;font-weight:800;padding:14px 30px;border-radius:999px;box-shadow:0 8px 30px rgba(0,0,0,.5);display:flex;gap:8px;align-items:center}',
+      '.cm-left{display:grid;gap:var(--s4);align-content:start;min-width:0}.cm-left .mc-flow{margin:0}',
+      '@media (max-width:640px){.cm-kick button{font-size:17px;padding:11px 22px}.cm-ov .card{padding:10px}.cm-ov .opts button{font-size:13px;padding:8px}}'
     ].join('\n');
     document.head.appendChild(css);
   }
@@ -57,8 +60,11 @@
   }
   function overlay(st, g) {
     if (g.inst) return '<div class="cm-ov"><div class="card"><div class="muted small">' + g.inst.min + '. Minute · Deine Entscheidung</div><h3>' + esc(g.inst.t) + '</h3><div class="opts">' + g.inst.labels.map(function (o) { return '<button data-act="cmPick" data-i="' + o.i + '">' + esc(o.l) + (o.hint ? ' <span class="muted small">(' + esc(o.hint) + ')</span>' : '') + '</button>'; }).join('') + '</div><p class="muted small" style="margin:8px 0 0">Erfolg hängt von Fähigkeiten, Frische, Selbstvertrauen und Gegner ab.</p></div></div>';
-    if (g.last && Date.now() - (g.lastT || 0) < 4000) return '<div class="cm-res" style="--c:' + (g.last.r === 'goal' ? 'var(--green)' : ['card', 'red', 'injury'].indexOf(g.last.r) >= 0 ? 'var(--red)' : 'var(--blue)') + '"><b>' + esc(g.last.l) + '</b> → ' + esc(CM.RESULT_TXT[g.last.r] || g.last.r) + (g.last.p != null ? ' <span class="muted small">(ca. ' + g.last.p + ' %)</span>' : '') + '</div>';
-    return '';
+    var m = g.m, res = '', kick = '';
+    if (!g.timer && !m.finished) kick = '<div class="cm-kick"><button class="primary" data-act="cmRun">' + U.lc('play', 22) + (m.minute ? ' Weiter' : ' Anpfiff') + '</button></div>';
+    else if (m.finished) kick = '<div class="cm-kick"><button class="primary" data-act="cmDone">' + U.lc('check', 22) + ' Spieltag abschließen</button></div>';
+    if (g.last && Date.now() - (g.lastT || 0) < 4000) res = '<div class="cm-res" style="--c:' + (g.last.r === 'goal' ? 'var(--green)' : ['card', 'red', 'injury'].indexOf(g.last.r) >= 0 ? 'var(--red)' : 'var(--blue)') + '"><b>' + esc(g.last.l) + '</b> → ' + esc(CM.RESULT_TXT[g.last.r] || g.last.r) + (g.last.p != null ? ' <span class="muted small">(ca. ' + g.last.p + ' %)</span>' : '') + '</div>';
+    return res + kick;
   }
   function controls(st, g) {
     var m = g.m;
@@ -82,10 +88,10 @@
     h += '<div class="mc-head panel cm-head-fix"><div class="mch-team">' + U.crest(H, 64) + '<div><b>' + esc(H.name) + '</b><span>HEIM</span></div></div>' +
       '<div class="mc-score"><span class="mc-live" id="mcLive">LIVE · ' + esc(compName(st, g.fx)).toUpperCase() + '</span><b><span id="sbH">0</span><i>:</i><span id="sbA">0</span></b><em id="sbMin">0. Minute</em></div>' +
       '<div class="mch-team r"><div><b>' + esc(A.name) + '</b><span>GAST</span></div>' + U.crest(A, 64) + '</div></div>';
-    h += '<div class="mc-grid"><div class="panel tight mc-stage"><div style="position:relative"><canvas id="pitchCv" class="mc-canvas" width="1120" height="600"></canvas><div id="flashBox"></div><div id="cmOv">' + overlay(st, g) + '</div></div></div>';
+    var flow = '<div class="panel mc-flow"><div class="mc-flow-h"><div><div class="sub-h" style="margin-top:0">Spielverlauf</div><div class="mc-last" id="mcLast"><b>0\'</b><span>Gleich geht es los.</span></div></div><div class="row" id="cmCtl" style="gap:8px;flex-wrap:wrap">' + controls(st, g) + '</div></div><div class="ticker mc-ticker" id="ticker"></div></div>';
+    h += '<div class="mc-grid"><div class="cm-left"><div class="panel tight mc-stage"><div style="position:relative"><canvas id="pitchCv" class="mc-canvas" width="1120" height="600"></canvas><div id="flashBox"></div><div id="cmOv">' + overlay(st, g) + '</div></div></div>' + flow + '</div>';
     h += '<div class="grid" style="align-content:start"><div class="panel"><h2>Deine Werte im Spiel</h2><div id="cmPlayer">' + playerPanel(st, g) + '</div></div>' +
       '<div class="panel"><h2>Spielstatistik</h2><div class="mc-stats">' + (HB ? [['stShots', 'Würfe', '0 : 0'], ['stSv', 'Paraden', '0 : 0'], ['stCh', '7-Meter', '0 : 0'], ['stPoss', 'Zeitstrafen', '0 : 0'], ['stTo', 'Auszeiten übrig', '0 : 0']] : [['stPoss', 'Ballbesitz', '50 : 50'], ['stShots', 'Torschüsse', '0 : 0'], ['stCh', 'Chancen', '0 : 0'], ['stYel', 'Gelbe Karten', '0 : 0']]).map(function (x) { return '<div class="mc-stat"><span>' + x[1] + '</span><b id="' + x[0] + '">' + x[2] + '</b><i class="mc-sbar"><em id="' + x[0] + 'B" style="width:50%"></em></i></div>'; }).join('') + '</div></div></div></div>';
-    h += '<div class="panel mc-flow"><div class="mc-flow-h"><div><div class="sub-h" style="margin-top:0">Spielverlauf</div><div class="mc-last" id="mcLast"><b>0\'</b><span>Gleich geht es los.</span></div></div><div class="row" id="cmCtl" style="gap:8px;flex-wrap:wrap">' + controls(st, g) + '</div></div><div class="ticker mc-ticker" id="ticker"></div></div>';
     U.after = function () { L.paused = !g.timer && !g.inst; U.liveUpdate([], true); U.animLoop(); markMine(); };
     return h;
   };

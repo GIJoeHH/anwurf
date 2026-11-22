@@ -283,14 +283,15 @@
   PF.homeOffer = function (st, kind, rent) { var H = PF.HOMES[kind], idx = PF.regionIdx(st); var price = rnd(H.base * idx * (rent ? 0.6 : 1), 5000); return { kind: kind, n: (rent ? 'Vermietete ' : '') + H.n, price: price, fees: rnd(price * 0.09, 100), rentY: rent ? rnd(price * H.rentY * 1.25, 100) : 0 }; };
   PF.buyHome = function (st, kind, rent, eqShare) {
     if (PF.minor(st)) return { ok: false, why: 'Erst ab 18 Jahren.' };
-    var f = PF.ensure(st), o = PF.homeOffer(st, kind, rent), eq = Math.max(o.fees + o.price * 0.2, Math.min(PF.liquid(st), (o.price + o.fees) * (eqShare || 0.3)));
+    var f = PF.ensure(st), o = PF.homeOffer(st, kind, rent), cashBuy = eqShare === 'cash', eq = cashBuy ? o.price + o.fees : Math.max(o.fees + o.price * 0.2, Math.min(PF.liquid(st), (o.price + o.fees) * (eqShare || 0.3)));
+    if (cashBuy && PF.liquid(st) < eq) return { ok: false, why: 'Für einen Barkauf fehlen ' + R.fmtMoney(Math.round(eq - PF.liquid(st))) + ' (Kaufpreis plus Nebenkosten ' + R.fmtMoney(eq) + ').' };
     if (PF.liquid(st) < eq) return { ok: false, why: 'Eigenkapital fehlt: mindestens 20 % plus Nebenkosten (' + R.fmtMoney(o.fees + o.price * 0.2) + ').' };
     var loanAmt = Math.max(0, o.price + o.fees - eq), cr = PF.credit(st), rate = (RE ? RE.ensure(st).rate : 0.035) + 0.003 + cr.spread;
     var pay = loanAmt ? loanAmt * (rate + 0.025) / 12 : 0;
     var m = PF.monthly(st);
     if (loanAmt && (pay > (m.inSum + o.rentY / 12) * 0.45 || cr.score < 460)) return { ok: false, why: 'Die Bank lehnt ab: Die Rate (' + R.fmtMoney(Math.round(pay)) + '/Monat) wäre zu hoch für dein Einkommen.' };
     if (R.fa) { var w2 = R.fa.loanCheck(st, 'haus', loanAmt); if (w2 && w2.block) return { ok: false, why: w2.why }; }
-    PF.book(st, -Math.round(eq), 'Immobilienkauf (Eigenkapital & Nebenkosten)');
+    PF.book(st, -Math.round(eq), cashBuy ? 'Immobilienkauf (bar)' : 'Immobilienkauf (Eigenkapital & Nebenkosten)');
     var h = { id: 'H' + tick(st) + f.homes.length, kind: kind, k: rent ? 'rent' : 'own', n: o.n, price: o.price, value: o.price, idx0: PF.regionIdx(st), rentY: o.rentY, vacant: 0, bought: tick(st), loan: loanAmt ? { bal: loanAmt, rate: rate, pay: Math.round(pay) } : null };
     f.homes.push(h); if (!rent && !f.homeId) f.homeId = h.id;
     X.chron(st, 'finanzen', '🏡', (rent ? 'Wohnung zur Vermietung: ' : 'Eigenes Zuhause: ') + o.n, R.fmtMoney(o.price) + (loanAmt ? ', Darlehen ' + R.fmtMoney(Math.round(loanAmt)) + ' zu ' + (rate * 100).toFixed(2).replace('.', ',') + ' %' : ', bar bezahlt'), 2);

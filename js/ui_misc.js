@@ -11,7 +11,7 @@
 
   // ---------- Liga & Statistiken ----------
   U.screens.liga = function () {
-    var st = U.st, c = U.club(), tab = U.p.tab || 'tabelle', lvl = U.p.l || (c ? W.lk(c) : 1);
+    var st = U.st, c = U.myClub ? U.myClub() : U.club(), tab = U.p.tab || 'tabelle', lvl = U.p.l || (c ? W.lk(c) : 1);
     var tabs = [['tabelle', 'Tabellen'], ['spielplan', 'Spielplan'], ['pokal', 'DHB-Pokal'], ['torjaeger', 'Torschützen'], ['vorlagen', 'Vorlagen'], ['spieler', 'Spielerranglisten'], ['zuschauer', 'Zuschauer'], ['finanzen', 'Vereinsfinanzen'], ['transfers', 'Transfers'], ['ewig', 'Ewige Tabelle'], ['titel', 'Titel & Hall of Fame']];
     var h = '<h1>Liga & Statistiken</h1><div class="row" style="margin-bottom:12px"><div class="seg">' + tabs.map(function (x) { return '<button class="sm ' + (tab === x[0] ? 'on' : '') + '" data-act="ligaTab" data-tab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div></div>';
     var lsel = '<div class="seg" style="margin-bottom:10px;flex-wrap:wrap">' + D.leagueKeys.map(function (l) { return '<button class="sm ' + (lvl === l ? 'on' : '') + '" data-act="ligaLvl" data-l="' + l + '">' + (l < 3 || l > 6 ? D.leagueNames[l] : '3. Liga ' + D.leagueShort[l]) + '</button>'; }).join('') + '</div>';

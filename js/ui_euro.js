@@ -28,7 +28,7 @@
   U.leagueNameOf = function (c) { return D.leagueNames[W.lk ? W.lk(c) : c.league] || ''; };
   // Ankündigung eines Spiels: je Wettbewerb eigene Farbe, eigenes Emblem und die wichtigsten Angaben
   U.compBanner = function (st, fx, compact) {
-    var c = U.club(), kind = U.compKind(fx), H = st.clubs[fx.h], A = st.clubs[fx.a];
+    var c = U.myClub ? U.myClub() : U.club(), kind = U.compKind(fx), H = st.clubs[fx.h], A = st.clubs[fx.a];
     var kicker = { league: 'Liga', cup: 'Pokal', ml: 'Europapokal', tl: 'Europapokal', releg: 'Entscheidungsspiel', friendly: 'Testspiel' }[kind], name, round, mode = '';
     if (kind === 'league') { name = U.leagueNameOf(c || H); round = (st.week + 1) + '. Spieltag'; mode = 'Punktspiel'; }
     else {
@@ -48,7 +48,7 @@
   };
   // Kurzinfo zum Europapokalspiel für die Spielvorschau: Gruppentabelle bzw. Stand nach dem Hinspiel
   U.euroPreview = function (st, fx) {
-    var c = U.club();
+    var c = U.myClub ? U.myClub() : U.club();
     if (fx.grp != null) return '<div class="eu-mini"><div class="eu-mini-h">Gruppe ' + X.GROUP_LETTERS[fx.grp] + '</div>' + groupTable(st, fx.euro, fx.grp, c) + '</div>';
     if (fx.aggregate) return '<p class="muted small">Hinspiel: ' + esc(st.clubs[fx.a].short) + ' – ' + esc(st.clubs[fx.h].short) + ' <b>' + fx.aggregate[1] + ':' + fx.aggregate[0] + '</b>. Steht es nach beiden Spielen unentschieden, gibt es Verlängerung.</p>';
     return '<p class="muted small">' + esc(st.clubs[fx.h].name) + ' (' + esc(X.countryOf(st, fx.h)) + ') gegen ' + esc(st.clubs[fx.a].name) + ' (' + esc(X.countryOf(st, fx.a)) + ').</p>';
@@ -82,7 +82,7 @@
     return '<div class="eu-tie' + (mine ? ' me' : '') + '"><div class="' + (t.winner === t.h ? 'win' : t.winner ? 'out' : '') + '">' + team(st, t.h, 20) + '</div><div class="eu-res">' + res + '</div><div class="' + (t.winner === t.a ? 'win' : t.winner ? 'out' : '') + '">' + team(st, t.a, 20, true) + '</div></div>';
   }
   U.screens.europa = function () {
-    var st = U.st, c = U.club(), h = '<div class="page-h"><div><h1>Europapokal</h1><div class="page-sub">Meister-Liga und Top-Liga · Saison ' + st.season + '/' + String(st.season + 1).slice(2) + '</div></div></div>';
+    var st = U.st, c = U.myClub ? U.myClub() : U.club(), h = '<div class="page-h"><div><h1>Europapokal</h1><div class="page-sub">Meister-Liga und Top-Liga · Saison ' + st.season + '/' + String(st.season + 1).slice(2) + '</div></div></div>';
     X.ensure(st);
     var hall = (st.hall.euro || []).slice().reverse();
     if (!X.active(st)) {

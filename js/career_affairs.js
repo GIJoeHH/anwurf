@@ -1,0 +1,143 @@
+// Privatleben 2.0 – Ausgehen, neue Bekanntschaften und parallele (heimliche) Beziehungen trotz fester Partnerschaft.
+// Jede heimliche Beziehung kostet Zeit und Nerven (Stress, weniger Zeit für die Partnerperson) und kann auffliegen –
+// durch die Partnerperson, durch eine der anderen Personen oder über die Boulevardpresse. Ein Skandal wirkt mehrere Wochen
+// auf Stress, Moral, Form, Medienansehen, Fans und das Vertrauen des Trainers. Gemeinsam für beide Sportarten.
+(function (R) {
+  var L = R.life, P = L && L.pt, X = R.cx, C = R.pc, S = R.season; if (!P) return;
+  function tick(st) { return st.tick || 0; }
+  function ch(p) { return R.rand() < p; }
+  function fn(x) { return x ? String(x.name).split(' ')[0] : ''; }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  var A = P.AFF = {};
+
+  A.list = function (st) { var lf = L.life(st); return lf ? lf.cands.filter(function (x) { return x.aff; }) : []; };
+  A.dating = function (st) { var lf = L.life(st); return lf && lf.partner ? lf.cands.filter(function (x) { return !x.aff && x.stage >= 1; }) : []; };
+  A.get = function (st, id) { return L.life(st).cands.filter(function (x) { return x.id === id; })[0] || null; };
+  A.risk = function (st) { // Entdeckungsrisiko pro Woche (0–1)
+    var lf = L.life(st), n = A.list(st).length, d = A.dating(st).length, pt = lf.partner, pc = st.pc; if (!n && !d) return 0;
+    var r = 0.03 * n + 0.012 * d + (n >= 2 ? 0.03 * (n - 1) : 0) + pc.fame / 2500 + (pt && pt.stage >= 4 && !pt.ld ? 0.02 : 0) + (lf.suspect && lf.suspect > tick(st) ? 0.05 : 0) + (lf.affOut && tick(st) - lf.affOut <= 1 ? 0.02 : 0);
+    return clamp(r, 0, 0.45);
+  };
+  A.riskTxt = function (st) { var r = A.risk(st); return r >= 0.12 ? 'hoch' : r >= 0.06 ? 'mittel' : r > 0 ? 'gering' : '–'; };
+
+  // Neue Bekanntschaften dürfen nicht aus der Liste rutschen, solange eine heimliche Beziehung läuft
+  var baseCand = L.newCand;
+  L.newCand = function (st) { var keep = A.list(st).slice(), x = baseCand(st), lf = L.life(st); keep.forEach(function (y) { if (lf.cands.indexOf(y) < 0) lf.cands.unshift(y); }); return x; };
+  // „Feste Beziehung“ mit einer weiteren Person, während schon eine Partnerschaft besteht → heimliche Beziehung
+  var baseMake = L.makePartner;
+  L.makePartner = function (st, x) {
+    var lf = L.life(st);
+    if (lf.partner && lf.partner !== x) {
+      if (x.aff) return x;
+      P.ensure(st, x); x.aff = true; x.stage = 3; x.since = tick(st); x.stageT = tick(st); x.v = Math.max(60, x.v); x.lastD = tick(st); x.d0 = x.dates || 0;
+      X.chron(st, 'familie', '🤫', 'Heimliche Beziehung', 'Du triffst dich heimlich mit ' + x.name + ' – obwohl du mit ' + lf.partner.name + ' zusammen bist.', 1, 'date');
+      X.eff(st, { stress: 3 });
+      return x;
+    }
+    if (x.aff) { x.aff = false; }
+    return baseMake(st, x);
+  };
+  // Nach einer Trennung sind heimliche Beziehungen nicht mehr heimlich: man datet einfach weiter
+  var baseBreak = L.breakup;
+  L.breakup = function (st, why) { baseBreak(st, why); A.list(st).forEach(function (x) { x.aff = false; x.stage = 2; x.t = tick(st); }); };
+
+  A.official = function (st, id) { // offiziell machen: bisherige Partnerschaft endet
+    var x = A.get(st, id), lf = L.life(st); if (!x) return null;
+    var old = lf.partner; if (old) { L.breakup(st, 'du hast dich für ' + x.name + ' entschieden'); L.eff(st, { well: -4 }); }
+    x.aff = false; var y = A.get(st, id) || x; L.makePartner(st, y); return y;
+  };
+  A.end = function (st, id, why) {
+    var lf = L.life(st), x = A.get(st, id); if (!x) return;
+    lf.cands = lf.cands.filter(function (y) { return y.id !== id; });
+    if (x.aff) X.chron(st, 'familie', '🚪', 'Heimliche Beziehung beendet', why || ('Du hast die Sache mit ' + x.name + ' beendet.'), 1);
+    X.eff(st, { stress: x.aff ? 2 : 0 });
+  };
+  A.endAll = function (st) { A.list(st).forEach(function (x) { A.end(st, x.id, 'Du hast die Sache mit ' + x.name + ' beendet.'); }); };
+
+  // Skandal: mehrwöchige Folgen für Kopf und Sport
+  A.scandal = function (st, press, who) {
+    var lf = L.life(st), p = C.player(st), t = tick(st); lf.scandal = { t: t, until: t + (press ? 8 : 4), press: !!press };
+    X.eff(st, { stress: press ? 16 : 10, conf: -5, media: press ? -12 : 0, pop: press ? -8 : 0, coach: press ? -4 : 0, mates: press ? -2 : 0, family: -4 });
+    L.eff(st, { well: -12, f_fam: press ? -10 : 0, f_krit: press ? -6 : 0, sponsor: press ? -8 : 0 });
+    if (p) { p.morale = clamp(p.morale - (press ? 18 : 10), 0, 100); p.form = Math.max(4, (p.form || 6) - (press ? 0.5 : 0.25)); }
+    if (press) {
+      var nm = p ? R.world.playerName(p) : 'Profi';
+      X.chron(st, 'medien', '📰', 'Boulevard: Liebeschaos', '„Doppelleben bei ' + nm + '?“ – die Klatschpresse berichtet groß über deine Beziehungen.', 3, 'presse');
+      if (S && S.news) S.news(st, 'Boulevard-Schlagzeile um ' + nm, 'Berichte über mehrere Beziehungen gleichzeitig sorgen für Wirbel. Der Verein ist not amused.', 'medien');
+      if (L.remember) L.remember(st, 'scandal', 'Beziehungsskandal in der Presse', 'Boulevard');
+    }
+  };
+  A.weekly = function (st) {
+    var lf = L.life(st), pc = st.pc, p = C.player(st); if (!lf || !p || pc.retired) return;
+    var t = tick(st), sc = lf.scandal;
+    if (sc && sc.until > t) { X.eff(st, { stress: sc.press ? 2 : 1, media: sc.press ? -1 : 0 }); p.morale = clamp(p.morale - (sc.press ? 2 : 1), 0, 100); }
+    var aff = A.list(st), pt = lf.partner;
+    aff.forEach(function (x) { // jede heimliche Beziehung will gepflegt werden
+      if ((x.dates || 0) > (x.d0 || 0)) { x.d0 = x.dates; x.lastD = t; }
+      x.t = t; x.v = clamp(x.v - (t - (x.lastD || t) > 3 ? 2.5 : 0.8), 0, 100);
+      if (x.v < 35) { A.end(st, x.id, x.name + ' hat genug vom Versteckspiel und meldet sich nicht mehr.'); P.feed && pt && P.feed(st, '🚪 ' + fn(x) + ' hat die heimliche Beziehung beendet.'); }
+    });
+    aff = A.list(st); if (!aff.length && !A.dating(st).length) return;
+    X.eff(st, { stress: 1.2 * aff.length + 0.3 * A.dating(st).length });
+    if (pt) { var pp = P.partner(st); pp.neg += 0.7 * aff.length; }
+    if (L.active(st) || !ch(A.risk(st))) return;
+    // aufgeflogen
+    var pool = aff.length ? aff : A.dating(st), x = pool[Math.floor(R.rand() * pool.length)];
+    var byPartner = pt && (ch(0.6) || pool.length < 2), press = ch(Math.min(0.85, pc.fame / 110 + (x.pub >= 65 ? 0.15 : 0) + (aff.length >= 2 ? 0.15 : 0)));
+    if (byPartner) L.start(st, 'aff_caught', { cid: x.id, press: press ? 1 : 0, n: pool.length });
+    else { var y = pool.filter(function (z) { return z !== x; })[0] || null; L.start(st, 'aff_found', { cid: x.id, oid: y ? y.id : '', press: press ? 1 : 0 }); }
+    A.scandal(st, press, byPartner ? 'partner' : 'aff');
+  };
+  C.on.weekly.push(A.weekly);
+
+  function X2(st, d) { return A.get(st, d.cid) || { name: 'jemand', id: '' }; }
+  function endI(d, r, e, img) { if (img) d.img = img; return { r: r, e: e || {}, end: true }; }
+  // Die Partnerperson erfährt davon
+  L.addDlg([{
+    id: 'aff_caught', cat: 'familie', ic: '💥', chron: true, imp: 3, max: 3, title: 'Aufgeflogen',
+    init: function (st, c, d, s) { if (!L.life(st).partner || !A.get(st, d.cid)) s.done = true; },
+    scene: function (c, d) { return 'pt_' + (d.img || 'conflict'); },
+    who: function (c) { var p = L.life(c.st).partner; return { n: p ? p.name : '?', role: p ? 'Partnerperson' : '', ic: '💔', kind: 'partner', look: p ? p.look : null }; },
+    nodes: {
+      start: { say: function (c, d) { var p = L.life(c.st).partner, x = X2(c.st, d); return (d.press ? fn(p) + ' wirft dir die Zeitung hin. Auf der Titelseite: du und ' + fn(x) + '. ' : fn(p) + ' hält dir dein Handy hin – Nachrichten von ' + fn(x) + '. ') + '„Wer ist ' + fn(x) + '? Und wie lange geht das schon?“' + (d.n >= 2 ? ' Kurz darauf kommt heraus: Es gibt nicht nur eine.' : ''); },
+        opts: [
+          { l: 'Ehrlich gestehen und um Verzeihung bitten', fx: function (st, c, d) { var p = P.partner(st), x = X2(st, d), n = A.list(st).length;
+            var stay = clamp((p.v - 30) / 100 + (p.confl === 'harmonie' ? 0.15 : 0) + (p.stage >= 6 ? 0.08 : 0) - (n - 1) * 0.15 - (d.press ? 0.15 : 0), 0.04, 0.55);
+            if (ch(stay)) { p.v = Math.max(12, p.v - 35); p.neg += 6; P.open(st, 'trust'); P.mem(st, 'betrayal', 'Vertrauensbruch', 'die Sache mit ' + fn(x)); d.img = 'thought'; return { r: fn(p) + ' weint lange. Dann leise: „Ich weiß nicht, ob ich dir je wieder vertrauen kann. Aber ich will es versuchen – wenn das sofort aufhört.“', e: { stress: 4 }, next: 'cut' }; }
+            L.breakup(st, 'Vertrauensbruch – die Affäre mit ' + x.name); return endI(d, fn(p) + ' packt noch am selben Abend die Sachen. „Es ist vorbei.“', { stress: 8, well: -8 }, 'farewell'); } },
+          { l: 'Alles abstreiten', fx: function (st, c, d) { var p = P.partner(st), x = X2(st, d), lf = L.life(st);
+            if (d.press || ch(0.55) || (lf.suspect && lf.suspect > tick(st))) { L.breakup(st, 'Lügen und Betrug (' + x.name + ')'); return endI(d, 'Die Beweise sind eindeutig. „Du lügst mir ins Gesicht?“ ' + fn(p) + ' geht – endgültig.', { stress: 10, well: -10, conf: -3 }, 'farewell'); }
+            p.v = Math.max(10, p.v - 18); lf.suspect = tick(st) + 16; return endI(d, fn(p) + ' glaubt dir nicht ganz. Das Misstrauen bleibt – beim nächsten Mal gibt es keine Ausrede.', { stress: 5 }, 'thought'); } },
+          { l: function (c, d) { return 'Zu ' + fn(X2(c.st, d)) + ' stehen und dich trennen'; }, fx: function (st, c, d) { var x = X2(st, d), p = L.life(st).partner; var y = A.official(st, x.id); return endI(d, 'Du sagst ' + fn(p) + ' die Wahrheit und gehst. Ab jetzt bist du offiziell mit ' + fn(y) + ' zusammen.', { stress: 6, well: -3 }, 'farewell'); } }] },
+      cut: { say: function (c, d) { return '„Beendest du es? Jetzt, vor meinen Augen?“'; },
+        opts: [
+          { l: 'Ja. Ich beende alles sofort.', fx: function (st, c, d) { A.endAll(st); L.life(st).suspect = tick(st) + 30; return endI(d, 'Du schreibst die Nachricht vor ' + fn(L.life(st).partner) + 's Augen. Der Weg zurück wird lang.', { partner: 2, stress: 2 }, 'reconcile'); } },
+          { l: 'Ich brauche Zeit.', fx: function (st, c, d) { L.breakup(st, 'kein klares Ende der Affäre'); return endI(d, '„Dann hast du dich entschieden.“ Die Tür fällt ins Schloss.', { stress: 6, well: -6 }, 'farewell'); } }] }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }, {
+    // Eine der anderen Personen findet heraus, dass es eine feste Partnerschaft (oder noch jemanden) gibt
+    id: 'aff_found', cat: 'familie', ic: '💥', chron: true, imp: 2, max: 2, title: 'Es kommt heraus',
+    init: function (st, c, d, s) { if (!A.get(st, d.cid)) s.done = true; },
+    scene: function (c, d) { return 'pt_' + (d.img || 'conflict'); },
+    who: function (c, d) { var x = X2(c.st, d); P.ensure(c.st, x); return { n: x.name, role: 'heimliche Beziehung', ic: '🤫', kind: 'partner', look: x.look || null }; },
+    nodes: {
+      start: { say: function (c, d) { var x = X2(c.st, d), y = d.oid ? A.get(c.st, d.oid) : null, p = L.life(c.st).partner; return fn(x) + ': „' + (p ? 'Du bist mit ' + fn(p) + ' zusammen?!' : '') + (y ? (p ? ' Und dann auch noch ' : 'Es gibt auch noch ') + fn(y) + '?!' : '') + ' Für wen hältst du mich?“' + (d.press ? ' Wenig später steht die Geschichte in der Zeitung.' : ''); },
+        opts: [
+          { l: 'Entschuldigen und es beenden', fx: function (st, c, d) { var x = X2(st, d); A.end(st, x.id, fn(x) + ' hat von deinem Doppelleben erfahren – es ist aus.'); return endI(d, fn(x) + ' blockiert deine Nummer.', { stress: 2 }, 'farewell'); } },
+          { l: function (c, d) { return L.life(c.st).partner ? 'Ich trenne mich für dich' : 'Ich entscheide mich für dich'; }, fx: function (st, c, d) { var x = X2(st, d); if (d.oid) A.end(st, d.oid, 'Du hast dich gegen ' + ((A.get(st, d.oid) || {}).name || 'die andere Person') + ' entschieden.'); var y = A.official(st, x.id); return endI(d, 'Du entscheidest dich für ' + fn(y) + '. Die bisherige Beziehung ist vorbei – und alle wissen davon.', { stress: 5 }, 'reconcile'); } },
+          { l: 'Lügen: „Das ist längst vorbei.“', fx: function (st, c, d) { var x = X2(st, d); x.v = Math.max(20, x.v - 15); L.life(st).suspect = tick(st) + 12; return endI(d, fn(x) + ' glaubt dir – vorerst. Das Versteckspiel wird noch riskanter.', { stress: 4 }, 'thought'); } }] }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }]);
+
+  // Ausgehen ist jederzeit möglich – auch in einer Beziehung (dann mit Flirt-Risiko)
+  A.goOut = function (st) {
+    var r = L.spend(st, 1, 60); if (!r.ok) return r;
+    var lf = L.life(st), cx = st.pc.cx, pt = lf.partner;
+    if (pt) { lf.affOut = tick(st); P.partner(st).neg += 0.5; }
+    if (ch(0.45 + (cx.per.conf - 50) / 200 - (pt ? 0.1 : 0))) { var x = L.newCand(st); L.ensure(st).dlg = null; L.start(st, 'meet', { cid: x.id, where: pt ? 'Beim Ausgehen ohne ' + fn(pt) : 'Beim Ausgehen mit Freunden' }); return { ok: true, dlg: true }; }
+    L.eff(st, { well: 2, stress: -1 }); if (lf.friends[0]) lf.friends[0].v = Math.min(100, lf.friends[0].v + 3);
+    return { ok: true, txt: 'Ein netter Abend mit Freunden – heute ohne neue Bekanntschaft. Wohlbefinden +2, Stress −1' };
+  };
+})(RFM);

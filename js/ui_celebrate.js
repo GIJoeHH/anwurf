@@ -49,6 +49,12 @@
       stats.push(stat(cup ? 'Pokal-Einnahmen' : 'Einnahmen ' + comp, R.fmtMoney(o.earn || 0)));
       art = cup ? 'pokal' : 'euro'; img = pick(win ? IMG.win : IMG.lose, o);
     }
+    if (o.career) { // Spielerkarriere: gleiche Bilder, aber aus Sicht des eigenen Spielers (keine Vereinsprämien)
+      text = text.replace(/ *Die Siegprämie[^.]*\./, '').replace(/ *Die Titelprämie[^.]*\./, '');
+      stats = stats.filter(function (x) { return x.indexOf('prämie') < 0 && x.indexOf('Einnahmen') < 0; });
+      var pl = R.pc && R.pc.player ? R.pc.player(st) : null;
+      if (pl) { stats.push(stat('Deine Einsätze', pl.stats.apps || 0)); stats.push(stat('Deine Tore', pl.stats.goals || 0)); text += ' Und du warst mittendrin, ' + esc(pl.first || '') + '!'; }
+    }
     var confetti = '';
     if (win) for (var i = 0; i < 70; i++) confetti += '<i style="left:' + ((i * 37) % 100) + '%;animation-delay:' + ((i * 0.13) % 4).toFixed(2) + 's;animation-duration:' + (3.2 + (i % 5) * 0.5).toFixed(1) + 's" class="c' + (i % 4) + '"></i>';
     return '<div class="cel ' + (win ? 'win' : 'lose') + ' cel-' + k + '" role="dialog" aria-modal="true" aria-label="' + esc(title) + '">' +

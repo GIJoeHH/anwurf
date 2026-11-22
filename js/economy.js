@@ -728,9 +728,9 @@
     for (var i = 0; i < E.CHEAT_TABLE.length; i++) { acc += E.CHEAT_TABLE[i][1]; if (x < acc) return E.CHEAT_TABLE[i][0]; }
     return E.CHEAT_TABLE[0][0];
   };
-  E.bankCheat = function (st, club, rnd) {
+  E.bankCheat = function (st, club, rnd, fixed) {
     if (!st.settings.cheatEnabled || !club) return null;
-    var firstEver = !st.cheatUsed, amt = E.cheatAmount(rnd); // eigener Zufall (Math.random), der Spielzufall bleibt unberührt
+    var firstEver = !st.cheatUsed, amt = fixed > 0 ? fixed : E.cheatAmount(rnd); // fixed = fester Betrag (Spielerkarriere) // eigener Zufall (Math.random), der Spielzufall bleibt unberührt
     st.cheatClicks = (st.cheatClicks || 0) + 1;
     club.cash += amt; E.book(club, 'Sonstiges', amt);
     st.cheatUsed = true; st.cheatTotal = (st.cheatTotal || 0) + amt;

@@ -221,7 +221,7 @@
     var pc = st.pc, p = C.player(st); if (!pc || pc.retired) return;
     if (!p) { pc.retired = true; return; }
     pc.offers = []; pc.moving = null; C.checkClub(st, p);
-    if (!p.clubId) { // vereinslos: nimmt das beste Angebot an
+    if (!p.clubId && !(R.life && R.life.onClubless)) { // vereinslos ohne Lebenssimulation: nimmt das beste Angebot an (sonst kommen laufend Angebote)
       var cands = Object.keys(st.clubs).map(function (k) { return st.clubs[k]; }).filter(function (c) { return !c.foreign && c.league && W.squad(st, c.id).length < 27; })
         .sort(function (a, b) { return Math.abs(M_avg(st, a, p) - p.ovr) - Math.abs(M_avg(st, b, p) - p.ovr); });
       var c = cands[0];

@@ -149,7 +149,7 @@
   U.acts.pcAccept = function (d) {
     var st = U.st, o = st.pc.offers.filter(function (x) { return x.id === d.id; })[0]; if (!o) return;
     var c = st.clubs[o.clubId];
-    U.confirm(o.renew ? 'Vertrag verlängern' : 'Wechsel zu ' + c.short, (o.renew ? 'Vertrag bei ' + c.name + ' um ' + o.years + ' Jahre verlängern, ' : 'Zur neuen Saison zu ' + c.name + ' wechseln, ' + o.years + ' Jahre, ') + money(o.wage) + ' pro Jahr?', function () { var r = C.acceptOffer(st, d.id); U.toast(r.ok ? r.msg : r.why, 4000); U.autosave(); U.render(); });
+    U.confirm(o.renew ? 'Vertrag verlängern' : 'Wechsel zu ' + c.short, (o.renew ? 'Vertrag bei ' + c.name + ' um ' + o.years + ' Jahre verlängern, ' : o.now ? 'Ab sofort bei ' + c.name + ' unterschreiben, ' + o.years + ' Jahre, ' : 'Zur neuen Saison zu ' + c.name + ' wechseln, ' + o.years + ' Jahre, ') + money(o.wage) + ' pro Jahr?', function () { var r = C.acceptOffer(st, d.id); U.toast(r.ok ? r.msg : r.why, 4000); U.autosave(); U.render(); });
   };
   U.acts.pcDecline = function (d) { C.declineOffer(U.st, d.id); U.render(); };
   U.acts.pcAskPro = function () { var r = C.askPromotion(U.st); U.toast(r.ok ? 'Profivertrag! Du gehörst jetzt zum Profikader.' : r.why, 4500); U.autosave(); U.render(); };

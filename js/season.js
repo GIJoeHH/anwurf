@@ -57,6 +57,8 @@
     if (prize + gate <= 0) return 'Einnahmen gab es diesmal leider keine.';
     return 'Insgesamt haben wir ' + R.fmtMoney(prize + gate) + ' eingenommen' + (gate > 0 ? ' (Prämien ' + R.fmtMoney(prize) + ', Zuschauereinnahmen ' + R.fmtMoney(gate) + ')' : '') + '.';
   };
+  // Verein für Titel-Screens: eigener Verein im Manager-Modus, in der Spielerkarriere der Verein des eigenen Spielers
+  S.celebClub = function (st) { var uc = S.userClub(st); if (uc) return uc; var p = R.pc && R.pc.player ? R.pc.player(st) : null; return p && p.clubId && !p.youth && st.pc && !st.pc.retired ? st.clubs[p.clubId] : null; };
   // Große Momente (Meisterschaft, Pokal- und Europapokalfinale): eigener Bildschirm (js/ui_celebrate.js)
   S.celebrate = function (st, o) {
     o.season = st.season; o.week = st.week;
@@ -222,7 +224,8 @@
   };
   // Meldung für den eigenen Verein nach einer Pokalrunde: Weiterkommen mit Prämie oder Ausscheiden mit Gesamteinnahmen
   S.cupUserNews = function (st, ci) {
-    var uc = S.userClub(st), rd = st.cup.rounds[ci]; if (!uc || !rd) return;
+    var uc = S.userClub(st), rd = st.cup.rounds[ci]; if (!rd) return;
+    if (!uc) { var cc = S.celebClub(st), tc = cc && rd.ties.filter(function (x) { return x.h === cc.id || x.a === cc.id; })[0]; if (tc && ci === S.CUP_FINAL) S.celebrate(st, { kind: 'cup', win: tc.winner === cc.id, club: cc.id, opp: tc.h === cc.id ? tc.a : tc.h, oppName: st.clubs[tc.h === cc.id ? tc.a : tc.h].name, res: S.resFor(tc.r, tc.h === cc.id), prize: 0, earn: 0, career: true }); return; }
     var t = rd.ties.filter(function (x) { return x.h === uc.id || x.a === uc.id; })[0]; if (!t) return;
     var opp = st.clubs[t.h === uc.id ? t.a : t.h], e = S.compEarn(st, 'cup'), prize = S.CUP_PRIZE[ci];
     if (ci === S.CUP_FINAL) S.celebrate(st, { kind: 'cup', win: t.winner === uc.id, club: uc.id, opp: opp.id, oppName: opp.name, res: S.resFor(t.r, t.h === uc.id), prize: t.winner === uc.id ? prize : 0, earn: e.prize + e.gate });
@@ -267,12 +270,13 @@
   // Liefert alle Partien der Woche; Partien mit Beteiligung des Nutzers werden markiert.
   S.prepareWeek = function (st) {
     var list = [], uc = st.manager.unemployed ? null : st.manager.clubId;
+    var pcp = !uc && R.pc && R.pc.player && st.pc && !st.pc.retired ? R.pc.player(st) : null, ec = uc || (pcp && !pcp.youth ? pcp.clubId : null); // Europapokal auch für den Verein des Karrierespielers
     if (R.euro && R.euro.ensure) R.euro.ensure(st);
     if (S.finalDay(st)) {
       // Finaltag des Final 4: nur die Endspiele (Pokal und Europapokal)
       var cfi = S.CUP_FINAL, cfr = st.cup && st.cup.rounds[cfi];
       if (cfr && !st.cup.winner) cfr.ties.forEach(function (t, i) { if (!t.winner) list.push({ key: 'C-' + cfi + '-' + i, comp: 'final', h: t.h, a: t.a, neutral: true, venue: S.cupVenue(), extraTime: true }); });
-      R.euro.weekFixtures(st, true).forEach(function (x) { if (x.h === uc || x.a === uc) list.push(x); });
+      R.euro.weekFixtures(st, true).forEach(function (x) { if (ec && (x.h === ec || x.a === ec)) list.push(x); });
       list.forEach(function (x) { x.user = (x.h === uc || x.a === uc); });
       return { list: list, finalDay: true };
     }
@@ -290,7 +294,7 @@
           list.push({ key: 'F-' + S.breakKey(st), comp: 'friendly', h: pl.home ? uc : pl.opp, a: pl.home ? pl.opp : uc });
       }
       // Europapokal: Spiele des eigenen Vereins (alle übrigen laufen als Schnellergebnis, siehe js/euro.js)
-      if (st.phase === 'season' && R.euro && R.euro.weekFixtures && uc) R.euro.weekFixtures(st).forEach(function (x) { if (x.h === uc || x.a === uc) list.push(x); });
+      if (st.phase === 'season' && R.euro && R.euro.weekFixtures && ec) R.euro.weekFixtures(st).forEach(function (x) { if (x.h === ec || x.a === ec) list.push(x); });
       if (st.phase === 'season') D.leagueKeys.forEach(function (l) {
         S.roundsOf(st, l, week).forEach(function (r) {
           st.leagues[l].fixtures[r].forEach(function (f, i) { list.push({ key: 'L-' + l + '-' + r + '-' + i, comp: 'league', h: f.h, a: f.a }); });
@@ -1209,7 +1213,7 @@
   S.toRelegation = function (st) {
     st.finalTables = {}; st.finalRows = {};
     D.leagueKeys.forEach(function (l) { var t = S.table(st, l); st.finalTables[l] = t.map(function (r) { return r.id; }); st.finalRows[l] = t; });
-    var ucR = S.userClub(st);
+    var ucR = S.celebClub(st);
     if (ucR) D.leagueKeys.forEach(function (l) {
       var t = st.finalRows[l]; if (!t || !t.length || t[0].id !== ucR.id) return;
       var a = t[0], b = t[1] || { pts: a.pts };

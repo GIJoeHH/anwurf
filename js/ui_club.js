@@ -498,9 +498,14 @@
     }
     return '<div class="grid g2">' + block(c.fin.season, 'Laufende Saison') + block(c.fin.last, 'Vorsaison') + '</div>';
   };
+  // Spielerkarriere: kleine Beträge, höchstens 200.000 € – und das nur sehr selten
+  U.pcCheatAmount = function () {
+    var x = Math.random(), r = function (a, b, s) { return Math.round((a + Math.random() * (b - a)) / s) * s; };
+    return x < 0.6 ? r(5000, 20000, 500) : x < 0.88 ? r(20000, 50000, 1000) : x < 0.98 ? r(50000, 100000, 5000) : x < 0.996 ? r(100000, 150000, 10000) : 200000;
+  };
   U.acts.bankSign = function () {
     // Im Spielermodus landet das Geld auf dem Privatkonto (Pseudo-Verein 'PCW'), sonst beim Verein
-    var st = U.st, pcw = st.pc && R.pc && R.pc.active && R.pc.active(st) && R.pf, acct = pcw ? R.pf.wallet(st) : U.club(), r = E.bankCheat(st, acct);
+    var st = U.st, pcw = st.pc && R.pc && R.pc.active && R.pc.active(st) && R.pf, acct = pcw ? R.pf.wallet(st) : U.club(), r = E.bankCheat(st, acct, undefined, pcw ? U.pcCheatAmount() : 0);
     if (!r) return;
     if (pcw) { st.pc.cash = acct.cash; if (U.autosave) U.autosave(); U.render(); }
     var el = document.querySelector('.director-sign');
@@ -509,9 +514,9 @@
     if (U.cheatSessionSt !== st) {
       // erster Klick dieser Sitzung: Spruch
       U.cheatSessionSt = st;
-      U.modal(U.lc('lock', 16) + ' Geheimer Buchhaltungskeller', r.lines.map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('') + '<p class="pos"><b>+' + money(r.paid) + '</b> wurden ' + (pcw ? 'deinem Privatkonto' : 'Ihrem Vereinskonto') + ' gutgeschrieben.</p><p class="muted small">Jeder weitere Klick aufs Schild bringt einen zufälligen Betrag zwischen 50.000 € und 2,5 Mio. € (je höher, desto seltener).' + (r.first ? ' Dieser Spielstand ist jetzt als „mit Cheat“ markiert. Der Cheat kann in den Einstellungen deaktiviert werden.' : '') + '</p>', '<button class="primary" data-act="closeModal">Danke, Herr Buchungsfehler!</button>');
+      U.modal(U.lc('lock', 16) + ' Geheimer Buchhaltungskeller', r.lines.map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('') + '<p class="pos"><b>+' + money(r.paid) + '</b> wurden ' + (pcw ? 'deinem Privatkonto' : 'Ihrem Vereinskonto') + ' gutgeschrieben.</p><p class="muted small">Jeder weitere Klick aufs Schild bringt einen zufälligen Betrag ' + (pcw ? 'zwischen 5.000 € und 200.000 € (große Beträge sehr selten).' : 'zwischen 50.000 € und 2,5 Mio. € (je höher, desto seltener).') + (r.first ? ' Dieser Spielstand ist jetzt als „mit Cheat“ markiert. Der Cheat kann in den Einstellungen deaktiviert werden.' : '') + '</p>', '<button class="primary" data-act="closeModal">Danke, Herr Buchungsfehler!</button>');
     } else {
-      U.toast((r.jackpot ? '🎰 JACKPOT! ' : r.paid >= 1000000 ? '💰 ' : '') + '+' + money(r.paid) + ' · Kontostand ' + money(acct.cash));
+      U.toast(((pcw ? r.paid >= 200000 : r.jackpot) ? '🎰 JACKPOT! ' : r.paid >= 1000000 ? '💰 ' : '') + '+' + money(r.paid) + ' · Kontostand ' + money(acct.cash));
       var k = document.querySelector('#main [data-cash]'); if (k) k.textContent = money(acct.cash);
     }
   };

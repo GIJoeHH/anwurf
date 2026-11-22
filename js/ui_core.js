@@ -7,6 +7,7 @@
 
   // ---------- Grundfunktionen ----------
   U.club = function () { return U.st && !U.st.manager.unemployed ? U.st.clubs[U.st.manager.clubId] : null; };
+  U.myClub = function () { var st = U.st; if (st && st.manager && st.manager.role === 'player' && R.pc && R.pc.player) { var p = !st.pc || st.pc.retired ? null : R.pc.player(st); return p && p.clubId ? st.clubs[p.clubId] || null : null; } return U.club(); }; // eigener Verein: in der Spielerkarriere der Verein des Spielers
   U.can = function (area) {
     var st = U.st; if (!st || st.manager.unemployed) return false;
     var r = st.manager.role;

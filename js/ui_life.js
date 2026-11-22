@@ -63,7 +63,7 @@
     var steps = ''; for (var i = 1; i <= v.max; i++) steps += '<i class="' + (i <= v.step ? 'on' : '') + '"></i>';
     var h = U.lifeImg(v.img, 'lf-img', '<div class="cap"><div>' + esc(v.title || 'Gespräch') + '</div><span>' + (v.done ? 'Abgeschlossen' : 'Runde ' + v.step + ' von ' + v.max) + '</span></div>');
     h += '<div class="lf-steps">' + steps + '</div>';
-    h += '<div class="lf-who"><div class="av">' + esc(v.who.ic || '👤') + '</div><div><b>' + esc(v.who.n) + '</b><div class="muted small">' + esc(v.who.role || '') + '</div></div></div>';
+    h += '<div class="lf-who">' + (v.who.look && U.ptPortrait ? '<div class="av pt">' + U.ptPortrait(v.who.look, 44) + '</div>' : '<div class="av">' + esc(v.who.ic || '👤') + '</div>') + '<div><b>' + esc(v.who.n) + '</b><div class="muted small">' + esc(v.who.role || '') + '</div></div></div>';
     if (v.react && (v.react.txt || v.react.eff.length)) h += '<div class="lf-react">' + (v.react.txt ? esc(v.react.txt) : '<span class="muted">Reaktion</span>') + chips(v.react.eff) + '</div>';
     if (!v.done) {
       h += '<div class="lf-say">' + esc(v.say || '') + '</div><div class="lf-opts">' + v.opts.map(function (o) { return '<button data-act="dlgPick" data-i="' + o.i + '">' + esc(o.l) + (o.hint ? '<span class="hint">' + esc(o.hint) + '</span>' : '') + '</button>'; }).join('') + '</div>';
@@ -71,7 +71,7 @@
     } else {
       h += '<div class="panel" style="margin-top:10px"><b>Zusammenfassung</b><p class="small">' + esc(v.sum || 'Das Gespräch ist beendet.') + '</p><ol class="lf-log">' + v.log.map(function (x) { return '<li><b>' + esc(x.a) + '</b>' + (x.r ? ' – ' + esc(x.r) : '') + (x.eff ? ' <span class="muted">(' + esc(x.eff) + ')</span>' : '') + '</li>'; }).join('') + '</ol><p class="muted small">Gespeichert in der Chronik. Getroffene Aussagen merken sich die Beteiligten.</p></div>';
     }
-    var foot = v.done ? '<button class="primary" data-act="dlgClose">Schließen</button>' : '<button class="ghost" data-act="closeModal" title="Das Gespräch bleibt bis zu 3 Wochen offen">Später fortsetzen</button>';
+    var foot = v.done ? '<button class="primary" data-act="dlgClose">Schließen</button>' : '<button class="ghost" data-act="dlgCancel" title="Verklickt? Das Gespräch endet sofort und ohne Folgen.">Gespräch abbrechen</button><button class="ghost" data-act="closeModal" title="Das Gespräch bleibt bis zu 3 Wochen offen">Später fortsetzen</button>';
     U.modal(esc(v.cat === 'vertrag' ? 'Verhandlung' : 'Gespräch'), h, foot, true);
   };
   U.acts.dlgStart = function (d) {
@@ -89,6 +89,10 @@
   U.acts.dlgPick = function (d) { L.pick(U.st, +d.i); U.autosave(); U.showDlg(); };
   U.acts.dlgClose = function () { L.close(U.st); U.closeModal ? U.closeModal() : document.getElementById('modal').classList.add('hidden'); U.autosave(); U.render(); if (U.dlgPending(U.st)) setTimeout(U.showDlg, 300); };
   U.acts.dlgResume = function () { U.showDlg(); };
+  U.acts.dlgCancel = function () { // Verklickt: Gespräch ohne jede Wirkung beenden
+    var st = U.st, cur = L.active(st); if (cur) { st.pc.cx.dlg = null; U._dlgSeen = null; }
+    U.closeModal(); U.autosave(); U.render(); U.toast('Gespräch abgebrochen – ohne Folgen.', 3000);
+  };
 
   // ---------- Ergebnisfenster statt kurzer Meldung (Entscheidungen, Aktivitäten) ----------
   function parseFx(msg) { var out = [], re = /([A-ZÄÖÜ][A-Za-zÄÖÜäöüß&\- ]{1,30}?) ([+−]\d+(?: %)?)/g, m; while ((m = re.exec(msg))) out.push({ t: m[1].trim() + ' ' + m[2], pos: m[2][0] === '+' && !/Stress/.test(m[1]), neg: m[2][0] === '−' || (/Stress/.test(m[1]) && m[2][0] === '+') }); return out; }
@@ -108,7 +112,7 @@
   // ---------- Hilfen ----------
   function apDots(st) { var lf = L.life(st), n = L.apLeft(st), tot = Math.max(n, 2 + ['private', 'partner', 'friends', 'family', 'fans'].reduce(function (s, k) { return s + ((st.pc.cx.plan.a || {})[k] || 0); }, 0)); var h = '<span class="lf-ap" title="Freie Termine diese Woche">'; for (var i = 0; i < tot; i++) h += '<i class="' + (i < n ? '' : 'off') + '"></i>'; return h + '</span> <b>' + n + '</b> frei'; }
   function btn(lbl, dlg, data, cls, extra) { var a = ' data-act="dlgStart" data-dlg="' + dlg + '"'; Object.keys(data || {}).forEach(function (k) { a += ' data-' + k + '="' + esc(String(data[k])) + '"'; }); return '<button class="sm ' + (cls || '') + '"' + a + (extra || '') + '>' + lbl + '</button>'; }
-  function resume(st) { var s = L.active(st); return s && !s.done ? '<div class="help" style="margin-bottom:12px">' + U.lc('megaphone', 15) + ' Ein Gespräch ist noch offen: <b>' + esc(L.view(st).title || '') + '</b> <button class="sm primary" data-act="dlgResume">Fortsetzen</button></div>' : ''; }
+  function resume(st) { var s = L.active(st); return s && !s.done ? '<div class="help" style="margin-bottom:12px">' + U.lc('megaphone', 15) + ' Ein Gespräch ist noch offen: <b>' + esc(L.view(st).title || '') + '</b> <button class="sm primary" data-act="dlgResume">Fortsetzen</button> <button class="sm ghost" data-act="dlgCancel">Abbrechen</button></div>' : ''; }
 
   // ---------- Neue Wochenplan-Aktivitäten (Zeitbudget) ----------
   X.ACTS.partner = { n: 'Zeit mit der Partnerperson', ic: 'heart', c: 1, d: 'Pflegt die Beziehung (+1 freier Termin).', morale: 1, stress: -1 };
@@ -128,7 +132,8 @@
       '<p class="small" style="margin-top:8px">Termine diese Woche: ' + apDots(st) + '</p><p class="muted small">Mehr freie Termine gibt es über Freizeit, Partnerschaft, Freunde, Familie oder Fantermine im <a href="#" data-act="nav" data-s="pwoche">Wochenplan</a>. Karriere und Privatleben konkurrieren um dasselbe Zeitbudget.</p></div>';
     // Partnerschaft
     h += '<div class="panel"><h2>' + U.lc('heart-pulse', 17) + ' Partnerschaft</h2>';
-    if (pt) {
+    if (pt && U.ptCard) h += U.ptCard(st, pt); // Privatleben 2.0
+    else if (pt) {
       h += '<div class="lf-card"><h3>' + esc(pt.name) + '</h3><div class="muted small">' + esc(pt.job) + ' · mag ' + esc(pt.intr.join(', ')) + ' · Ziel: ' + esc(pt.goal) + '</div>' +
         '<div class="lf-stage">' + L.STAGES.slice(1).map(function (s, i) { return '<span class="' + (i + 1 === pt.stage ? 'on' : i + 1 < pt.stage ? 'done' : '') + '">' + esc(s) + '</span>'; }).join('') + '</div>' +
         '<table class="t small"><tr><td>Beziehung</td><td style="width:50%">' + bar(pt.v) + '</td><td class="num">' + Math.round(pt.v) + '</td></tr></table>' +
@@ -157,7 +162,7 @@
   U.acts.lfGoOut = function () {
     var st = U.st, r = L.spend(st, 1, 60); if (!r.ok) { U.toast(r.why, 4000); return; }
     var lf = L.life(st), cx = st.pc.cx;
-    if (R.rand() < 0.45 + (cx.per.conf - 50) / 200) { var x = L.newCand(st); L.start(st, 'meet', { cid: x.id, where: 'Beim Ausgehen mit Freunden' }); U.autosave(); U.showDlg(); return; }
+    if (R.rand() < 0.45 + (cx.per.conf - 50) / 200) { var x = L.newCand(st); st.pc.cx.dlg = null; L.start(st, 'meet', { cid: x.id, where: 'Beim Ausgehen mit Freunden' }); U.autosave(); U.showDlg(); return; }
     L.eff(st, { well: 2, stress: -1 }); if (lf.friends[0]) lf.friends[0].v = Math.min(100, lf.friends[0].v + 3);
     U.autosave(); U.render(); U.showResult('Abend in der Stadt', 'Ein netter Abend mit Freunden – heute ohne neue Bekanntschaft. Wohlbefinden +2, Stress −1', 'freunde');
   };

@@ -59,6 +59,7 @@
     var fx = (st.phase === 'season' || st.phase === 'preseason') && CM.fixture(st), sub = st.phase === 'seasonEnd' ? 'Neue Saison' : fx ? (CM.mode(st) === 'aus' ? 'Spieltag' : 'Zum Spiel') : 'Nächste Woche';
     if (U.pcm) sub = 'Zurück zum Spiel';
     el.innerHTML = '<div class="tb-club">' + (c ? U.crest(c, 40) : '') + '<div><div class="name">' + esc(W.playerName(p)) + '</div><div class="sub">' + esc(X.PHASES[pc.cx.phase] || '') + ' · ' + (c ? esc(c.short) : 'vereinslos') + ' · Saison ' + st.season + '/' + String(st.season + 1).slice(2) + '</div></div></div>' +
+      chip('trophy', 'Tabellenplatz', c && !p.youth && st.week > 0 && R.econ.leaguePos ? R.econ.leaguePos(st, c) + '. · ' + esc(D.leagueNames[c.league] || '') : '–') + // eigener Verein: Platz in der Liga
       chip('gauge', 'Stärke', p.ovr) + chip('calendar-days', S.isBreak(st) ? 'Woche' : 'Spieltag', S.calText(st, true)) + chip('handshake', 'Trainer', Math.round(pc.trust)) +
       '<div class="tb-chip tb-con" data-act="nav" data-s="pberater" style="cursor:pointer" title="Mein Vertrag – Details unter Berater & Verträge">' + U.lc('pen-line', 18) + '<div><span>Vertrag</span><b' + (!p.youth && (p.contract || 1) <= 1 ? ' class="neg"' : '') + '>' + conShort(st, p) + '</b></div></div>' +
       chip('activity', 'Form', (p.form || 6).toFixed(1).replace('.', ','), true) + chip('wallet', 'Nettovermögen', money(Math.round(PF.netWorth(st))), true) +
@@ -80,9 +81,21 @@
       '<tr><td>Gehalt brutto</td><td class="num" style="white-space:normal"><b>' + money(p.wage) + '</b> / Jahr</td></tr><tr><td>pro Monat</td><td class="num" style="white-space:normal">' + money(Math.round(p.wage / 12)) + ' brutto · ' + money(net) + ' netto</td></tr>' +
       (p.youth ? '' : '<tr><td>Prämien</td><td class="num" style="white-space:normal">' + money(Math.round(p.wage * 0.004)) + ' je Einsatz · ' + money(Math.round(p.wage * (HB ? 0.0012 : 0.006))) + ' je Tor</td></tr>') +
       '<tr><td>Laufzeit</td><td class="num" style="white-space:normal"><b>bis Sommer ' + end + '</b> (' + (last ? 'endet mit dieser Saison' : 'noch ' + y + ' Saisons inkl. der laufenden') + ')</td></tr></table>';
-    var off = st.pc.offers || [];
-    h += '<p class="muted small" style="margin-top:6px">' + (st.pc.moving ? 'Wechsel zu <b>' + esc(st.clubs[st.pc.moving.to].name) + '</b> zur neuen Saison vereinbart.' : off.length ? off.length + ' Vertragsangebot(e) liegen vor.' : last && !p.youth ? 'Dein Vertrag läuft aus – Verlängerungs- und Wechselangebote kommen ab der Rückrunde.' : 'Angebote anderer Vereine kommen ab der Rückrunde.') +
-      (opt && opt.link ? ' <a href="#" data-act="nav" data-s="pberater">Berater & Verträge</a>' : '') + '</p></div>';
+    var off = st.pc.offers || [], L = R.life, cs = L && L.cstat ? L.cstat(st) : {}, own = off.filter(function (o) { return o.renew; })[0], now = off.filter(function (o) { return o.now; }).length;
+    var info = st.pc.moving ? 'Wechsel zu <b>' + esc(st.clubs[st.pc.moving.to].name) + '</b> zur neuen Saison vereinbart.' :
+      !c ? '<b class="neg">Vereinslos.</b> ' + (now ? now + ' Verein(e) bieten dir einen Vertrag mit sofortigem Einstieg an.' : 'Neue Angebote kommen jede Woche.') + ' Spätestens nach 8 Wochen unterschreibst du beim besten Angebot.' :
+      p.youth ? 'Als Jugendspieler wartest du auf deinen ersten Profivertrag.' :
+      cs.dec === 'no' ? '<b class="neg">' + esc(c.short) + ' verlängert deinen Vertrag nicht.</b> Such dir bis zum Sommer einen neuen Verein' + (st.pc.agent ? ' – dein Berater hilft.' : ' – ein Spielerberater kann helfen.') + (off.length ? ' ' + off.length + ' Angebot(e) liegen vor.' : '') :
+      own ? '<b class="pos">' + esc(c.short) + ' bietet dir eine Verlängerung an</b> (' + money(own.wage) + '/Jahr, ' + own.years + ' J.).' + (off.length > 1 ? ' Dazu ' + (off.length - 1) + ' weitere(s) Angebot(e).' : '') :
+      off.length ? off.length + ' Vertragsangebot(e) liegen vor.' :
+      last ? 'Dein Vertrag läuft aus. Der Verein meldet sich spätestens in der Hinrunde – du kannst auch selbst um ein Gespräch bitten.' : 'Angebote anderer Vereine kommen ab der Rückrunde.';
+    var btns = '';
+    if (c && !p.youth && !st.pc.moving) {
+      if (own) btns += '<button class="sm primary" data-act="dlgStart" data-dlg="negotiate" data-oid="' + own.id + '">' + U.lc('handshake', 14) + ' Verlängerung verhandeln</button>';
+      else if (cs.dec !== 'no' && y <= 2) btns += '<button class="sm" data-act="pcAskRenew">' + U.lc('message-circle', 14) + ' Um Vertragsgespräch bitten</button>';
+    }
+    if ((off.length && !own) || !c) btns += '<button class="sm" data-act="nav" data-s="pberater">Angebote ansehen</button>';
+    h += '<p class="small" style="margin-top:6px">' + info + (opt && opt.link ? ' <a href="#" data-act="nav" data-s="pberater">Berater & Verträge</a>' : '') + '</p>' + (btns ? '<div class="row" style="gap:6px;flex-wrap:wrap">' + btns + '</div>' : '') + '</div>';
     return h;
   };
   function tile(cat, emo) { return '<span class="cx-tile" style="--c:' + (CATCOL[cat] || '#3b82f6') + '">' + (emo || '•') + '</span>'; }
@@ -110,7 +123,14 @@
     // Eigener Vertrag – kompakt direkt unter dem Kopf
     var cEnd = conEnd(st, p), cY = Math.max(1, p.contract || 1), cNet = PF.monthly(st).inc['Nettogehalt'] || 0;
     h += '<div class="panel" style="margin-top:14px;cursor:pointer" data-act="nav" data-s="pberater" title="Details unter Berater & Verträge"><div class="panel-h"><h2>' + U.lc('pen-line', 17) + ' Mein Vertrag' + (c ? ' bei ' + esc(c.short) : '') + '</h2>' + (p.youth ? '<span class="pill">Jugendvertrag</span>' : cY <= 1 ? '<span class="pill warn">läuft zum Saisonende aus</span>' : '<span class="pill ok">noch ' + cY + ' Saisons</span>') + '</div>' +
-      '<div class="grid g4">' + U.kpi('Gehalt brutto / Jahr', money(p.wage)) + U.kpi('Netto / Monat', money(cNet)) + U.kpi('Vertrag bis', 'Sommer ' + cEnd) + U.kpi('Restlaufzeit', cY <= 1 ? 'diese Saison' : cY + ' Saisons') + '</div></div>';
+      '<div class="grid g4">' + U.kpi('Gehalt brutto / Jahr', money(p.wage)) + U.kpi('Netto / Monat', money(cNet)) + U.kpi('Vertrag bis', 'Sommer ' + cEnd) + U.kpi('Restlaufzeit', cY <= 1 ? 'diese Saison' : cY + ' Saisons') + '</div>' + (function () { // Vertragsstatus: Verlängerung, Absage, Gespräch möglich
+      var cs = R.life && R.life.cstat ? R.life.cstat(st) : {}, own = st.pc.offers.filter(function (o) { return o.renew; })[0];
+      if (!c || p.youth || st.pc.moving) return '';
+      if (own) return '<p class="small pos" style="margin:8px 0 0">' + esc(c.short) + ' bietet dir eine Verlängerung an – jetzt verhandeln.</p>';
+      if (cs.dec === 'no') return '<p class="small neg" style="margin:8px 0 0">' + esc(c.short) + ' verlängert nicht – such dir einen neuen Verein.</p>';
+      if (cY <= 2) return '<p class="small muted" style="margin:8px 0 0">Du kannst unter „Berater & Verträge“ um ein Vertragsgespräch bitten.</p>';
+      return '';
+    })() + '</div>';
     // Nächster Termin
     var fx = (st.phase === 'season' || st.phase === 'preseason') && CM.fixture(st), nextTxt;
     if (st.phase === 'seasonEnd') nextTxt = 'Die Saison ist vorbei – weiter geht es mit der neuen Saison.';
@@ -264,6 +284,7 @@
   U.finishWeek = function (played) {
     var st = U.st; baseFinish(played);
     if (on(st) && !U.autoRun && st.pendingEvent && !document.querySelector('#modal:not(.hidden)')) setTimeout(function () { if (U.st.pendingEvent) U.showEvent(); }, 450);
+    if (on(st) && st.celebrations && st.celebrations.length && U.showCelebration) { U.autoRun = false; U.renderTop(); setTimeout(function () { if (!document.querySelector('#celebrate.show')) U.showCelebration(); }, 420); return; } // Titel-Screens wie im Manager-Modus
     else if (on(st) && !U.autoRun && U.dlgPending && U.dlgPending(st)) setTimeout(function () { if (!document.querySelector('#modal:not(.hidden)') && U.dlgPending(U.st)) U.showDlg(); }, 500);
   };
 
@@ -343,11 +364,20 @@
       '<div class="panel"><h2>Verlauf</h2>' + (ag.hist.length ? '<ul class="small">' + ag.hist.slice(-12).reverse().map(function (x) { return '<li>' + (x.n ? esc(x.n) + ': ' + esc(x.why || '') : esc(x.why || '')) + (x.d ? ' <span class="muted">(' + (x.d > 0 ? '+' : '') + x.d + ')</span>' : '') + '</li>'; }).join('') + '</ul>' : '<p class="muted small">Noch nichts passiert.</p>') + '</div></div>';
     return h;
   };
-  function offerMsg(t) { U.toast(t, 5500); U.autosave(); U.render(); }
-  U.acts.agInfo = function (d) { offerMsg(AG.askInfo(U.st, d.id)); };
-  U.acts.agCoach = function (d) { offerMsg(AG.talkCoach(U.st, d.id)); };
-  U.acts.agSecond = function (d) { offerMsg(AG.secondOpinion(U.st, d.id)); };
-  U.acts.agNeg = function (d) { offerMsg(AG.negotiate(U.st, d.id, d.l).msg); };
+  function offerMsg(t, title, id) { // Ergebnis in eigenem Fenster statt Hinweisleiste
+    U.autosave(); U.render();
+    var o = (U.st.pc.offers || []).filter(function (x) { return x.id === id; })[0], c2 = o && U.st.clubs[o.clubId];
+    if (U.showResult) U.showResult(title + (c2 ? ' – ' + c2.name : ''), t, 'vertrag'); else U.toast(t, 5500);
+  }
+  U.acts.pcAskRenew = function () {
+    var st = U.st, r = R.life.askRenewal(st); U.autosave();
+    if (r.oid) { U.render(); U.acts.dlgStart({ dlg: 'negotiate', oid: r.oid }); return; }
+    U.render(); U.showResult('Vertragsgespräch', r.msg, 'vertrag');
+  };
+  U.acts.agInfo = function (d) { offerMsg(AG.askInfo(U.st, d.id), 'Einsatzchancen', d.id); };
+  U.acts.agCoach = function (d) { offerMsg(AG.talkCoach(U.st, d.id), 'Gespräch mit dem Trainer', d.id); };
+  U.acts.agSecond = function (d) { offerMsg(AG.secondOpinion(U.st, d.id), 'Zweite Meinung (Anwalt)', d.id); };
+  U.acts.agNeg = function (d) { offerMsg(AG.negotiate(U.st, d.id, d.l).msg, 'Verhandlung', d.id); };
   U.acts.agPower = function () { var ag = AG.ensure(U.st); AG.setPower(U.st, !(ag.con && ag.con.power)); U.autosave(); U.render(); };
   U.acts.agFire = function () { U.confirm('Berater kündigen', 'Vertrag vorzeitig beenden?' + (AG.fireCost(U.st) ? ' Die Abfindung beträgt ' + money(AG.fireCost(U.st)) + '.' : ''), function () { var r = AG.fire(U.st); U.toast(r.ok ? 'Der Vertrag ist beendet.' : r.why); U.autosave(); U.render(); }); };
   U.acts.agView = function (d) {
@@ -394,7 +424,7 @@
     var w = PF.wallet(st), can = PF.canTrade(st);
     var rate = st.savingsRate || 0, rt = (rate * 100).toFixed(2).replace('.', ','), il = (w.interestLog || []).filter(function (x) { return x.s === st.season; });
     var h = '<div class="grid g2"><div class="panel fin-card"><div class="panel-h"><h2>' + U.lc('piggy-bank', 17) + ' Konto & Tagesgeld</h2><span class="pill ok">' + rt + ' % p. a.</span></div>' +
-      (st.settings.cheatEnabled ? '<div class="director-sign static" data-act="bankSign" title="" style="margin-bottom:8px">' + U.lc('landmark', 16) + ' HAUSBANK</div>' : '') +
+      '<div class="pc-bank-img"><img src="img/bank.jpg" alt="Hausbank am Abend">' + (st.settings.cheatEnabled ? '<div class="director-sign" data-act="bankSign" title="">HAUSBANK</div>' : '') + '</div>' +
       '<div class="fc-grid"><div><span>Girokonto</span><b class="' + (w.cash < 0 ? 'neg' : '') + '" data-cash>' + money(Math.round(w.cash)) + '</b><small>Dispolimit ' + money(PF.odLimit(st)) + '</small></div><div><span>Tagesgeld</span><b>' + money(Math.round(w.savings)) + '</b><small>Zinssatz variabel: ' + rt + ' %</small></div>' +
       '<div><span>Aufgelaufene Zinsen</span><b class="pos">' + money(Math.round(w.interestAccrued || 0)) + '</b><small>Gutschrift nach dem ' + E.nextInterestWeek(st) + '. Spieltag</small></div><div><span>Zinsen diese Saison</span><b class="pos">' + money(R.sum(il, function (x) { return x.a; })) + '</b><small>ca. ' + money(Math.round(w.savings * rate * E.INTEREST_MONTH / E.WEEKS)) + ' pro Monat</small></div></div>' +
       (il.length ? '<table class="t small" style="margin-top:10px"><tr><th>Gutschrift</th><th class="num">Betrag</th></tr>' + il.slice(-5).reverse().map(function (x) { return '<tr><td>nach dem ' + x.w + '. Spieltag</td><td class="num pos">+' + money(x.a) + '</td></tr>'; }).join('') + '</table>' : '') +
@@ -406,21 +436,33 @@
     h += U.marketView(st, w, sub, can, { noClub: true, w: 'pc', acts: { buy: 'pfAssetBuy', sell: 'pfAssetSell', detail: 'assetDetail' } });
     return h;
   };
-  FIN.immo = function (st) {
-    var f = PF.ensure(st), w = PF.wallet(st), minor = PF.minor(st);
-    var h = '<div class="panel"><h2>Deine Immobilien</h2>' + (f.homes.length ? '<table class="t small"><tr><th>Objekt</th><th class="num">Kaufpreis</th><th class="num">Wert</th><th class="num">Darlehen</th><th class="num">Miete/Jahr</th><th></th></tr>' + f.homes.map(function (x) { return '<tr><td>' + esc(x.n) + (f.homeId === x.id ? ' <span class="cx-pill ok">Wohnsitz</span>' : '') + (x.vacant > 0 ? ' <span class="cx-pill warn">Leerstand</span>' : '') + '</td><td class="num">' + money(x.price) + '</td><td class="num">' + money(Math.round(x.value)) + '</td><td class="num">' + (x.loan ? money(Math.round(x.loan.bal)) : '–') + '</td><td class="num">' + (x.rentY ? money(x.rentY) : '–') + '</td><td class="num"><button class="sm" data-act="pfSellHome" data-id="' + x.id + '">Verkaufen</button></td></tr>'; }).join('') + '</table>' : '<p class="muted small">Noch kein Wohneigentum.</p>') + '</div>';
+  FIN.immo = function (st) { // Privat (selbst bewohnt) und Kapitalanlage (Immobilienmarkt wie im Manager-Spiel) – jeweils bar oder finanziert
+    var f = PF.ensure(st), w = PF.wallet(st), minor = PF.minor(st), sub = U.p.imtab || 'privat';
+    var h = '<div class="seg" style="margin-bottom:12px"><button class="' + (sub === 'privat' ? 'on' : '') + '" data-act="pfImTab" data-k="privat">' + U.lc('house', 14) + ' Privat (Wohnsitz)</button><button class="' + (sub === 'anlage' ? 'on' : '') + '" data-act="pfImTab" data-k="anlage">' + U.lc('building-2', 14) + ' Kapitalanlage</button></div>';
     if (minor) return h + '<p class="muted">Immobilien erst ab 18 Jahren.</p>';
-    h += '<div class="panel" style="margin-top:14px"><h2>Wohneigentum kaufen</h2><p class="muted small">Preise folgen dem regionalen Immobilienindex. Mindestens 20 % Eigenkapital plus Nebenkosten; die Bank prüft die Rate gegen dein Einkommen.</p><table class="t small"><tr><th>Angebot</th><th class="num">Preis</th><th class="num">Nebenkosten</th><th class="num">Miete/Jahr</th><th></th></tr>' +
-      ['wohnung', 'haus', 'villa'].map(function (k) { return [false, true].map(function (rent) { var o = PF.homeOffer(st, k, rent); return '<tr><td>' + esc(o.n) + '</td><td class="num">' + money(o.price) + '</td><td class="num">' + money(o.fees) + '</td><td class="num">' + (o.rentY ? money(o.rentY) : 'selbst bewohnt') + '</td><td class="num"><button class="sm" data-act="pfBuyHome" data-k="' + k + '" data-r="' + (rent ? 1 : 0) + '">Kaufen</button></td></tr>'; }).join(''); }).join('') + '</table></div>';
-    // Anlageimmobilien aus dem bestehenden Immobilienmarkt
-    if (R.realty) {
-      var re = R.realty.ensure(st); if (!re.offers || !re.offers.length) R.realty.refreshMarket(st, w);
-      var rp = PF.realty(st);
-      h += '<div class="panel" style="margin-top:14px"><h2>Anlageimmobilien (Immobilienmarkt)</h2>' + (rp.count ? '<p class="small">Bestand: ' + rp.count + ' Objekt(e), Wert ' + money(Math.round(rp.value)) + ', Darlehen ' + money(Math.round(rp.debt)) + ', Cashflow ' + sgn(Math.round(rp.cfY)) + '/Jahr.</p>' : '') +
-        '<table class="t small"><tr><th>Objekt</th><th class="num">Preis</th><th></th></tr>' + (re.offers || []).slice(0, 6).map(function (o) { var q = R.realty.quote(st, w, o, {}); return '<tr><td>' + esc(o.name) + '<div class="muted">' + esc(o.region || '') + (q.ok ? '' : ' · ' + esc((q.reasons || []).join(' '))) + '</div></td><td class="num">' + money(o.price || o.land || 0) + '</td><td class="num"><button class="sm" data-act="pfRealty" data-id="' + o.id + '"' + (q.ok ? '' : ' disabled') + '>Kaufen (finanziert)</button></td></tr>'; }).join('') + '</table></div>';
+    var row = function (x) { return '<tr><td>' + esc(x.n) + (f.homeId === x.id ? ' <span class="cx-pill ok">Wohnsitz</span>' : '') + (x.vacant > 0 ? ' <span class="cx-pill warn">Leerstand</span>' : '') + '</td><td class="num">' + money(x.price) + '</td><td class="num">' + money(Math.round(x.value)) + '</td><td class="num">' + (x.loan ? money(Math.round(x.loan.bal)) : 'bar bezahlt') + '</td><td class="num">' + (x.rentY ? money(x.rentY) : '–') + '</td><td class="num">' + (x.k !== 'rent' && f.homeId !== x.id ? '<button class="sm" data-act="pfHomeMain" data-id="' + x.id + '">Als Wohnsitz</button> ' : '') + '<button class="sm" data-act="pfSellHome" data-id="' + x.id + '">Verkaufen</button></td></tr>'; };
+    var head = '<table class="t small"><tr><th>Objekt</th><th class="num">Kaufpreis</th><th class="num">Wert</th><th class="num">Darlehen</th><th class="num">Miete/Jahr</th><th></th></tr>';
+    if (sub === 'privat') {
+      var own = f.homes.filter(function (x) { return x.k !== 'rent'; });
+      h += '<div class="panel"><h2>Dein Wohneigentum</h2>' + (own.length ? head + own.map(row).join('') + '</table>' : '<p class="muted small">Noch kein eigenes Zuhause – du wohnst zur Miete.</p>') + '</div>';
+      h += '<div class="panel" style="margin-top:14px"><h2>Eigenes Zuhause kaufen</h2><p class="muted small">Selbst genutzt: keine Mieteinnahmen, aber keine Miete mehr und Wertentwicklung nach regionalem Immobilienindex. <b>Bar</b>: Kaufpreis plus Nebenkosten sofort vom Konto. <b>Finanziert</b>: mindestens 20 % Eigenkapital plus Nebenkosten, die Bank prüft die Rate gegen dein Einkommen.</p>' + head.replace('<th class="num">Wert</th><th class="num">Darlehen</th><th class="num">Miete/Jahr</th>', '<th class="num">Nebenkosten</th><th class="num">Gesamt</th>') +
+        ['wohnung', 'haus', 'villa'].map(function (k) { var o = PF.homeOffer(st, k, false), tot = o.price + o.fees, cash = PF.liquid(st) >= tot; return '<tr><td>' + esc(o.n) + '</td><td class="num">' + money(o.price) + '</td><td class="num">' + money(o.fees) + '</td><td class="num">' + money(tot) + '</td><td class="num"><button class="sm primary" data-act="pfBuyHome" data-k="' + k + '" data-r="0" data-cash="1"' + (cash ? '' : ' disabled title="Nicht genug Guthaben für einen Barkauf"') + '>Bar kaufen</button> <button class="sm" data-act="pfBuyHome" data-k="' + k + '" data-r="0">Finanzieren</button></td></tr>'; }).join('') + '</table></div>';
+      return h;
     }
+    // Kapitalanlage: kleine Vermietungsobjekte + kompletter Immobilienmarkt aus dem Manager-Spiel
+    var rent = f.homes.filter(function (x) { return x.k === 'rent'; });
+    h += '<div class="panel"><h2>Vermietete Wohnungen</h2>' + (rent.length ? head + rent.map(row).join('') + '</table>' : '<p class="muted small">Noch keine vermietete Wohnung.</p>') +
+      '<table class="t small" style="margin-top:8px"><tr><th>Angebot</th><th class="num">Preis</th><th class="num">Nebenkosten</th><th class="num">Miete/Jahr</th><th></th></tr>' + ['wohnung', 'haus', 'villa'].map(function (k) { var o = PF.homeOffer(st, k, true), cash = PF.liquid(st) >= o.price + o.fees; return '<tr><td>' + esc(o.n) + '</td><td class="num">' + money(o.price) + '</td><td class="num">' + money(o.fees) + '</td><td class="num">' + money(o.rentY) + '</td><td class="num"><button class="sm primary" data-act="pfBuyHome" data-k="' + k + '" data-r="1" data-cash="1"' + (cash ? '' : ' disabled title="Nicht genug Guthaben für einen Barkauf"') + '>Bar kaufen</button> <button class="sm" data-act="pfBuyHome" data-k="' + k + '" data-r="1">Finanzieren</button></td></tr>'; }).join('') + '</table></div>';
+    if (R.realty && U.realtyPanel) h += '<div style="margin-top:14px">' + asWallet(function () { return U.realtyPanel(st, w).replace(/Freies Vereinskapital/g, 'Freies Kapital').replace(/erhält der Verein/g, 'erhältst du'); }) + '</div>';
     return h;
   };
+  // Der Immobilienmarkt des Manager-Spiels arbeitet mit dem Privatvermögen des Spielers als „Käufer“
+  function asWallet(fnc) { var st = U.st, bc = U.club, bcan = U.can; U.club = function () { return PF.wallet(st); }; U.can = function (a) { return a === 'business' ? true : bcan(a); }; try { return fnc(); } finally { U.club = bc; U.can = bcan; st.pc.cash = PF.wallet(st).cash; } }
+  U.acts.pfImTab = function (d) { U.p.imtab = d.k; U.render(); };
+  U.acts.pfHomeMain = function (d) { PF.ensure(U.st).homeId = d.id; U.autosave(); U.render(); };
+  Object.keys(U.acts).filter(function (k) { return /^rt[A-Z]/.test(k); }).forEach(function (k) {
+    var base = U.acts[k]; U.acts[k] = function (d, el) { var st = U.st; if (!st || !st.pc || !C.active(st) || st.pc.retired || R.season.userClub(st)) return base(d, el); return asWallet(function () { return base(d, el); }); };
+  });
   FIN.kredit = function (st) {
     var f = PF.ensure(st), cr = PF.credit(st);
     var h = '<div class="grid g2"><div class="panel"><h2>Bonität</h2>' + (cr.why ? '<p class="muted">' + esc(cr.why) + '</p>' : '<div class="grid g3">' + U.kpi('Score', cr.score) + U.kpi('Note', cr.grade) + U.kpi('Kreditrahmen', money(cr.max)) + '</div><p class="muted small">Die Bonität hängt von Vertragslaufzeit, monatlichem Saldo, Reserven, Vermögen und verpassten Zahlungen ab.</p>') + '</div>';
@@ -480,7 +522,7 @@
   };
   U.acts.pfBuy = function (d) { var r = PF.buy(U.st, d.s, +d.v); fmsg(r.ok ? 'Gekauft für ' + money(Math.round(r.cost)) + '.' : r.why || 'Nicht möglich.'); };
   U.acts.pfSell = function (d) { var w = PF.wallet(U.st), q = w.portfolio[d.s] ? w.portfolio[d.s].qty : 0; var r = PF.sell(U.st, d.s, q); fmsg(r.ok ? 'Verkauft für ' + money(Math.round(r.revenue)) + '.' : r.why || 'Nicht möglich.'); };
-  U.acts.pfBuyHome = function (d) { var st = U.st, o = PF.homeOffer(st, d.k, d.r === '1'); U.confirm('Immobilie kaufen', esc(o.n) + ' für ' + money(o.price) + ' zzgl. ' + money(o.fees) + ' Nebenkosten kaufen? Der Rest wird über ein Darlehen finanziert.', function () { var r = PF.buyHome(st, d.k, d.r === '1'); fmsg(r.ok ? 'Gekauft!' : r.why); }); };
+  U.acts.pfBuyHome = function (d) { var st = U.st, o = PF.homeOffer(st, d.k, d.r === '1'), cash = d.cash === '1' || d.cash === 1; U.confirm('Immobilie ' + (cash ? 'bar ' : '') + 'kaufen', esc(o.n) + ' für ' + money(o.price) + ' zzgl. ' + money(o.fees) + ' Nebenkosten ' + (cash ? 'bar kaufen? Gesamt ' + money(o.price + o.fees) + ' werden sofort vom Konto abgebucht – kein Darlehen.' : 'kaufen? Der Rest wird über ein Darlehen finanziert.'), function () { var r = PF.buyHome(st, d.k, d.r === '1', cash ? 'cash' : undefined); fmsg(r.ok ? (cash ? 'Bar gekauft!' : 'Gekauft!') : r.why); }); };
   U.acts.pfSellHome = function (d) { U.confirm('Immobilie verkaufen', 'Zum aktuellen Marktwert verkaufen (abzüglich Kosten)?', function () { var r = PF.sellHome(U.st, d.id); fmsg(r.ok ? 'Verkauft.' : 'Nicht möglich.'); }); };
   U.acts.pfRealty = function (d) { var st = U.st, w = PF.wallet(st); var r = R.realty.buy(st, w, d.id, {}); st.pc.cash = w.cash; fmsg(r.ok ? 'Objekt gekauft.' : r.why); };
   U.acts.pfLoan = function (d) { var r = PF.takeLoan(U.st, 'konsum', +d.v); fmsg(r.ok ? 'Kredit ausgezahlt, Rate ' + money(Math.round(r.pay)) + '/Monat.' : r.why); };

@@ -66,8 +66,8 @@
     if (pt) {
       var care = (a.partner || 0) * 1.6 + (a.private || 0) * 0.6, need = (pt.time - 40) / 60;
       pt.v = clamp(pt.v - 0.5 - need * 0.6 + care - Math.max(0, cx.per.stress - 65) / 40, 0, 100);
-      if (pc.moving && !lf.moveAsked) { lf.moveAsked = true; if (!L.active(st)) L.start(st, 'partner_talk', { topic: 'abroad' }); }
-      if (pt.v < 38 && !pt.crisis && chance(0.12)) { pt.crisis = 1; X.chron(st, 'familie', '⛈️', 'Beziehungskrise', fn(pt) + ' fühlt sich vernachlässigt.', 2); if (!L.active(st)) L.start(st, 'partner_talk', { topic: 'crisis' }); }
+      if (pc.moving && !lf.moveAsked && !L.pt) { lf.moveAsked = true; if (!L.active(st)) L.start(st, 'partner_talk', { topic: 'abroad' }); }
+      if (!L.pt && pt.v < 38 && !pt.crisis && chance(0.12)) { pt.crisis = 1; X.chron(st, 'familie', '⛈️', 'Beziehungskrise', fn(pt) + ' fühlt sich vernachlässigt.', 2); if (!L.active(st)) L.start(st, 'partner_talk', { topic: 'crisis' }); }
       if (pt.v < 14 && chance(0.25)) L.breakup(st, fn(pt) + ' hat die Beziehung beendet');
       else if (pt.stage < 3 && t - (pt.stageT || 0) > 20) pt.stage = 3;
     } else if (p.age >= 17) {
@@ -76,7 +76,7 @@
       if (lf.cands.length < 2 && chance(pr) && !L.active(st)) { var x = L.newCand(st); L.start(st, 'meet', { cid: x.id, where: pick(WHERE) }); }
     }
     // ---- Familienplanung, Schwangerschaft, Kinder ----
-    if (pt && lf.planKids && !lf.preg && pt.stage >= 4 && chance(0.035)) { lf.preg = { due: t + R.randInt(32, 38) }; X.chron(st, 'familie', '🤰', 'Ihr erwartet ein Kind', fn(pt) + ' ist schwanger.', 3); X.eff(st, { family: 4 }); }
+    if (pt && lf.planKids && !lf.preg && pt.stage >= 4 && (lf.kidTry = (lf.kidTry || 0) + 1) && chance(Math.min(0.2, 0.035 + 0.003 * lf.kidTry))) { lf.kidTry = 0; lf.preg = { due: t + R.randInt(32, 38) }; X.chron(st, 'familie', '🤰', 'Ihr erwartet ein Kind', fn(pt) + ' ist schwanger.', 3); X.eff(st, { family: 4 }); }
     if (lf.preg && t >= lf.preg.due) {
       var g = R.rand() < 0.5 ? 'a' : 'b', kid = { id: 'k' + (lf.uid++), name: L.first(g) + ' ' + p.last, g: g, born: st.season, bornT: t };
       lf.kids.push(kid); lf.preg = null; lf.newborn = t;
@@ -198,6 +198,9 @@
     var B = L.BLD[b], a = B && B.acts.filter(function (x) { return x.k === k; })[0], c = L.ctx(st); if (!a) return { ok: false, why: 'Unbekannt.' };
     if (a.req && !a.req(c)) return { ok: false, why: 'Gerade nicht möglich.' };
     if (b !== 'geschaeft' && b !== 'stadion' && lv(c.c, b === 'training' ? 'training' : b) < 1) return { ok: false, why: 'Diese Einrichtung gibt es im Verein nicht.' };
+    var cur = L.active(st);
+    if (a.dlg && cur && !cur.done && cur.id === a.dlg && JSON.stringify(cur.data) === JSON.stringify(a.data || {})) return { ok: true, dlg: true }; // dasselbe Gespräch fortsetzen
+    if (a.dlg && cur) L.ensure(st).dlg = null; // anderes offenes Gespräch ohne weitere Wirkung beenden
     if (a.ap) { var r = L.spend(st, a.ap); if (!r.ok) return r; }
     var lf = L.life(st); lf.visits[b] = (lf.visits[b] || 0) + 1;
     if (a.dlg) { L.start(st, a.dlg, R.clone(a.data || {})); return { ok: true, dlg: true }; }
@@ -211,7 +214,7 @@
       o: [{ l: 'Spielen, abends nachfeiern', fx: function (st) { return L.eff(st, { coach: 1, family: -3, partner: -2 }); } }, { l: 'Morgens feiern, dann direkt ins Stadion', fx: function (st) { return L.eff(st, { family: 2, fit: -3, stress: 2 }); } }, { l: 'Um Freigabe bitten', fx: function (st, c) { return X.roll(st, 0.35, [(c.pc.trust - 50) / 200]) ? 'Der Trainer gibt dir frei. ' + L.eff(st, { family: 6, partner: 3, coach: -2 }) : 'Abgelehnt. ' + L.eff(st, { coach: -2, family: -2 }); } }] },
     { id: 'l_wedding_away', cat: 'freund', ic: '💒', cd: 70, when: function (c) { return c.life && c.life.friends.length && c.pro; }, ti: 'Hochzeit eines Freundes', t: function (c) { return fn(c.life.friends[0]) + ' heiratet – du sollst Trauzeuge sein. Am selben Tag ist Auswärtsspiel.'; },
       o: [{ l: 'Zum Spiel fahren', fx: function (st) { return L.eff(st, { friend: -12, coach: 1 }, { friend: L.life(st).friends[0].id }); } }, { l: 'Freistellung beantragen', fx: function (st, c) { return X.roll(st, 0.4, [(c.pc.trust - 50) / 200]) ? 'Freigestellt. Eine unvergessliche Rede! ' + L.eff(st, { friend: 12, well: 4 }, { friend: L.life(st).friends[0].id }) : 'Nicht genehmigt. ' + L.eff(st, { friend: -8, coach: -1 }, { friend: L.life(st).friends[0].id }); } }] },
-    { id: 'l_partner_job', cat: 'familie', ic: '💼', cd: 80, when: function (c) { return c.life && c.life.partner && c.life.partner.stage >= 4; }, ti: 'Jobangebot für deine Partnerperson', t: function (c) { var p = c.life.partner; return fn(p) + ' bekommt ein tolles Jobangebot – aber 400 km entfernt.'; },
+    { id: 'l_partner_job', cat: 'familie', ic: '💼', cd: 80, when: function (c) { return !L.pt && c.life && c.life.partner && c.life.partner.stage >= 4; }, ti: 'Jobangebot für deine Partnerperson', t: function (c) { var p = c.life.partner; return fn(p) + ' bekommt ein tolles Jobangebot – aber 400 km entfernt.'; },
       o: [{ l: 'Unterstützen – Fernbeziehung auf Zeit', fx: function (st) { var p = L.life(st).partner; p.time = Math.min(95, p.time + 10); return L.eff(st, { partner: 6, stress: 3 }); } }, { l: 'Bitten, das Angebot abzulehnen', fx: function (st) { return L.eff(st, { partner: -10 }); } }, { l: 'Selbst über einen Wechsel in die Nähe nachdenken', fx: function (st) { X.setFlag(st, 'scout', st.season); return L.eff(st, { partner: 8, loyal: -3 }); } }] },
     { id: 'l_newborn_night', cat: 'familie', ic: '🍼', cd: 20, when: function (c) { return c.life && c.life.newborn && c.st.tick - c.life.newborn < 10; }, ti: 'Schlaflose Nächte', t: function () { return 'Das Baby schläft kaum. Morgen ist Abschlusstraining.'; },
       o: [{ l: 'Nachtschicht übernehmen', fx: function (st) { return L.eff(st, { partner: 5, fit: -5 }); } }, { l: 'Im Gästezimmer schlafen', fx: function (st) { return L.eff(st, { partner: -4, fit: 2 }); } }, { l: 'Babysitter organisieren (150 €)', fx: function (st) { if (R.pf) R.pf.book(st, -150, 'Familie'); return L.eff(st, { partner: 2, fit: 1 }); } }] },
@@ -241,6 +244,132 @@
     S.completeWeek = function (st, played) { var r = baseCW.apply(this, arguments); try { if (st && st.pc && st.pc.cx && st.pc.cx.life) { var dl = L.active(st); if (dl && (dl.done || (st.tick || 0) - dl.t0 >= 3)) { if (!dl.done) L.autoRun(st, safePolicy); else L.close(st); } } } catch (er) { if (typeof console !== 'undefined') console.error(er); } return r; };
   }
   // ---------- Hooks ----------
+  // ---------- Vertrag beim eigenen Verein: Verlängerung, rechtzeitige Absage, vereinslos ----------
+  // Läuft der Vertrag mit dieser Saison aus, entscheidet der Verein in der Hinrunde (oder sobald du um ein Gespräch bittest):
+  // Verlängerungsangebot mit Verhandlung – oder eine klare Absage, damit genug Zeit für die Vereinssuche bleibt.
+  // Vereinslos kommen laufend Angebote mit sofortigem Einstieg; spätestens nach 8 Wochen unterschreibst du beim besten.
+  function rnd(v, s) { return Math.round(v / s) * s; }
+  function sw() { return S.SEASON_WEEKS || 34; }
+  L.cstat = function (st) { var lf = L.life(st); if (!lf.cs || lf.cs.season !== st.season) lf.cs = { season: st.season, dec: null, wk: null, asked: -99, warn: 0, own: null, ownGone: false }; return lf.cs; };
+  function posAvg(st, c, p) { var sq = W.squad(st, c.id).filter(function (x) { return x.pos === p.pos && !x.youth && x.id !== p.id; }).sort(function (a, b) { return b.ovr - a.ovr; }), top = sq.slice(0, Math.max(1, Math.ceil(sq.length / 2))); return top.length ? R.avg(top, function (x) { return x.ovr; }) : 50; }
+  L.renewScore = function (st) { // > 0: Verein will verlängern
+    var p = C.player(st), pc = st.pc, c = p && p.clubId && st.clubs[p.clubId]; if (!c) return -99;
+    var played = st.week > 3 ? Math.min(1, p.stats.apps / Math.max(1, st.week * 0.6)) : 0.5;
+    var gw = p.age <= 21 ? 1.5 : p.age <= 24 ? 2.2 : 3, pw = p.age <= 23 ? 1 : p.age <= 26 ? 0.5 : 0; // Talente: Potenzial zählt mit, Rückstand weniger
+    return (p.ovr - posAvg(st, c, p)) * gw + (pc.trust - 45) * 0.6 + (played - 0.4) * 14 - Math.max(0, p.age - 31) * 5 + Math.max(0, (p.pot || p.ovr) - p.ovr) * pw + 8;
+  };
+  function ownOffer(st) {
+    var p = C.player(st), pc = st.pc, c = st.clubs[p.clubId], fair = W.fairWage(p) * (1 + pc.fame / 250) * (pc.agent ? 1.08 : 1);
+    var o = { id: 'own' + tick(st), clubId: c.id, renew: true, wage: rnd(Math.max(p.wage * 1.03, fair * (0.9 + pc.trust / 500)), 1000), years: p.age >= 31 ? 1 : R.randInt(2, 4) };
+    pc.offers = pc.offers.filter(function (x) { return !x.renew; }); pc.offers.push(o); if (R.ag) R.ag.enrich(st, o);
+    return o;
+  }
+  L.marketOffers = function (st, n, role) { // hängt Angebote anderer Vereine an (ohne bestehende zu löschen)
+    var pc = st.pc, p = C.player(st); if (!p || n <= 0) return 0;
+    var free = !p.clubId, want = p.ovr + (pc.agent ? 2 : 0) + pc.fame / 25, fair = W.fairWage(p) * (1 + pc.fame / 250) * (pc.agent ? 1.12 : 1);
+    var all = Object.keys(st.clubs).map(function (k) { return st.clubs[k]; }).filter(function (c) { return !c.foreign && c.league && c.id !== p.clubId && !pc.offers.some(function (o) { return o.clubId === c.id; }); })
+      .map(function (c) { return { c: c, gap: want - posAvg(st, c, p) }; });
+    var cands = all.filter(function (x) { return x.gap > (free ? -9 : -6); }).sort(function (a, b) { return (a.c.league - b.c.league) || (b.gap - a.gap); });
+    if (!cands.length) cands = all.sort(function (a, b) { return (b.c.league - a.c.league) || (b.gap - a.gap); }); // notfalls tiefere Ligen
+    var k = 0;
+    cands.slice(0, 12).sort(function () { return R.rand() - 0.5; }).slice(0, n).forEach(function (x) {
+      var o = { id: 'm' + tick(st) + '_' + (k++), clubId: x.c.id, wage: rnd(fair * (free ? R.randRange(0.8, 1.0) : R.randRange(1.0, 1.15)), 1000), years: free ? R.randInt(1, 3) : R.randInt(2, 4), fee: !free && p.contract > 1 ? rnd(p.value, 50000) : 0, role: role || (x.gap > 3 ? 'Stammspieler' : x.gap > -1 ? 'Rotation' : 'Herausforderer'), now: free };
+      pc.offers.push(o); if (R.ag) R.ag.enrich(st, o);
+    });
+    return k;
+  };
+  L.decideRenewal = function (st, asked) {
+    var cs = L.cstat(st), p = C.player(st), pc = st.pc, c = p && p.clubId && st.clubs[p.clubId];
+    if (!c || p.youth || p.loan || pc.moving || cs.dec) return cs.dec;
+    cs.dec = L.renewScore(st) > 0 ? 'renew' : 'no'; cs.wk = st.week;
+    if (cs.dec === 'renew') {
+      var o = cs.own = ownOffer(st);
+      X.chron(st, 'vertrag', '✍️', 'Verein will verlängern', c.short + ' bietet dir eine Vertragsverlängerung an: ' + money(o.wage) + '/Jahr, ' + o.years + (o.years === 1 ? ' Jahr' : ' Jahre') + '.', 2);
+      if (S.news) S.news(st, 'Verlängerungsangebot', c.name + ' möchte mit dir verlängern – verhandeln unter „Berater & Verträge“.', 'karriere');
+      if (!asked && !L.active(st)) L.start(st, 'negotiate', { oid: o.id });
+    } else {
+      pc.offers = pc.offers.filter(function (x) { return !x.renew; });
+      X.chron(st, 'vertrag', '📭', 'Keine Vertragsverlängerung', c.name + ' verlängert deinen auslaufenden Vertrag nicht. Du hast bis zum Sommer Zeit, einen neuen Verein zu finden.', 3);
+      if (S.news) S.news(st, 'Kein neuer Vertrag', c.name + ' plant nicht mehr mit dir – der Vertrag endet im Sommer.', 'karriere');
+      pc.offerSeason = st.season; // Markt öffnet sofort, ohne die vorhandenen Angebote zu verwerfen
+      L.marketOffers(st, 1 + (pc.agent ? 2 : 1) + (pc.fame > 40 ? 1 : 0));
+      if (pc.agent) X.setFlag(st, 'scout', st.season);
+      if (!asked) X.fire(st, 'c_norenew', { club: c.id });
+    }
+    return cs.dec;
+  };
+  L.askRenewal = function (st) { // du bittest selbst um ein Vertragsgespräch
+    var p = C.player(st), pc = st.pc, c = C.club(st), cs = L.cstat(st);
+    if (!c || !p || p.youth) return { ok: false, msg: 'Gerade nicht möglich.' };
+    var own = pc.offers.filter(function (o) { return o.renew; })[0]; if (own) return { ok: true, oid: own.id };
+    if (pc.moving) return { ok: false, msg: 'Dein Wechsel ist bereits vereinbart.' };
+    if (cs.dec === 'no') return { ok: false, msg: 'Die Entscheidung steht: ' + c.short + ' verlängert nicht. Konzentriere dich auf die Angebote anderer Vereine.' };
+    if (p.contract > 2) return { ok: false, msg: 'Die Sportdirektion winkt ab: „Dein Vertrag läuft noch ' + p.contract + ' Saisons. Darüber reden wir später.“' };
+    if (st.week - cs.asked < 6 && cs.asked >= 0) return { ok: false, msg: 'Du hast erst vor Kurzem gefragt. Die Sportdirektion meldet sich.' };
+    cs.asked = st.week;
+    if (p.contract <= 1) { var d = L.decideRenewal(st, true); return d === 'renew' ? { ok: true, oid: cs.own.id, fresh: true } : { ok: false, no: true, msg: '„Wir müssen ehrlich sein: Wir planen ohne dich. Dein Vertrag wird nicht verlängert.“ Du hast bis zum Sommer Zeit – ' + (pc.agent ? 'dein Berater sucht bereits.' : 'ein Spielerberater kann bei der Suche helfen.') + ' Erste Angebote liegen schon vor.' }; }
+    if (L.renewScore(st) > 6) { cs.dec = 'renew'; var o = cs.own = ownOffer(st); return { ok: true, oid: o.id, fresh: true }; }
+    return { ok: false, msg: '„Wir sind zufrieden, aber für eine vorzeitige Verlängerung ist es noch zu früh. Zeig dich weiter, dann reden wir.“' };
+  };
+  L.onContract = function (st) { // wöchentlich
+    var pc = st.pc, p = C.player(st); if (!p || pc.retired) return;
+    var lf = L.life(st);
+    if (!p.clubId) { // vereinslos: kein Leerlauf
+      lf.free = (lf.free || 0) + 1;
+      var now = pc.offers.filter(function (o) { return o.now; }).length;
+      if (now < 2 && (lf.free % 2 === 1 || !now)) { var n = L.marketOffers(st, 2 - now + (pc.agent ? 1 : 0), 'Vereinslos – sofortiger Einstieg'); if (n) X.chron(st, 'vertrag', '📨', 'Neue Angebote', n + ' Verein(e) bieten dir einen Vertrag mit sofortigem Einstieg an.', 1); }
+      if (lf.free >= 8 && pc.offers.some(function (o) { return o.now; })) { var best = pc.offers.filter(function (o) { return o.now; }).sort(function (a, b) { return st.clubs[a.clubId].league - st.clubs[b.clubId].league || b.wage - a.wage; })[0]; C.acceptOffer(st, best.id); }
+      return;
+    }
+    lf.free = 0;
+    if (p.youth || p.loan || st.phase !== 'season') return;
+    var cs = L.cstat(st);
+    if (p.contract <= 1 && !cs.dec && !pc.moving && st.week >= 8) L.decideRenewal(st, false);
+    if (p.contract <= 1 && !pc.moving && st.week >= sw() - 6 && !cs.warn) { // letzte Erinnerung
+      cs.warn = 1;
+      var renewOpen = pc.offers.some(function (o) { return o.renew; }), other = pc.offers.filter(function (o) { return !o.renew && !o.loan; }).length;
+      if (other < 2) L.marketOffers(st, 2 - other);
+      X.chron(st, 'vertrag', '⏳', 'Vertrag läuft aus', 'Noch ' + Math.max(1, sw() - st.week) + ' Wochen bis Saisonende. ' + (renewOpen ? 'Die Verlängerung liegt noch auf dem Tisch.' : 'Ohne Unterschrift bist du im Sommer vereinslos.'), 2);
+      if (S.news) S.news(st, 'Vertrag läuft aus', 'Ohne Einigung endet dein Vertrag im Sommer. Angebote unter „Berater & Verträge“.', 'karriere');
+    }
+  };
+  L.contractOffers = function (st) { // nach C.makeOffers: Entscheidung des Vereins respektieren
+    var pc = st.pc, cs = L.cstat(st);
+    if (cs.dec === 'no' || (cs.dec === 'renew' && cs.ownGone)) pc.offers = pc.offers.filter(function (o) { return !o.renew; });
+    else if (cs.dec === 'renew' && cs.own) { pc.offers = pc.offers.filter(function (o) { return !o.renew; }); pc.offers.unshift(cs.own); }
+  };
+  var baseDecline = C.declineOffer;
+  C.declineOffer = function (st, id) { var o = st.pc.offers.filter(function (x) { return x.id === id; })[0]; if (o && o.renew) L.cstat(st).ownGone = true; return baseDecline(st, id); };
+  var baseAccept2 = C.acceptOffer;
+  C.acceptOffer = function (st, id) {
+    var pc = st.pc, p = C.player(st), o = pc.offers.filter(function (x) { return x.id === id; })[0];
+    if (o && o.now && p && !p.clubId) { // vereinslos: sofort unterschreiben
+      var c = st.clubs[o.clubId]; T.executeTransfer(st, p, c, 0, o.wage, o.years); C.checkClub(st, p); pc.offers = []; L.life(st).free = 0;
+      X.chron(st, 'vertrag', '🖊️', 'Neuer Verein: ' + c.short, 'Du unterschreibst bis ' + (st.season + o.years) + ' und bist ab sofort dabei.', 3);
+      if (S.news) S.news(st, 'Neuer Verein: ' + c.name, W.playerName(p) + ' unterschreibt bis ' + (st.season + o.years) + '.', 'karriere');
+      return { ok: true, msg: 'Unterschrieben bei ' + c.short + ' – ab sofort dabei.' };
+    }
+    var r = baseAccept2(st, id);
+    if (r && r.ok && o && o.renew) L.cstat(st).ownGone = true;
+    return r;
+  };
+  L.onClubless = function (st) { // Saisonstart ohne Verein
+    var p = C.player(st), pc = st.pc; if (!p || p.clubId || pc.retired) return;
+    var lf = L.life(st); lf.free = 0;
+    var n = L.marketOffers(st, 3 + (pc.agent ? 1 : 0), 'Vereinslos – sofortiger Einstieg');
+    X.chron(st, 'vertrag', '🧳', 'Vereinslos', 'Dein Vertrag ist ausgelaufen. ' + (n ? n + ' Verein(e) bieten dir sofort einen Vertrag an.' : 'Die Suche läuft.'), 3);
+  };
+  X.add('vertrag', [
+    { id: 'c_norenew', cat: 'vertrag', ic: '📭', cd: 1, when: function () { return false; }, ti: 'Gespräch mit der Sportdirektion',
+      t: function (c, d) { var cl = c.st.clubs[d.club]; return '„Wir wollen offen zu dir sein: ' + (cl ? cl.short : 'Der Verein') + ' wird deinen Vertrag nach dieser Saison nicht verlängern.“ Bis zum Sommer bleibt dir Zeit, einen neuen Verein zu finden – erste Angebote liegen schon vor.'; },
+      o: [{ l: 'Verstanden – ich schaue mich um', fx: function (st) { return L.eff(st, { stress: 2 }); } },
+        { l: 'Berater mit der Suche beauftragen', req: function (c) { return !!c.st.pc.agent; }, fx: function (st) { L.marketOffers(st, 1, 'über Berater'); return 'Dein Berater legt los – ein weiteres Angebot ist schon da.'; } },
+        { l: 'Um eine zweite Chance kämpfen', hint: 'Entscheidung kann sich ändern', fx: function (st) { var cs = L.cstat(st); if (chance(0.3)) { cs.dec = null; st.pc.trust = clamp(st.pc.trust + 6, 0, 100); return 'Die Sportdirektion will deine nächsten Wochen abwarten.'; } return 'Die Entscheidung bleibt. ' + L.eff(st, { stress: 3 }); } }] }
+  ]);
+  C.on.weekly.push(L.onContract);
+  C.on.offers.push(L.contractOffers);
+  C.on.newSeason.push(L.onClubless);
+
   C.on.weekly.push(L.weekly);
   C.on.newSeason.push(L.newSeason);
   C.on.offers.push(L.onOffers);

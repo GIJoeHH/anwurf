@@ -215,14 +215,14 @@
     h += '<div class="mc-head"><div class="mc-team">' + U.crest(H, 64) + '<div><b>' + esc(H.name) + '</b><span>HEIM · ' + esc(m.neutral ? (fx.venue ? fx.venue.city : 'Neutrale Halle') : H.stadiumName) + '</span></div></div>' +
       '<div class="mc-score"><span class="mc-live">LIVE · ' + esc(title) + '</span><b><span id="sbH">0</span> : <span id="sbA">0</span></b><span id="sbMin">0\'</span>' + U.attLine(L.att, H, A, 'mc-att') + '</div>' +
       '<div class="mc-team away"><div><b>' + esc(A.name) + '</b><span>GAST' + (K[1].alt ? ' · Ausweichtrikot' : '') + '</span></div>' + U.crest(A, 64) + '</div></div>';
-    h += '<div class="mc-main"><div class="mc-stage"><canvas id="pitchCv" class="mc-canvas" width="1200" height="660"></canvas><div id="flashBox"></div>' +
-      '<div class="mc-kits"><span><i style="background:' + K[0].fill + ';border-color:' + K[0].stroke + '"></i>' + esc(H.short) + '</span><span><i style="background:' + K[1].fill + ';border-color:' + K[1].stroke + '"></i>' + esc(A.short) + '</span></div></div>';
+    var feed = '<div class="panel mc-feed"><div class="mc-feed-h"><span class="mc-label">SPIELVERLAUF</span><div class="row" id="liveCtl" style="gap:6px"><button class="sm" data-act="matchPause" id="pauseBtn">Pause</button><div class="seg">' + [['normal', 'Normal'], ['schnell', 'Schnell'], ['sofort', 'Sofort']].map(function (x) { return '<button class="sm ' + (st.settings.matchSpeed === x[0] ? 'on' : '') + '" data-act="matchSpeed" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div><button class="sm" data-act="matchSkip">Überspringen</button>' + (coach ? '<button class="sm" data-act="liveTactics">Taktik</button>' : '') + '</div></div>' +
+      '<div class="mc-last" id="mcLast"><b>0′</b><span>Anwurf!</span></div><div class="ticker mc-ticker" id="ticker"></div></div>';
+    h += '<div class="mc-main"><div class="mc-left"><div class="mc-stage"><canvas id="pitchCv" class="mc-canvas" width="1200" height="660"></canvas><div id="flashBox"></div>' +
+      '<div class="mc-kits"><span><i style="background:' + K[0].fill + ';border-color:' + K[0].stroke + '"></i>' + esc(H.short) + '</span><span><i style="background:' + K[1].fill + ';border-color:' + K[1].stroke + '"></i>' + esc(A.short) + '</span></div></div>' + feed + '</div>';
     h += '<div class="mc-side"><div class="panel mc-stats"><h2>Spielstatistik</h2>' +
       [['Würfe', 'stShots'], ['Paraden', 'stSv'], ['7-Meter', 'stCh'], ['Zeitstrafen', 'stPoss'], ['Auszeiten übrig', 'stTo']].map(function (r) { return '<div class="mc-stat"><span>' + r[0] + '</span><b id="' + r[1] + '">0 : 0</b></div>'; }).join('') + '</div>' +
       '<div class="panel mc-voice"><h2>Stimmen von der Bank</h2><p id="mcVoice">„Konzentriert bleiben – erste Welle!“</p><div class="muted small" id="mcNext">Nächste Aktion: Wechsel / Taktik</div>' +
       (coach ? '<div class="row" style="margin-top:10px;gap:6px"><button class="sm" data-act="liveTactics">' + U.lc('arrow-left-right', 14) + 'Wechsel / Taktik</button><button class="sm" data-act="liveDrive" id="toBtn">' + U.lc('timer', 14) + 'Auszeit</button></div>' : '<div class="muted small" style="margin-top:8px">' + (m.userSide >= 0 ? 'Als Geschäftsführer coacht der Trainer.' : 'Neutrales Spiel') + '</div>') + '</div></div></div>';
-    h += '<div class="panel mc-feed"><div class="mc-feed-h"><span class="mc-label">SPIELVERLAUF</span><div class="row" id="liveCtl" style="gap:6px"><button class="sm" data-act="matchPause" id="pauseBtn">Pause</button><div class="seg">' + [['normal', 'Normal'], ['schnell', 'Schnell'], ['sofort', 'Sofort']].map(function (x) { return '<button class="sm ' + (st.settings.matchSpeed === x[0] ? 'on' : '') + '" data-act="matchSpeed" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div><button class="sm" data-act="matchSkip">Überspringen</button>' + (coach ? '<button class="sm" data-act="liveTactics">Taktik</button>' : '') + '</div></div>' +
-      '<div class="mc-last" id="mcLast"><b>0′</b><span>Anwurf!</span></div><div class="ticker mc-ticker" id="ticker"></div></div>';
     U.after = function () { U.liveUpdate([], true); U.animLoop(); };
     return h;
   };
@@ -539,7 +539,7 @@
       ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(BP.x, BP.y, 4, 1.6, 0, 0, 7); ctx.fill();
       ctx.beginPath(); ctx.arc(BP.x, BP.y - lift, 4.6 * BP.s / S1, 0, 7); ctx.fillStyle = '#efdfad'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#7c5a1e'; ctx.stroke();
       ctx.textBaseline = 'alphabetic';
-      if (L.paused && !m.finished) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0, 0, Wd, Ht); ctx.fillStyle = '#fff'; ctx.font = '800 46px Inter, Helvetica'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('PAUSE', Wd / 2, Ht * 0.62); ctx.textBaseline = 'alphabetic'; }
+      if (L.paused && !m.finished && !L.career) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0, 0, Wd, Ht); ctx.fillStyle = '#fff'; ctx.font = '800 46px Inter, Helvetica'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('PAUSE', Wd / 2, Ht * 0.62); ctx.textBaseline = 'alphabetic'; }
       if (m.finished) { ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(0, Ht * 0.62 - 50, Wd, 100); ctx.fillStyle = '#fff'; ctx.font = '800 42px Inter, Helvetica'; ctx.textAlign = 'center'; ctx.fillText('ENDE  ' + m.score[0] + ':' + m.score[1], Wd / 2, Ht * 0.62 + 15); }
       U._raf = requestAnimationFrame(frame);
     }

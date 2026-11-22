@@ -285,7 +285,7 @@
   U.acts.rtBuyGo = function () {
     var st = U.st, c = U.club(), b = U.rtBuy; if (!b) return;
     var r = RE.buy(st, c, b.id, b.fin); if (!r.ok) { U.toast(r.why); return; }
-    U.closeModal(); U.rtBuy = null; U.p.rtab = r.prop.status === 'bau' ? 'bau' : 'portfolio'; U.toast((r.prop.status === 'bau' ? 'Projekt gestartet: ' : 'Gekauft: ') + r.prop.name); U.render();
+    U.closeModal(); U.rtBuy = null; U.toast((r.prop.status === 'bau' ? 'Projekt gestartet: ' : 'Gekauft: ') + r.prop.name); U.render();
   };
 
   // ---------- Bauprojekte ----------

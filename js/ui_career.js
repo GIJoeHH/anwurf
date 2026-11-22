@@ -48,8 +48,8 @@
     var st = U.st; if (!on(st)) return baseNav();
     var cx = X.ensure(st), open = cx.inbox.length;
     return [['pkarriere', 'layout-dashboard', 'Karriere-Zentrale', open, 'Karriere'], ['pwoche', 'calendar-days', 'Wochenplan', 0, 'Karriere'], ['pprofil', 'user-round', 'Spielerprofil', 0, 'Karriere'],
-      ['pbez', 'users', 'Beziehungen', 0, 'Umfeld'], ['pberater', 'briefcase', 'Berater & Verträge', st.pc.offers.length, 'Umfeld'], ['pfin', 'wallet', 'Meine Finanzen', 0, 'Umfeld'], ['pchronik', 'bookmark', 'Karriere-Chronik', 0, 'Umfeld'],
-      ['liga', 'chart-column', 'Liga & Statistiken', 0, 'Wettbewerb'], ['einstellungen', 'settings', 'Einstellungen', 0, 'System']];
+      ['pbez', 'users', 'Beziehungen', 0, 'Umfeld'], ['pleben', 'heart-pulse', 'Mein Leben', 0, 'Umfeld'], ['pverein', 'building-2', 'Vereinsgelände', 0, 'Umfeld'], ['pmedien', 'megaphone', 'Fans & Medien', 0, 'Umfeld'], ['pberater', 'briefcase', 'Berater & Verträge', st.pc.offers.length, 'Umfeld'], ['pfin', 'wallet', 'Meine Finanzen', 0, 'Umfeld'], ['pchronik', 'bookmark', 'Karriere-Chronik', 0, 'Umfeld'],
+      ['liga', 'chart-column', 'Liga & Statistiken', 0, 'Wettbewerb'], ['einstellungen', 'settings', 'Einstellungen', 0, 'System']].map(function (it, i, all) { if (i && all[i - 1][4] === it[4]) { it = it.slice(); it[4] = ''; } return it; });
   };
   var baseTop = U.renderTop;
   U.renderTop = function () {
@@ -60,6 +60,7 @@
     if (U.pcm) sub = 'Zurück zum Spiel';
     el.innerHTML = '<div class="tb-club">' + (c ? U.crest(c, 40) : '') + '<div><div class="name">' + esc(W.playerName(p)) + '</div><div class="sub">' + esc(X.PHASES[pc.cx.phase] || '') + ' · ' + (c ? esc(c.short) : 'vereinslos') + ' · Saison ' + st.season + '/' + String(st.season + 1).slice(2) + '</div></div></div>' +
       chip('gauge', 'Stärke', p.ovr) + chip('calendar-days', S.isBreak(st) ? 'Woche' : 'Spieltag', S.calText(st, true)) + chip('handshake', 'Trainer', Math.round(pc.trust)) +
+      '<div class="tb-chip tb-con" data-act="nav" data-s="pberater" style="cursor:pointer" title="Mein Vertrag – Details unter Berater & Verträge">' + U.lc('pen-line', 18) + '<div><span>Vertrag</span><b' + (!p.youth && (p.contract || 1) <= 1 ? ' class="neg"' : '') + '>' + conShort(st, p) + '</b></div></div>' +
       chip('activity', 'Form', (p.form || 6).toFixed(1).replace('.', ','), true) + chip('wallet', 'Nettovermögen', money(Math.round(PF.netWorth(st))), true) +
       '<div class="tb-spacer"></div>' + (pc.cx.inbox.length ? '<button class="sm" data-act="nav" data-s="pkarriere" title="Offene Entscheidungen">' + U.lc('mail', 14) + ' ' + pc.cx.inbox.length + '</button>' : '') +
       (U.autoRun ? '<button class="sm danger" data-act="autoStop">' + U.lc('square', 14) + 'Stopp</button>' : '<button class="sm ghost" data-act="autoStart" title="Gewöhnliche Wochen überspringen – stoppt bei Entscheidungen, Angeboten und Saisonende">' + U.lc('fast-forward', 15) + 'Auto</button>') +
@@ -67,6 +68,23 @@
   };
 
   // ---------- Bausteine ----------
+  // Eigener Vertrag: Gehalt, Laufzeit (p.contract = verbleibende Saisons inkl. der laufenden), Prämien
+  function conEnd(st, p) { return st.season + Math.max(1, p.contract || 1); }
+  function conShort(st, p) { return p.youth ? 'Jugendvertrag' : money(p.wage) + '/J. · bis ' + conEnd(st, p); }
+  U.pcContractPanel = function (st, opt) {
+    var p = C.player(st), c = C.club(st); if (!p) return '';
+    var y = Math.max(1, p.contract || 1), end = conEnd(st, p), m = PF.monthly(st), net = m.inc['Nettogehalt'] || 0, last = y <= 1;
+    var h = '<div class="panel' + (opt && opt.cls ? ' ' + opt.cls : '') + '"' + (opt && opt.style ? ' style="' + opt.style + '"' : '') + '><div class="panel-h"><h2>' + U.lc('pen-line', 17) + ' Mein Vertrag</h2>' + (p.youth ? '<span class="pill">Jugend</span>' : last ? '<span class="pill warn">läuft aus</span>' : '<span class="pill ok">' + y + ' Saisons</span>') + '</div>';
+    h += '<table class="t small"><tr><td>Verein</td><td class="num" style="white-space:normal">' + (c ? esc(c.name) : 'vereinslos') + '</td></tr>' +
+      (p.youth ? '<tr><td>Status</td><td class="num" style="white-space:normal">Jugendspieler' + (p.trial ? ' (Probetraining)' : '') + '</td></tr>' : '') +
+      '<tr><td>Gehalt brutto</td><td class="num" style="white-space:normal"><b>' + money(p.wage) + '</b> / Jahr</td></tr><tr><td>pro Monat</td><td class="num" style="white-space:normal">' + money(Math.round(p.wage / 12)) + ' brutto · ' + money(net) + ' netto</td></tr>' +
+      (p.youth ? '' : '<tr><td>Prämien</td><td class="num" style="white-space:normal">' + money(Math.round(p.wage * 0.004)) + ' je Einsatz · ' + money(Math.round(p.wage * (HB ? 0.0012 : 0.006))) + ' je Tor</td></tr>') +
+      '<tr><td>Laufzeit</td><td class="num" style="white-space:normal"><b>bis Sommer ' + end + '</b> (' + (last ? 'endet mit dieser Saison' : 'noch ' + y + ' Saisons inkl. der laufenden') + ')</td></tr></table>';
+    var off = st.pc.offers || [];
+    h += '<p class="muted small" style="margin-top:6px">' + (st.pc.moving ? 'Wechsel zu <b>' + esc(st.clubs[st.pc.moving.to].name) + '</b> zur neuen Saison vereinbart.' : off.length ? off.length + ' Vertragsangebot(e) liegen vor.' : last && !p.youth ? 'Dein Vertrag läuft aus – Verlängerungs- und Wechselangebote kommen ab der Rückrunde.' : 'Angebote anderer Vereine kommen ab der Rückrunde.') +
+      (opt && opt.link ? ' <a href="#" data-act="nav" data-s="pberater">Berater & Verträge</a>' : '') + '</p></div>';
+    return h;
+  };
   function tile(cat, emo) { return '<span class="cx-tile" style="--c:' + (CATCOL[cat] || '#3b82f6') + '">' + (emo || '•') + '</span>'; }
   function barRow(lbl, v, extra) { return '<tr><td>' + lbl + '</td><td style="width:50%">' + U.bar(v, 100, v < 30 ? 'var(--red)' : v > 70 ? 'var(--green)' : '') + '</td><td class="num">' + Math.round(v) + (extra || '') + '</td></tr>'; }
   function weeksLeft(st, t) { var w = Math.max(0, t - tick(st)); return w <= 1 ? 'diese Woche' : 'noch ' + w + ' Wochen'; }
@@ -87,8 +105,12 @@
     if (pc.retired) return oldProfile();
     var cx = X.ensure(st), p = C.player(st), c = C.club(st); if (!p) return oldProfile();
     var h = '<h1>Karriere-Zentrale</h1>';
-    h += '<div class="cx-hero">' + (c ? U.crest(c, 76) : '') + '<div style="flex:1;min-width:220px"><div class="muted small">Kapitel ' + (cx.phase + 1) + ' von 8</div><h2 style="margin:2px 0">' + esc(X.PHASES[cx.phase]) + '</h2><div class="small">' + esc(X.PHASE_TXT[cx.phase]) + '</div>' + phaseTrack(cx) + '</div>' +
+    h += '<div class="cx-hero">' + (c ? U.crest(c, 76) : '') + '<div style="flex:1;min-width:220px"><div class="muted small">Kapitel ' + (cx.phase + 1) + ' von ' + X.PHASES.length + '</div><h2 style="margin:2px 0">' + esc(X.PHASES[cx.phase]) + '</h2><div class="small">' + esc(X.PHASE_TXT[cx.phase]) + '</div>' + phaseTrack(cx) + '</div>' +
       '<div class="grid g2" style="min-width:240px;gap:8px">' + U.kpi('Stärke', U.ovrBadge(p.ovr)) + U.kpi('Form', (p.form || 6).toFixed(1).replace('.', ',')) + U.kpi('Frische', Math.round(p.fitness)) + U.kpi('Trainer', Math.round(pc.trust)) + '</div></div>';
+    // Eigener Vertrag – kompakt direkt unter dem Kopf
+    var cEnd = conEnd(st, p), cY = Math.max(1, p.contract || 1), cNet = PF.monthly(st).inc['Nettogehalt'] || 0;
+    h += '<div class="panel" style="margin-top:14px;cursor:pointer" data-act="nav" data-s="pberater" title="Details unter Berater & Verträge"><div class="panel-h"><h2>' + U.lc('pen-line', 17) + ' Mein Vertrag' + (c ? ' bei ' + esc(c.short) : '') + '</h2>' + (p.youth ? '<span class="pill">Jugendvertrag</span>' : cY <= 1 ? '<span class="pill warn">läuft zum Saisonende aus</span>' : '<span class="pill ok">noch ' + cY + ' Saisons</span>') + '</div>' +
+      '<div class="grid g4">' + U.kpi('Gehalt brutto / Jahr', money(p.wage)) + U.kpi('Netto / Monat', money(cNet)) + U.kpi('Vertrag bis', 'Sommer ' + cEnd) + U.kpi('Restlaufzeit', cY <= 1 ? 'diese Saison' : cY + ' Saisons') + '</div></div>';
     // Nächster Termin
     var fx = (st.phase === 'season' || st.phase === 'preseason') && CM.fixture(st), nextTxt;
     if (st.phase === 'seasonEnd') nextTxt = 'Die Saison ist vorbei – weiter geht es mit der neuen Saison.';
@@ -232,8 +254,8 @@
     var n0 = X.ensure(st).inbox.length;
     (function loop() {
       if (!U.autoRun) return; var st2 = U.st, pc = st2.pc;
-      var stop = st2.pendingEvent || st2.phase === 'seasonEnd' || pc.retired || X.ensure(st2).inbox.length > n0 || (pc.offers.length && pc.offersSeen !== pc.offerSeason) || (st2.celebrations && st2.celebrations.length);
-      if (stop) { U.autoRun = false; U.render(); U.renderTop(); if (st2.pendingEvent) setTimeout(U.showEvent, 200); else if (st2.phase === 'seasonEnd') U.go('saisonende'); return; }
+      var stop = st2.pendingEvent || st2.phase === 'seasonEnd' || pc.retired || X.ensure(st2).inbox.length > n0 || (pc.offers.length && pc.offersSeen !== pc.offerSeason) || (st2.celebrations && st2.celebrations.length) || (U.dlgPending && U.dlgPending(st2));
+      if (stop) { U.autoRun = false; U.render(); U.renderTop(); if (st2.pendingEvent) setTimeout(U.showEvent, 200); else if (U.dlgPending && U.dlgPending(st2)) setTimeout(U.showDlg, 200); else if (st2.phase === 'seasonEnd') U.go('saisonende'); return; }
       U.finishWeek({}); n0 = Math.min(n0, X.ensure(st2).inbox.length); U.renderTop(); if (U.screen === 'pkarriere') U.render();
       setTimeout(loop, 220);
     })();
@@ -242,6 +264,7 @@
   U.finishWeek = function (played) {
     var st = U.st; baseFinish(played);
     if (on(st) && !U.autoRun && st.pendingEvent && !document.querySelector('#modal:not(.hidden)')) setTimeout(function () { if (U.st.pendingEvent) U.showEvent(); }, 450);
+    else if (on(st) && !U.autoRun && U.dlgPending && U.dlgPending(st)) setTimeout(function () { if (!document.querySelector('#modal:not(.hidden)') && U.dlgPending(U.st)) U.showDlg(); }, 500);
   };
 
   // ---------- Spielerprofil ----------
@@ -282,6 +305,7 @@
   U.screens.pberater = function () {
     var st = U.st, pc = st.pc, p = C.player(st), ag = AG.ensure(st), a = AG.current(st), r = AG.rules(st);
     var h = '<h1>Berater & Verträge</h1>';
+    if (p) h += U.pcContractPanel(st, { style: 'margin-bottom:14px' });
     // Angebote
     h += '<div class="panel"><h2>' + U.lc('pen-line', 17) + ' Vertragsangebote</h2>';
     if (pc.offers.length) pc.offersSeen = pc.offerSeason;
@@ -368,8 +392,14 @@
   };
   FIN.anlage = function (st) {
     var w = PF.wallet(st), can = PF.canTrade(st);
-    var h = '<div class="grid g2"><div class="panel"><h2>Konto & Tagesgeld</h2><table class="t small"><tr><td>Girokonto</td><td class="num">' + money(Math.round(w.cash)) + '</td></tr><tr><td>Tagesgeld</td><td class="num">' + money(Math.round(w.savings)) + '</td></tr><tr><td>Dispolimit</td><td class="num">' + money(PF.odLimit(st)) + '</td></tr></table>' +
-      '<div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="sm" data-act="pfSave" data-v="10000">10.000 aufs Tagesgeld</button><button class="sm" data-act="pfSave" data-v="all">Alles aufs Tagesgeld</button><button class="sm" data-act="pfUnsave" data-v="10000">10.000 abheben</button><button class="sm" data-act="pfUnsave" data-v="all">Alles abheben</button></div></div>';
+    var rate = st.savingsRate || 0, rt = (rate * 100).toFixed(2).replace('.', ','), il = (w.interestLog || []).filter(function (x) { return x.s === st.season; });
+    var h = '<div class="grid g2"><div class="panel fin-card"><div class="panel-h"><h2>' + U.lc('piggy-bank', 17) + ' Konto & Tagesgeld</h2><span class="pill ok">' + rt + ' % p. a.</span></div>' +
+      (st.settings.cheatEnabled ? '<div class="director-sign static" data-act="bankSign" title="" style="margin-bottom:8px">' + U.lc('landmark', 16) + ' HAUSBANK</div>' : '') +
+      '<div class="fc-grid"><div><span>Girokonto</span><b class="' + (w.cash < 0 ? 'neg' : '') + '" data-cash>' + money(Math.round(w.cash)) + '</b><small>Dispolimit ' + money(PF.odLimit(st)) + '</small></div><div><span>Tagesgeld</span><b>' + money(Math.round(w.savings)) + '</b><small>Zinssatz variabel: ' + rt + ' %</small></div>' +
+      '<div><span>Aufgelaufene Zinsen</span><b class="pos">' + money(Math.round(w.interestAccrued || 0)) + '</b><small>Gutschrift nach dem ' + E.nextInterestWeek(st) + '. Spieltag</small></div><div><span>Zinsen diese Saison</span><b class="pos">' + money(R.sum(il, function (x) { return x.a; })) + '</b><small>ca. ' + money(Math.round(w.savings * rate * E.INTEREST_MONTH / E.WEEKS)) + ' pro Monat</small></div></div>' +
+      (il.length ? '<table class="t small" style="margin-top:10px"><tr><th>Gutschrift</th><th class="num">Betrag</th></tr>' + il.slice(-5).reverse().map(function (x) { return '<tr><td>nach dem ' + x.w + '. Spieltag</td><td class="num pos">+' + money(x.a) + '</td></tr>'; }).join('') + '</table>' : '') +
+      '<div class="fc-act"><label class="f">Betrag (€)<input type="number" id="pfSavAmt" placeholder="z. B. 10.000" step="1000" min="0" data-pad data-money></label><div class="row"><button class="primary" data-act="pfSave">' + U.lc('plus', 15) + 'Geld einzahlen</button><button data-act="pfUnsave">' + U.lc('minus', 15) + 'Geld auszahlen</button><button class="ghost sm" data-act="pfSave" data-v="all">Alles einzahlen</button><button class="ghost sm" data-act="pfUnsave" data-v="all">Alles auszahlen</button></div></div>' +
+      '<p class="muted small">Jederzeit verfügbar. Die Zinsen werden monatlich (alle ' + E.INTEREST_MONTH + ' Spielwochen) dem Girokonto gutgeschrieben.</p></div>';
     h += '<div class="panel"><h2>Depot</h2><p class="small">Gleicher Markt wie im Managerspiel: Wochenkurse, Börsencrashs, 0,5 % Gebühr pro Kauf und Verkauf, Kauf nach Stück oder Eurobetrag. Realisierte Gewinne werden vereinfacht versteuert (Abgeltungsteuer).</p>' + (PF.minor(st) ? '<p class="muted small">' + U.lc('info', 13) + ' Du bist noch nicht volljährig: Gehandelt wird über ein Junior-Depot, deine Eltern zeichnen mit.</p>' : '') + (FA.current(st) && FA.ensure(st).con.power.trade ? '<p class="muted small">Dein Finanzberater hat eine Handelsvollmacht und kann innerhalb seiner Befugnisse handeln.</p>' : '') + '</div></div>';
     var sub = U.p.mk === 'krypto' ? 'krypto' : 'aktien';
     h += '<div class="seg" style="margin:14px 0">' + [['aktien', 'Aktienmarkt', 'chart-line'], ['krypto', 'Kryptowährungen', 'bitcoin']].map(function (x) { return '<button class="' + (sub === x[0] ? 'on' : '') + '" data-act="pfMk" data-v="' + x[0] + '">' + U.lc(x[2], 15) + x[1] + '</button>'; }).join('') + '</div>';
@@ -430,13 +460,14 @@
   U.acts.pfLife = function (d) { var r = PF.setLife(U.st, d.k); if (r && r.ok === false && r.why) U.toast(r.why); U.autosave(); U.render(); };
   U.acts.pfCar = function (d) { var r = PF.setCar(U.st, d.k, d.f === '1'); fmsg(r.ok ? 'Erledigt.' : r.why); };
   U.acts.pfIns = function (d) { var f = PF.ensure(U.st); PF.setIns(U.st, d.k, !f.ins[d.k]); U.autosave(); U.render(); };
-  U.acts.pfSave = function (d) { var w = PF.wallet(U.st); PF.save(U.st, d.v === 'all' ? w.cash : +d.v); U.autosave(); U.render(); U.renderTop(); };
-  U.acts.pfUnsave = function (d) { var w = PF.wallet(U.st); PF.unsave(U.st, d.v === 'all' ? w.savings : +d.v); U.autosave(); U.render(); U.renderTop(); };
+  function savAmt(d, all) { if (d.v) return d.v === 'all' ? all : +d.v; var el = document.getElementById('pfSavAmt'), v = el ? +el.value || 0 : 0; return v > 0 ? v : 0; }
+  U.acts.pfSave = function (d) { var st = U.st, w = PF.wallet(st), b = w.savings; if (w.cash <= 0) { U.toast('Kein Guthaben auf dem Girokonto.'); return; } var a = savAmt(d, w.cash); if (!a) { U.toast('Bitte einen Betrag eingeben.'); return; } PF.save(st, a); U.toast(w.savings > b ? 'Eingezahlt: ' + money(Math.round(w.savings - b)) : 'Nicht möglich.'); U.autosave(); U.render(); U.renderTop(); };
+  U.acts.pfUnsave = function (d) { var st = U.st, w = PF.wallet(st), b = w.savings; if (w.savings <= 0) { U.toast('Kein Tagesgeld vorhanden.'); return; } var a = savAmt(d, w.savings); if (!a) { U.toast('Bitte einen Betrag eingeben.'); return; } PF.unsave(st, a); U.toast(w.savings < b ? 'Ausgezahlt: ' + money(Math.round(b - w.savings)) : 'Nicht möglich.'); U.autosave(); U.render(); U.renderTop(); };
   U.acts.pfMk = function (d) { U.p.mk = d.v; U.render(); };
-  function ordQty(st, k, sell) { var el = document.getElementById('q_' + k), v = el ? +el.value || 0 : 0; if (U.p.tradeMode !== 'eur') return { raw: v, q: Math.floor(v) }; var pr = E.price(st, k); return { raw: v, q: pr && v ? Math.floor(v / (pr * (sell ? 1 : 1.005))) : 0 }; }
+  function ordQty(st, k, sell) { var el = document.getElementById('q_' + k), v = el ? +el.value || 0 : 0; if (U.p.tradeMode === 'qty') return { raw: v, q: Math.floor(v) }; var pr = E.price(st, k); return { raw: v, q: pr && v ? Math.floor(v / (pr * (sell ? 1 : 1.005))) : 0 }; }
   U.acts.pfAssetBuy = function (d) {
     var st = U.st, o = ordQty(st, d.k, false);
-    if (!o.raw) { U.toast(U.p.tradeMode === 'eur' ? 'Bitte einen Betrag eingeben.' : 'Bitte eine Stückzahl eingeben.'); return; }
+    if (!o.raw) { U.toast(U.p.tradeMode !== 'qty' ? 'Bitte einen Betrag eingeben.' : 'Bitte eine Stückzahl eingeben.'); return; }
     if (!o.q) { U.toast('Betrag reicht nicht für ein Stück'); return; }
     var r = PF.buyQty(st, d.k, o.q); fmsg(r.ok ? 'Gekauft: ' + num(o.q) + ' Stück für ' + money(Math.round(r.cost)) + '.' : r.why || 'Nicht möglich.');
   };

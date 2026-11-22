@@ -397,7 +397,7 @@
           (bvb.takenOverBy === c.id ? '<div class="small pos" style="margin-top:4px">Übernommen – der Verein steigt zum Saisonende ab.</div>' : '<div class="small muted" style="margin-top:4px">Mit der Aktienmehrheit übernehmen Sie alle Spieler und das Vermögen von ' + esc(bvb.short) + ' – der Verein muss zwangsweise absteigen. Große Käufe treiben den Kurs. Mehrheit bei aktuellem Kurs: ca. ' + money(Math.max(0, sd.shares * 0.5001 - (pf ? pf.qty : 0)) * m.price) + '.</div>') + '</div>' : '') +
         '<div class="mkt-hold"><div><span>Bestand</span><b>' + (pf ? R.fmtNum(pf.qty) : '–') + '</b></div><div><span>Depotwert</span><b>' + (pf ? money(val) : '–') + '</b></div><div><span>Gewinn/Verlust</span><b class="' + (pf ? (val - pf.cost >= 0 ? 'pos' : 'neg') : '') + '">' + (pf ? (val - pf.cost >= 0 ? '+' : '') + money(val - pf.cost) : '–') + '</b></div><div><span>Einstieg Ø</span><b>' + (pf ? U.fmtPrice(buyIn) : '–') + '</b></div></div>' +
         (can ? (function () {
-          var eur = U.p.tradeMode === 'eur', maxQ = Math.floor(Math.max(0, c.cash) / (m.price * 1.005));
+          var eur = U.p.tradeMode !== 'qty', maxQ = Math.floor(Math.max(0, c.cash) / (m.price * 1.005));
           return '<div class="mkt-act"><div class="seg seg-xs"><button class="sm ' + (eur ? '' : 'on') + '" data-act="tradeMode" data-v="qty">Stück</button><button class="sm ' + (eur ? 'on' : '') + '" data-act="tradeMode" data-v="eur">€</button></div>' +
             '<input type="number" id="q_' + sd.id + '" placeholder="' + (eur ? 'Betrag in €' : 'Stück') + '" min="1" data-pad data-mult' + (eur ? ' data-money' : '') + '>' +
             '<button class="sm primary" data-act="' + ac.buy + '" data-k="' + sd.id + '">Kaufen</button><button class="sm" data-act="' + ac.sell + '" data-k="' + sd.id + '"' + (pf ? '' : ' disabled') + '>Verkaufen</button><button class="sm ghost" data-act="' + ac.detail + '" data-k="' + sd.id + '" data-t="' + tab + '"' + (o.w ? ' data-w="' + o.w + '"' : '') + '>Details</button>' +
@@ -499,18 +499,20 @@
     return '<div class="grid g2">' + block(c.fin.season, 'Laufende Saison') + block(c.fin.last, 'Vorsaison') + '</div>';
   };
   U.acts.bankSign = function () {
-    var st = U.st, r = E.bankCheat(st, U.club());
+    // Im Spielermodus landet das Geld auf dem Privatkonto (Pseudo-Verein 'PCW'), sonst beim Verein
+    var st = U.st, pcw = st.pc && R.pc && R.pc.active && R.pc.active(st) && R.pf, acct = pcw ? R.pf.wallet(st) : U.club(), r = E.bankCheat(st, acct);
     if (!r) return;
+    if (pcw) { st.pc.cash = acct.cash; if (U.autosave) U.autosave(); U.render(); }
     var el = document.querySelector('.director-sign');
     if (el) { el.classList.remove('wobble'); void el.offsetWidth; el.classList.add('wobble'); }
     U.renderTop();
     if (U.cheatSessionSt !== st) {
       // erster Klick dieser Sitzung: Spruch
       U.cheatSessionSt = st;
-      U.modal(U.lc('lock', 16) + ' Geheimer Buchhaltungskeller', r.lines.map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('') + '<p class="pos"><b>+' + money(r.paid) + '</b> wurden Ihrem Vereinskonto gutgeschrieben.</p><p class="muted small">Jeder weitere Klick aufs Schild bringt einen zufälligen Betrag zwischen 50.000 € und 2,5 Mio. € (je höher, desto seltener).' + (r.first ? ' Dieser Spielstand ist jetzt als „mit Cheat“ markiert. Der Cheat kann in den Einstellungen deaktiviert werden.' : '') + '</p>', '<button class="primary" data-act="closeModal">Danke, Herr Buchungsfehler!</button>');
+      U.modal(U.lc('lock', 16) + ' Geheimer Buchhaltungskeller', r.lines.map(function (l) { return '<p>' + esc(l) + '</p>'; }).join('') + '<p class="pos"><b>+' + money(r.paid) + '</b> wurden ' + (pcw ? 'deinem Privatkonto' : 'Ihrem Vereinskonto') + ' gutgeschrieben.</p><p class="muted small">Jeder weitere Klick aufs Schild bringt einen zufälligen Betrag zwischen 50.000 € und 2,5 Mio. € (je höher, desto seltener).' + (r.first ? ' Dieser Spielstand ist jetzt als „mit Cheat“ markiert. Der Cheat kann in den Einstellungen deaktiviert werden.' : '') + '</p>', '<button class="primary" data-act="closeModal">Danke, Herr Buchungsfehler!</button>');
     } else {
-      U.toast((r.jackpot ? '🎰 JACKPOT! ' : r.paid >= 1000000 ? '💰 ' : '') + '+' + money(r.paid) + ' · Kontostand ' + money(U.club().cash));
-      var k = document.querySelector('#main [data-cash]'); if (k) k.textContent = money(U.club().cash);
+      U.toast((r.jackpot ? '🎰 JACKPOT! ' : r.paid >= 1000000 ? '💰 ' : '') + '+' + money(r.paid) + ' · Kontostand ' + money(acct.cash));
+      var k = document.querySelector('#main [data-cash]'); if (k) k.textContent = money(acct.cash);
     }
   };
   function amt(id) { var el = document.getElementById(id); return el ? +el.value || 0 : 0; }
@@ -521,14 +523,19 @@
   U.acts.savOut = function () { U.toast(E.withdraw(U.club(), amt('savAmt')) ? 'Ausgezahlt.' : 'Nicht möglich.'); U.render(); };
   // Ordergröße: Stückzahl oder Eurobetrag (wird in ganze Stück umgerechnet, inkl. 0,5 % Gebühr beim Kauf)
   function orderQty(st, c, k, sell) {
-    var v = amt('q_' + k); if (U.p.tradeMode !== 'eur') return v;
+    var v = amt('q_' + k); if (U.p.tradeMode === 'qty') return v;
     var price = E.price(st, k); if (!price || !v) return 0;
     return Math.floor(v / (price * (sell ? 1 : 1.005)));
   }
-  U.acts.tradeMode = function (d) { U.p.tradeMode = d.v; U.render(); };
+  // Wechsel Stück/€: eingetragene Werte bleiben stehen
+  U.acts.tradeMode = function (d) {
+    var keep = {}; Array.prototype.forEach.call(document.querySelectorAll('#main input[id^="q_"]'), function (el) { if (el.value !== '') keep[el.id] = el.value; });
+    U.p.tradeMode = d.v; U.render();
+    Object.keys(keep).forEach(function (id) { var el = document.getElementById(id); if (el) el.value = keep[id]; });
+  };
   U.acts.assetBuy = function (d) {
     var st = U.st, c = U.club(), q = orderQty(st, c, d.k, false);
-    if (U.p.tradeMode === 'eur' && amt('q_' + d.k) && !q) { U.toast('Betrag reicht nicht für ein Stück'); return; }
+    if (U.p.tradeMode !== 'qty' && amt('q_' + d.k) && !q) { U.toast('Betrag reicht nicht für ein Stück'); return; }
     var r = E.buyAsset(st, c, d.k, q); U.toast(r.ok ? 'Gekauft: ' + R.fmtNum(r.qty || q) + ' Stück für ' + money(r.cost) : r.why); U.render();
     var bv = d.k === 'BVB' ? E.bvbClub(st) : null;
     if (r.ok && r.takeover && bv && !bv.takenOverBy) {
@@ -545,7 +552,7 @@
   };
   U.acts.assetSell = function (d) {
     var st = U.st, c = U.club(), raw = amt('q_' + d.k), q = orderQty(st, c, d.k, true);
-    if (U.p.tradeMode === 'eur' && raw && !q) { U.toast('Betrag reicht nicht für ein Stück'); return; }
+    if (U.p.tradeMode !== 'qty' && raw && !q) { U.toast('Betrag reicht nicht für ein Stück'); return; }
     if (!raw) { var pf = c.portfolio[d.k]; U.confirm('Alles verkaufen?', 'Sie haben keine Menge eingegeben. Die gesamte Position (' + R.fmtNum(pf ? pf.qty : 0) + ' Stück) verkaufen?', function () { sellNow(1e12); }); return; }
     sellNow(q);
     function sellNow(n) { var r = E.sellAsset(st, c, d.k, n); U.toast(r.ok ? 'Verkauft: ' + money(r.revenue) + ' (' + (r.profit >= 0 ? '+' : '') + money(r.profit) + ')' : r.why); U.render(); }

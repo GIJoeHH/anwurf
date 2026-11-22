@@ -75,6 +75,7 @@
     out.inc['Nettogehalt'] = Math.round((gross - PF.taxOf(st, gross)) / 12);
     if (PF.sideJob(st)) out.inc['Nebenjob (netto)'] = PF.sideJob(st);
     if (spY) out.inc['Sponsoring (netto)'] = Math.round((net - (gross - PF.taxOf(st, gross))) / 12);
+    if (f.w.savings > 0 && st.savingsRate) out.inc['Tagesgeldzinsen'] = Math.round(f.w.savings * st.savingsRate / 12);
     var rp = PF.realty(st); if (rp.rentY) out.inc['Mieten (Anlageimmobilien)'] = Math.round(rp.rentY / 12);
     f.homes.forEach(function (h) { if (h.k === 'rent') out.inc['Mieten (Wohnungen)'] = (out.inc['Mieten (Wohnungen)'] || 0) + Math.round(h.rentY / 12); });
     var L = PF.LIFE[f.life] || PF.LIFE.komfortabel, own = f.homes.some(function (h) { return h.id === f.homeId; });
@@ -137,9 +138,12 @@
     var t = tick(st), cx = pc.cx;
     // Prämien: Einsatz und Tore (Liga), Nationalmannschaft
     var da = p.stats.apps - f.last.a, dg = p.stats.goals - f.last.g; if (da < 0) { da = p.stats.apps; dg = p.stats.goals; }
-    if (!p.youth && (da > 0 || dg > 0)) { var b = da * p.wage * 0.004 + dg * p.wage * (HB ? 0.0012 : 0.006); if (b > 0) C.pay(st, rnd(b, 10), 'Prämien'); }
+    if (!p.youth && (da > 0 || dg > 0)) { var b = (da * p.wage * 0.004 + dg * p.wage * (HB ? 0.0012 : 0.006)) * (R.life && R.life.bonusF ? R.life.bonusF(st) : 1); if (b > 0) C.pay(st, rnd(b, 10), 'Prämien'); }
     f.last = { a: p.stats.apps, g: p.stats.goals };
     var sj = PF.sideJob(st); if (sj) PF.book(st, Math.round(sj * 12 / 52), 'Nebenjob');
+    // Tagesgeld wie im Managerspiel: Zinsen laufen wöchentlich auf, Gutschrift monatlich (alle 4 Spielwochen) aufs Girokonto
+    if (w.savings > 0 && st.savingsRate) w.interestAccrued = (w.interestAccrued || 0) + w.savings * st.savingsRate / E.WEEKS;
+    if (w.interestAccrued && E.interestPayday(st)) { E.payInterest(st, w); pc.cash = w.cash; }
     if (pc.nat > (f.natPaid || 0)) { C.pay(st, (pc.nat - (f.natPaid || 0)) * (HB ? 1500 : 12000), 'Nationalmannschaftsprämie'); f.natPaid = pc.nat; }
     // Sponsoren
     f.spons = f.spons.filter(function (s) { return s.until > t; });

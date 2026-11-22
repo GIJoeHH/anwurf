@@ -259,6 +259,8 @@
     return { ok: true };
   };
 
+  // Eigener Karrierespieler: Wechsel nur mit seiner Zustimmung (Angebote), nie per KI-Verkauf
+  T.isCareer = function (st, p) { return !!(st && st.pc && !st.pc.retired && p && p.id === st.pc.pid); };
   // KI-Vereine: Schwachstellen erkennen, kaufen, verkaufen, verlängern
   T.aiWeekly = function (st, club, intensity) {
     var squad = W.squad(st, club.id);
@@ -267,7 +269,7 @@
     var wageBudget = income * 0.62;
     // Verkaufen bei Geldnot oder zu großem Kader
     if ((club.cash < -income * 0.1 || squad.length > 28) && squad.length > 18) {
-      var sell = squad.filter(function (x) { return !x.reservedFor; }).sort(function (a, b) { return club.cash < 0 ? b.value - a.value : a.ovr - b.ovr; })[club.cash < 0 ? 1 : 0];
+      var sell = squad.filter(function (x) { return !x.reservedFor && !T.isCareer(st, x); }).sort(function (a, b) { return club.cash < 0 ? b.value - a.value : a.ovr - b.ovr; })[club.cash < 0 ? 1 : 0];
       if (sell) {
         var buyer = T.findAIBuyer(st, sell, club);
         if (buyer) T.executeTransfer(st, sell, buyer, Math.min(T.feeCap(buyer), R.round(sell.value * R.randRange(0.8, 1.1), 5000)), Math.max(sell.wage, W.fairWage(sell)), R.randInt(1, 4));

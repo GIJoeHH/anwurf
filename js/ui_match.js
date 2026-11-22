@@ -533,6 +533,7 @@
         if (normal && p && it.side === s && !it.gk) { var nm = p.last.slice(0, 11); ctx.font = '700 ' + Math.round(10.5 * k) + 'px Inter, -apple-system, Helvetica, Arial'; var tw = ctx.measureText(nm).width + 8; ctx.fillStyle = 'rgba(11,20,38,.72)'; ctx.fillRect(x - tw / 2, y + 4 * k, tw, 14 * k); ctx.fillStyle = '#fff'; ctx.fillText(nm, x, y + 11 * k); }
       });
       if (!goalsDrawn) { drawGoal(0); drawGoal(40); }
+      if (L.hl && U.hlDraw) drawList.forEach(function (it) { if (it.pid === L.hl) { var HP = PR(it.P.x, it.P.y); U.hlDraw(ctx, HP.x, HP.y, 1.5 * HP.s / S1, now); } });
       // Ball (mit kleiner Flughöhe beim Pass/Wurf)
       var BP = PR(a.ball.x, a.ball.y), lift = a.flight ? Math.sin(Math.min(1, (now - a.flight.t0) / a.flight.dur) * Math.PI) * 14 : a.shot ? 8 : 22 * (BP.s / S1);
       ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(BP.x, BP.y, 4, 1.6, 0, 0, 7); ctx.fill();

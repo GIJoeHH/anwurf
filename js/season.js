@@ -1329,7 +1329,7 @@
       if (net < -E.revenueEstimate(st, c) * 0.6) {
         c.pointsPenalty = 6;
         S.news(st, 'Lizenzauflagen: 6 Punkte Abzug für ' + c.short, 'Die Überschuldung hat Konsequenzen.', 'finanzen');
-        if (!c.userControlled) { var best = W.squad(st, c.id).sort(function (a, b) { return b.value - a.value; })[0]; var b = best && T.findAIBuyer(st, best, c); if (b) T.executeTransfer(st, best, b, Math.min(T.feeCap(b), best.value), best.wage, 3); }
+        if (!c.userControlled) { var best = W.squad(st, c.id).filter(function (x) { return !T.isCareer || !T.isCareer(st, x); }).sort(function (a, b) { return b.value - a.value; })[0]; var b = best && T.findAIBuyer(st, best, c); if (b) T.executeTransfer(st, best, b, Math.min(T.feeCap(b), best.value), best.wage, 3); }
       }
     });
 

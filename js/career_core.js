@@ -182,7 +182,7 @@
   X.add = function (pack, list) { X.PACKS[pack] = (X.PACKS[pack] || []).concat(list.map(function (e) { return e.id; })); list.forEach(function (e) { e.pack = pack; X.REG[e.id] = e; }); };
   X.roll = function (st, base, mods) { var p = base; (mods || []).forEach(function (m) { p += m; }); return R.rand() < clamp(p, 0.04, 0.94); };
   X.later = function (st, weeks, id, data) { st.pc.cx.mem.arcs.push({ due: tick(st) + Math.max(1, weeks), id: id, data: data || {} }); };
-  X.chron = function (st, cat, ic, ti, x, imp) { var cx = X.ensure(st); cx.chron.unshift({ s: st.season, w: st.week, t: tick(st), cat: cat, ic: ic || '•', ti: ti, x: x || '', imp: imp || 1 }); if (cx.chron.length > 400) cx.chron.length = 400; };
+  X.chron = function (st, cat, ic, ti, x, imp, img) { var cx = X.ensure(st); cx.chron.unshift({ s: st.season, w: st.week, t: tick(st), cat: cat, ic: ic || '•', ti: ti, x: x || '', imp: imp || 1, img: img || undefined }); if (cx.chron.length > 400) cx.chron.length = 400; };
   X.eligible = function (st, e, ctx) {
     var mem = st.pc.cx.mem, t = tick(st);
     if (e.follow) return false;

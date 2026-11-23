@@ -186,6 +186,8 @@
     while (!m.finished) M.step(m);
     L.lastEv = m.events.length; U.go('match'); U.liveEnd();
   };
+  U.viewSeg = function () { if (!R.m3d || !R.m3d.available()) return ''; var v = R.m3d.pref(); return '<div class="seg" title="Darstellung des Live-Spiels">' + [['3d', '3D'], ['2d', '2D']].map(function (x) { return '<button class="sm ' + (v === x[0] ? 'on' : '') + '" data-act="matchView" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>'; };
+  U.acts.matchView = function (d) { R.m3d.setPref(d.v); document.querySelectorAll('[data-act="matchView"]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-v') === d.v); }); if (U.live) U.animLoop(); };
   U.acts.matchSpeed = function (d) { U.st.settings.matchSpeed = d.v; if (d.v === 'sofort') U.acts.matchSkip(); else U.liveUpdate([]); };
 
   // Trikotfarben fürs Live-Spiel: Heim in Vereinsfarben, Gast weicht bei ähnlichen Farben auf Zweitfarbe
@@ -215,7 +217,7 @@
     h += '<div class="mc-head"><div class="mc-team">' + U.crest(H, 64) + '<div><b>' + esc(H.name) + '</b><span>HEIM · ' + esc(m.neutral ? (fx.venue ? fx.venue.city : 'Neutrale Halle') : H.stadiumName) + '</span></div></div>' +
       '<div class="mc-score"><span class="mc-live">LIVE · ' + esc(title) + '</span><b><span id="sbH">0</span> : <span id="sbA">0</span></b><span id="sbMin">0\'</span>' + U.attLine(L.att, H, A, 'mc-att') + '</div>' +
       '<div class="mc-team away"><div><b>' + esc(A.name) + '</b><span>GAST' + (K[1].alt ? ' · Ausweichtrikot' : '') + '</span></div>' + U.crest(A, 64) + '</div></div>';
-    var feed = '<div class="panel mc-feed"><div class="mc-feed-h"><span class="mc-label">SPIELVERLAUF</span><div class="row" id="liveCtl" style="gap:6px"><button class="sm" data-act="matchPause" id="pauseBtn">Pause</button><div class="seg">' + [['normal', 'Normal'], ['schnell', 'Schnell'], ['sofort', 'Sofort']].map(function (x) { return '<button class="sm ' + (st.settings.matchSpeed === x[0] ? 'on' : '') + '" data-act="matchSpeed" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div><button class="sm" data-act="matchSkip">Überspringen</button>' + (coach ? '<button class="sm" data-act="liveTactics">Taktik</button>' : '') + '</div></div>' +
+    var feed = '<div class="panel mc-feed"><div class="mc-feed-h"><span class="mc-label">SPIELVERLAUF</span><div class="row" id="liveCtl" style="gap:6px"><button class="sm" data-act="matchPause" id="pauseBtn">Pause</button><div class="seg">' + [['normal', 'Normal'], ['schnell', 'Schnell'], ['sofort', 'Sofort']].map(function (x) { return '<button class="sm ' + (st.settings.matchSpeed === x[0] ? 'on' : '') + '" data-act="matchSpeed" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' + U.viewSeg() + '<button class="sm" data-act="matchSkip">Überspringen</button>' + (coach ? '<button class="sm" data-act="liveTactics">Taktik</button>' : '') + '</div></div>' +
       '<div class="mc-last" id="mcLast"><b>0′</b><span>Anwurf!</span></div><div class="ticker mc-ticker" id="ticker"></div></div>';
     h += '<div class="mc-main"><div class="mc-left"><div class="mc-stage"><canvas id="pitchCv" class="mc-canvas" width="1200" height="660"></canvas><div id="flashBox"></div>' +
       '<div class="mc-kits"><span><i style="background:' + K[0].fill + ';border-color:' + K[0].stroke + '"></i>' + esc(H.short) + '</span><span><i style="background:' + K[1].fill + ';border-color:' + K[1].stroke + '"></i>' + esc(A.short) + '</span></div></div>' + feed + '</div>';
@@ -353,6 +355,7 @@
     function zonePts(r) { var pts = [], n = 18; for (var k = 0; k <= n; k++) { var t = Math.PI / 2 * k / n; pts.push([-1.5 - Math.cos(t) * r, Math.sin(t) * r]); } for (var k2 = 0; k2 <= n; k2++) { var t2 = Math.PI / 2 * (1 - k2 / n); pts.push([1.5 + Math.cos(t2) * r, Math.sin(t2) * r]); } return pts.filter(function (p) { return Math.abs(p[0]) <= 10; }); }
     var Z6 = zonePts(6), Z9 = zonePts(9);
     var H0 = st.clubs[m.clubs[0]], A0 = st.clubs[m.clubs[1]];
+    var M3S = R.m3d && R.m3d.begin(st, m, L.kits || U.matchKits(H0, A0)); // 3D-Übertragungsansicht (match3d.js), sonst 2D
     // Zuschauerränge einmal vorzeichnen (Tribüne hinter der Gegenseite, Publikum in Vereinsfarben)
     var crowd = document.createElement('canvas'); crowd.width = Wd; crowd.height = Math.round(Y0); (function () {
       var g = crowd.getContext('2d'), h = crowd.height, gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#0c192c'); gr.addColorStop(1, '#2f4158');
@@ -458,7 +461,7 @@
       var real = Date.now(), dt = Math.min(0.1, (real - last) / 1000); last = real;
       var fast = st.settings.matchSpeed === 'schnell', run = !L.paused && !m.finished;
       if (run) clock += dt * 1000 * (fast ? 1.8 : 1); var now = clock;
-      drawPitch();
+      if (!M3S) drawPitch();
       if (a.cur == null) a.cur = 0;
       if (a.start == null) newPossession(now);
       var s = a.cur, o = 1 - s;
@@ -513,6 +516,23 @@
         bpos = f1 && f2 ? lerp(f1, f2, Math.min(1, (now - a.flight.t0) / a.flight.dur)) : a.ball;
       } else bpos = a.pos[s + ':' + a.holder] ? { x: a.pos[s + ':' + a.holder].x + 0.35, y: a.pos[s + ':' + a.holder].y - (s === 0 ? 0.35 : -0.35) } : a.ball;
       a.ball = { x: bpos.x, y: bpos.y };
+      if (M3S) {
+        var fl3 = a.flight ? Math.min(1, (now - a.flight.t0) / a.flight.dur) : 0, tt3 = a.shot ? (now - a.shot.t - 250) / 420 : 0;
+        var bh = a.flight ? 1.2 + Math.sin(fl3 * Math.PI) * 0.8 : a.shot ? (tt3 < 0 ? 2.35 : 2.35 - Math.min(1, tt3) * 1.25) : 1.05, PJ = null;
+        try {
+          PJ = R.m3d.frame(M3S, ctx, Wd, Ht, { list: drawList.map(function (it) { return { side: it.side, i: it.i, pid: it.pid, P: it.P, gk: it.gk, def: it.side !== s }; }), ball: { x: a.ball.x, y: a.ball.y, h: bh },
+            holder: a.flight || a.shot ? null : s + ':' + a.holder, shooter: a.shot ? a.shot.side + ':' + a.holder : null, shot: a.shot, att: s, goalX: s === 0 ? -20 : 20, now: now, dt: dt, hl: L.hl, run: run });
+        } catch (e3) { if (typeof console !== 'undefined') console.warn(e3); M3S = null; R.m3d.setPref('2d'); }
+        if (PJ) {
+          if (st.settings.matchSpeed === 'normal') drawList.forEach(function (it) {
+            var p = st.players[it.pid]; if (!p || it.side !== s || it.gk || it.pid === L.hl) return; var Q = PJ(it.P.x, it.P.y, 2.3); if (!Q.vis) return;
+            var nm = (p.shirt ? p.shirt + ' ' : '') + p.last.slice(0, 11); ctx.font = '700 13px Inter, -apple-system, Helvetica, Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            var tw = ctx.measureText(nm).width + 10; ctx.fillStyle = 'rgba(11,20,38,.72)'; ctx.fillRect(Q.x - tw / 2, Q.y - 10, tw, 18); ctx.fillStyle = '#fff'; ctx.fillText(nm, Q.x, Q.y);
+          });
+          if (L.hl) drawList.forEach(function (it) { var hp = st.players[it.pid]; if (it.pid !== L.hl || !hp) return; var Q = PJ(it.P.x, it.P.y, 2.75); if (!Q.vis) return; ctx.font = '800 14px Inter, -apple-system, Helvetica, Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; var tw = ctx.measureText(hp.last).width + 14; ctx.fillStyle = 'rgba(250,204,21,.95)'; ctx.fillRect(Q.x - tw / 2, Q.y - 11, tw, 20); ctx.beginPath(); ctx.moveTo(Q.x - 6, Q.y + 9); ctx.lineTo(Q.x + 6, Q.y + 9); ctx.lineTo(Q.x, Q.y + 15); ctx.fill(); ctx.fillStyle = '#111'; ctx.fillText(hp.last, Q.x, Q.y); }); // eigener Spieler: gelbes Namensschild (Ring zeichnet match3d.js)
+          ctx.textBaseline = 'alphabetic';
+        }
+      } else {
       // Zeichnen: erst Abwehr, dann Angriff, Namen ohne Überlappung (zeilenweise versetzt)
       var normal = st.settings.matchSpeed === 'normal';
       drawList.sort(function (p, q) { return (p.side === s) - (q.side === s); });
@@ -539,6 +559,7 @@
       ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(BP.x, BP.y, 4, 1.6, 0, 0, 7); ctx.fill();
       ctx.beginPath(); ctx.arc(BP.x, BP.y - lift, 4.6 * BP.s / S1, 0, 7); ctx.fillStyle = '#efdfad'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#7c5a1e'; ctx.stroke();
       ctx.textBaseline = 'alphabetic';
+      }
       if (L.paused && !m.finished && !L.career) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0, 0, Wd, Ht); ctx.fillStyle = '#fff'; ctx.font = '800 46px Inter, Helvetica'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('PAUSE', Wd / 2, Ht * 0.62); ctx.textBaseline = 'alphabetic'; }
       if (m.finished) { ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(0, Ht * 0.62 - 50, Wd, 100); ctx.fillStyle = '#fff'; ctx.font = '800 42px Inter, Helvetica'; ctx.textAlign = 'center'; ctx.fillText('ENDE  ' + m.score[0] + ':' + m.score[1], Wd / 2, Ht * 0.62 + 15); }
       U._raf = requestAnimationFrame(frame);

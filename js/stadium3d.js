@@ -398,6 +398,7 @@
     B.quad('hallFloor', [-hb0.x, 0.03, -hb0.y], [hb0.x, 0.03, -hb0.y], [hb0.x, 0.03, hb0.y], [-hb0.x, 0.03, hb0.y], [[0, 0], [6, 0], [6, 4], [0, 4]]);
     B.flush(group, M, sh);
     // Spieler (7 gegen 7) und zwei Schiedsrichter
+    if (!o.noPlayers) {
     var r = rng(hsh(m.club)), pg = new T.CapsuleGeometry(0.24, 1.3, 2, 6), pls = new T.InstancedMesh(pg, new T.MeshStandardMaterial({ roughness: 0.6 }), 16), mm = new T.Matrix4(), col = new T.Color();
     // Heim greift das Westtor an: Außen, Rückraum, Kreis; Gäste in 6:0-Abwehr; Torhüter
     var att = [[-13.5, -8.5], [-11.5, -4.5], [-10.5, 0.5], [-11.8, 5], [-13.8, 8.6], [-15.2, 1.6], [17.5, 0]];
@@ -409,6 +410,7 @@
       pls.setColorAt(i, col.set(i >= 14 ? '#111827' : i === 6 ? '#facc15' : i === 13 ? '#22c55e' : home ? m.colors[0] : '#e5e7eb'));
     }
     pls.castShadow = sh; group.add(pls);
+    }
     // Flutlicht-Leuchten (Glühen) und Pitch-Ausleuchtung
     o.lamps.forEach(function (l) { var s = new T.Sprite(M.glow); s.position.set(l[0], l[1], l[2]); s.scale.set(l[3], l[3], 1); group.add(s); });
     return { top: Math.max(m.roofH, m.areas.N.top, m.areas.S.top, m.areas.W.top, m.areas.E.top) };
@@ -823,7 +825,7 @@
     var I = new Inst();
     if (cfg.kind === 'bank') { var hb = buildBank(group, m, M, I, r, cfg); flushInst(group, I, m, hq()); return { scene: scene, heights: hb }; }
     if (cfg.kind === 'focus') { var hf = buildFocus(group, m, M, I, r, cfg.focus); flushInst(group, I, m, hq()); return { scene: scene, heights: hf }; }
-    var o = { highlight: cfg.highlight || [], lamps: [], noRoof: !!cfg.noRoof }, info = buildStadium(group, m, M, o);
+    var o = { highlight: cfg.highlight || [], lamps: [], noRoof: !!cfg.noRoof, noPlayers: !!cfg.noPlayers, noShadow: !!cfg.noShadow }, info = buildStadium(group, m, M, o);
     buildPlaza(group, m, M, I, r, big);
     var heights = big ? buildCity(group, m, M, I, r, cfg.buildings || []) : {};
     flushInst(group, I, m, hq());
@@ -834,6 +836,8 @@
   // ---------- Kameras ----------
   var VIEWS = {}; // Kamerastand je Ansicht (bleibt beim Neuzeichnen erhalten)
   S3.view = function (key) { return VIEWS[key]; };
+  S3._sceneFor = function (cfg) { return sceneFor(cfg); }; // Live-Spiel (match3d.js): Halle ohne Standfiguren
+  S3.hq = hq;
   function camDefaults(cfg) {
     var m = cfg.model, ex = m.extent, cam = cfg.cam;
     if (cam === 'stadt') return { az: -22, el: 34, dist: 760, tx: 0, ty: 0, tz: 25, fov: 34 };

@@ -304,11 +304,34 @@
 
   // ---------- Beziehungen ----------
   var KIND = { capt: 'Kapitän', rival: 'Positionsrivale', friend: 'Freund im Team', mentor: 'Mentor', oldrival: 'Alte Rivalität' };
+  // Interaktionen mit Bezugspersonen
+  function pplBtn(st, x) {
+    if (!(X.PPL_ACTS[x.kind] || []).length || !st.players[x.pid]) return '';
+    var why = X.pplBlock(st, x); return '<button class="sm' + (why ? ' ghost' : '') + '" data-act="pplOpen" data-pid="' + esc(x.pid) + '"' + (why ? ' disabled title="' + esc(why) + '"' : '') + ' style="align-self:center">' + U.lc(why ? 'check' : 'coffee', 14) + ' ' + (x.iw === (st.tick || 0) ? 'Getroffen' : 'Treffen') + '</button>';
+  }
+  function pplInfo(st) { var w = X.pplState(st), left = Math.max(0, X.PPL_MAX - w.n); return '<p class="muted small" style="margin-top:4px">' + (left ? 'Diese Woche noch ' + left + ' ' + (left === 1 ? 'Treffen' : 'Treffen') + ' möglich – je Person eines.' : 'Für diese Woche sind alle Treffen verplant.') + ' Gepflegte Beziehungen helfen dir: Freunde heben die Laune, Mentoren bringen dich weiter, der Kapitän stärkt deinen Stand im Team. Wer lange nichts von dir hört, kühlt ab.</p>'; }
+  U.acts.pplOpen = function (d) {
+    var st = U.st, cx = X.ensure(st), x = cx.ppl.filter(function (y) { return String(y.pid) === String(d.pid); })[0]; if (!x) return;
+    var q = st.players[x.pid], acts = X.PPL_ACTS[x.kind] || [];
+    var body = '<p class="muted small">' + esc(KIND[x.kind] || x.kind) + (q ? ' · ' + q.age + ' J. · ' + esc(D.posNames[q.pos] || q.pos) : '') + ' · Verhältnis ' + Math.round(x.v) + '/100</p>' + U.bar(x.v) +
+      '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' + acts.map(function (a) {
+        var why = X.pplBlock(st, x, a), cost = X.pplCost(st, a);
+        return '<button class="' + (why ? 'ghost' : '') + '" style="text-align:left;display:flex;gap:10px;align-items:flex-start;padding:10px 12px" data-act="pplDo" data-pid="' + esc(x.pid) + '" data-k="' + a.k + '"' + (why ? ' disabled' : '') + '>' + U.lc(a.ic || 'circle', 18) +
+          '<span><b>' + esc(a.l) + '</b>' + (cost ? ' <span class="muted small">(' + money(cost) + ')</span>' : '') + '<br><span class="muted small">' + esc(a.d) + (why ? ' – ' + esc(why) : '') + '</span></span></button>';
+      }).join('') + '</div>';
+    U.modal('Treffen mit ' + esc(x.name), body);
+  };
+  U.acts.pplDo = function (d) {
+    var st = U.st, r = X.pplDo(st, d.pid, d.k);
+    if (!r.ok) { U.toast(r.why || 'Nicht möglich'); return; }
+    U.modal('Treffen mit ' + esc(r.name), '<p>' + esc(r.msg) + '</p><p class="small"><b>Verhältnis ' + (r.dv >= 0 ? '+' : '−') + Math.abs(r.dv) + '</b>' + (r.fx ? ' · ' + esc(r.fx) : '') + (r.cost ? ' · −' + money(r.cost) : '') + '</p>', '<button class="primary" data-act="closeModal">OK</button>');
+    U.autosave(); U.render();
+  };
   U.screens.pbez = function () {
     var st = U.st, cx = X.ensure(st), pc = st.pc;
     var h = '<h1>Beziehungen</h1><div class="grid g2"><div class="panel"><h2>Dein Umfeld</h2><table class="t small">' + barRow('Trainer', pc.trust) + Object.keys(cx.rel).map(function (k) { return barRow(esc(X.REL[k] || k), cx.rel[k]); }).join('') +
       (AG.current(st) ? barRow('Spielerberater', pc.ag.trust) : '') + (FA.current(st) ? barRow('Finanzberater', pc.fa.trust) : '') + '</table></div>';
-    h += '<div class="panel"><h2>Bezugspersonen</h2>' + (cx.ppl.length ? cx.ppl.map(function (x) { var q = st.players[x.pid]; return '<div class="cx-row" style="margin-bottom:10px">' + tile(x.kind === 'rival' || x.kind === 'oldrival' ? 'rival' : x.kind === 'friend' ? 'freund' : 'team', { capt: '©️', rival: '⚔️', friend: '🤝', mentor: '🧭', oldrival: '🗡️' }[x.kind]) + '<div style="flex:1"><b>' + esc(x.name) + '</b> <span class="muted small">' + esc(KIND[x.kind] || x.kind) + (q ? ' · ' + q.age + ' J. · ' + esc(D.posNames[q.pos] || q.pos) + ' · Stärke ' + q.ovr : '') + '</span>' + U.bar(x.v) + '</div></div>'; }).join('') : '<p class="muted small">Noch keine engen Bezugspersonen.</p>') + '</div></div>';
+    h += '<div class="panel"><h2>Bezugspersonen</h2>' + (cx.ppl.length ? cx.ppl.map(function (x) { var q = st.players[x.pid]; return '<div class="cx-row" style="margin-bottom:10px">' + tile(x.kind === 'rival' || x.kind === 'oldrival' ? 'rival' : x.kind === 'friend' ? 'freund' : 'team', { capt: '©️', rival: '⚔️', friend: '🤝', mentor: '🧭', oldrival: '🗡️' }[x.kind]) + '<div style="flex:1"><b>' + esc(x.name) + '</b> <span class="muted small">' + esc(KIND[x.kind] || x.kind) + (q ? ' · ' + q.age + ' J. · ' + esc(D.posNames[q.pos] || q.pos) + ' · Stärke ' + q.ovr : '') + '</span>' + U.bar(x.v) + '</div>' + pplBtn(st, x) + '</div>'; }).join('') + pplInfo(st) : '<p class="muted small">Noch keine engen Bezugspersonen.</p>') + '</div></div>';
     var notes = [];
     if (X.mem(st, 'captCrit') >= 2) notes.push('Du hast den Kapitän mehrfach öffentlich kritisiert – er wird dich bei Abstimmungen nicht unterstützen.');
     if (X.mem(st, 'subProtest') >= 2) notes.push('Deine Proteste bei Auswechslungen sind dem Trainer in Erinnerung geblieben.');

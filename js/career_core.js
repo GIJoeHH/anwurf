@@ -101,6 +101,77 @@
   };
   X.pplRel = function (st, kind, d) { var x = X.person(st, kind); if (!x) return; x.v = clamp(x.v + d, 0, 100); if (kind === 'capt') st.pc.cx.rel.capt = x.v; };
 
+  // ---------- Interaktionen mit Bezugspersonen ----------
+  // Je Person eine Aktion pro Woche, insgesamt höchstens zwei pro Woche. Ergebnis hängt von Persönlichkeit und aktuellem Verhältnis ab.
+  X.PPL_MAX = 2;
+  function pAttr(p, keys, d) { keys.forEach(function (k) { if (p.attr && p.attr[k] != null && (k !== 'gk' || p.pos === 'TW')) p.attr[k] = clamp(p.attr[k] + d, 10, 99); }); if (p.pos === 'TW' && p.attr && p.attr.gk != null && keys.indexOf('gk') < 0) p.attr.gk = clamp(p.attr.gk + d * 0.6, 10, 99); if (W.recalc) W.recalc(p); }
+  function ch(q) { return Math.random() < clamp(q, 0.05, 0.95); }
+  X.PPL_ACTS = {
+    capt: [
+      { k: 'talk', ic: 'coffee', l: 'Gespräch unter vier Augen', d: 'Über die Mannschaft und deine Rolle reden. Stärkt Vertrauen und Führung.', fx: function (st, x, c) { var g = ch(0.6 + c.cx.per.team / 250 + (x.v - 50) / 200); return g ? { v: 7, e: { lead: 1, mates: 1 }, m: x.name + ' nimmt sich Zeit. „Gut, dass du kommst – so etwas merke ich mir.“' } : { v: 2, m: x.name + ' hört zu, wirkt aber mit den Gedanken woanders.' }; } },
+      { k: 'help', ic: 'users', l: 'Mannschaftsabend mitorganisieren', d: 'Kostet etwas Zeit und Geld, bringt das Team zusammen.', cost: 120, fx: function (st, x) { return { v: 8, e: { mates: 3, team: 1, stress: 1 }, m: 'Der Abend ist ein Erfolg. ' + x.name + ': „Genau solche Leute brauchen wir.“' }; } },
+      { k: 'back', ic: 'shield', l: 'Um Rückendeckung beim Trainer bitten', d: 'Klappt nur, wenn er dir vertraut (Verhältnis ab 60).', need: 60, fx: function (st, x) { var g = ch(0.45 + (x.v - 60) / 60); return g ? { v: 1, e: { coach: 4 }, m: x.name + ' legt beim Trainer ein gutes Wort für dich ein.' } : { v: -4, m: x.name + ' winkt ab: „Das musst du selbst regeln.“' }; } }
+    ],
+    rival: [
+      { k: 'extra', ic: 'dumbbell', l: 'Gemeinsame Extraschicht', d: 'Konkurrenz belebt – ihr treibt euch gegenseitig an. Kostet Frische.', fx: function (st, x, c) { pAttr(c.p, ['tec', 'sho'], 0.25); var g = ch(0.5 + c.cx.per.team / 200); return { v: g ? 8 : 3, e: { fit: -4, coach: 1 }, m: g ? 'Ihr pusht euch bis zum Schluss – und klatscht danach ab.' : 'Hartes Duell. ' + x.name + ' geht wortlos in die Kabine – aber du bist besser geworden.' }; } },
+      { k: 'respect', ic: 'star', l: 'Respekt zeigen', d: 'Nach seinem guten Spiel ehrlich gratulieren.', fx: function (st, x, c) { var g = ch(0.55 + (x.v - 40) / 120 + c.cx.per.team / 300); return g ? { v: 7, e: { team: 1, mates: 1 }, m: x.name + ' ist überrascht – und bedankt sich ehrlich.' } : { v: 1, e: { conf: -1 }, m: x.name + ' nickt nur knapp. Immerhin ein Anfang.' }; } },
+      { k: 'clear', ic: 'handshake', l: 'Aussprache suchen', d: 'Offenes Gespräch über die Konkurrenz. Kann viel bringen – oder alles schlimmer machen.', fx: function (st, x, c) { var g = ch(0.4 + c.cx.per.team / 200 + c.cx.per.lead / 300 + (x.v < 30 ? 0.05 : 0)); return g ? { v: 16, e: { mates: 2, stress: -1 }, chron: 'Aussprache mit ' + x.name + ' – ihr zieht jetzt an einem Strang.', m: 'Ihr redet lange. Am Ende steht fest: Konkurrenz ja, Feindschaft nein.' } : { v: -6, e: { stress: 2 }, m: 'Das Gespräch kippt. ' + x.name + ': „Du willst doch nur meinen Platz.“' }; } }
+    ],
+    friend: [
+      { k: 'dinner', ic: 'utensils', l: 'Zusammen essen gehen', d: 'Abschalten vom Sport.', cost: 80, fx: function (st, x) { return { v: 8, e: { morale: 3, stress: -2 }, m: 'Ein langer Abend mit ' + x.name + ' – genau das hat gefehlt.' }; } },
+      { k: 'games', ic: 'dices', l: 'Spieleabend bei dir', d: 'Konsole, Karten, Pizza. Billig und entspannend.', cost: 25, fx: function (st, x) { return { v: 5, e: { stress: -2, mates: 1 }, m: x.name + ' bringt noch zwei Teamkollegen mit. Ihr lacht viel.' }; } },
+      { k: 'listen', ic: 'heart-pulse', l: 'Nach seinen Sorgen fragen', d: 'Ein echter Freund hört zu.', fx: function (st, x, c) { var g = ch(0.65 + c.cx.per.team / 300); return { v: g ? 9 : 4, e: { team: 1 }, m: g ? x.name + ' öffnet sich – ' + R.pick(['Ärger um den Vertrag', 'Heimweh', 'Zweifel an der eigenen Form', 'Stress zu Hause']) + '. Er ist froh, dass du fragst.' : x.name + ': „Alles gut, wirklich.“ Er weiß aber, dass du da bist.' }; } }
+    ],
+    mentor: [
+      { k: 'advice', ic: 'brain', l: 'Um Rat fragen', d: 'Erfahrung weitergeben lassen – stärkt Selbstvertrauen und Spielverständnis.', fx: function (st, x, c) { pAttr(c.p, ['pas', 'tec'], 0.15); return { v: 5, e: { conf: 2 }, m: x.name + ': „In deinem Alter habe ich denselben Fehler gemacht …“ – du nimmst viel mit.' }; } },
+      { k: 'video', ic: 'eye', l: 'Gemeinsame Videoanalyse', d: 'Szenen deiner letzten Spiele zusammen durchgehen. Der Trainer sieht den Einsatz.', fx: function (st, x, c) { pAttr(c.p, ['def', 'pas'], 0.15); return { v: 5, e: { coach: 2, disc: 1 }, m: 'Zwei Stunden Video. ' + x.name + ' zeigt dir Laufwege, die du nie bemerkt hast.' }; } },
+      { k: 'thanks', ic: 'sparkles', l: 'Danke sagen (kleines Geschenk)', d: 'Zeigen, dass du die Hilfe schätzt.', cost: 60, fx: function (st, x) { return { v: 10, e: { team: 1 }, m: x.name + ' ist gerührt: „Dafür nicht. Mach einfach weiter so.“' }; } }
+    ],
+    oldrival: [
+      { k: 'msg', ic: 'mail', l: 'Versöhnliche Nachricht schreiben', d: 'Alte Geschichten hinter sich lassen.', fx: function (st, x, c) { var g = ch(0.45 + c.cx.per.team / 250); return g ? { v: 14, e: { stress: -1 }, m: x.name + ' antwortet: „Schon vergessen. Viel Erfolg dir!“' } : { v: -3, m: 'Keine Antwort. Manche Rivalitäten dauern länger.' }; } },
+      { k: 'pub', ic: 'megaphone', l: 'Ihn öffentlich loben', d: 'Ein faires Wort in einem Interview. Gut fürs Medienbild.', fx: function (st, x) { return { v: 8, e: { press: 2, pop: 1 }, m: 'Dein Lob für ' + x.name + ' wird viel zitiert – fair und souverän.' }; } }
+    ]
+  };
+  X.pplCost = function (st, a) { return a.cost ? Math.round(a.cost * (HB ? 0.6 : 1)) : 0; };
+  X.pplState = function (st) { var cx = st.pc.cx, t = tick(st); if (!cx.pplW || cx.pplW.t !== t) cx.pplW = { t: t, n: 0 }; return cx.pplW; };
+  // Prüfung: warum (noch) nicht? Rückgabe: Text oder ''
+  X.pplBlock = function (st, x, a) {
+    var w = X.pplState(st), t = tick(st);
+    if (!st.players[x.pid]) return 'nicht mehr erreichbar';
+    if (x.iw === t) return 'diese Woche schon getroffen';
+    if (w.n >= X.PPL_MAX) return 'diese Woche keine Zeit mehr';
+    if (a && a.need && x.v < a.need) return 'Verhältnis zu schwach (ab ' + a.need + ')';
+    if (a && X.pplCost(st, a) && (st.pc.cash || 0) < X.pplCost(st, a)) return 'zu wenig Geld';
+    return '';
+  };
+  X.pplDo = function (st, pid, k) {
+    var cx = X.ensure(st), p = C.player(st), x = cx && cx.ppl.filter(function (y) { return String(y.pid) === String(pid); })[0]; if (!x || !p) return { ok: false, why: 'Person nicht gefunden' };
+    var a = (X.PPL_ACTS[x.kind] || []).filter(function (y) { return y.k === k; })[0]; if (!a) return { ok: false, why: 'Unbekannte Aktion' };
+    var why = X.pplBlock(st, x, a); if (why) return { ok: false, why: why };
+    var cost = X.pplCost(st, a); if (cost) { if (R.pf) R.pf.book(st, -cost, 'Freizeit & Privatleben'); else st.pc.cash -= cost; }
+    var r = a.fx(st, x, X.ctx(st)) || {}, v0 = x.v;
+    x.v = clamp(x.v + (r.v || 0), 0, 100); if (x.kind === 'capt') cx.rel.capt = x.v;
+    x.iw = tick(st); x.n = (x.n || 0) + 1; X.pplState(st).n++;
+    var fx = X.eff(st, r.e || {});
+    if (r.chron) X.chron(st, 'team', '🤝', 'Bezugsperson', r.chron, 2);
+    else if (x.v >= 80 && v0 < 80) X.chron(st, 'freund', '💬', 'Enges Verhältnis', 'Zu ' + x.name + ' hast du jetzt ein besonders gutes Verhältnis.', 2);
+    return { ok: true, msg: r.m || '', dv: Math.round(x.v - v0), fx: fx, cost: cost, name: x.name };
+  };
+  // Wöchentlich: gute Beziehungen zahlen sich aus, vernachlässigte kühlen langsam ab
+  X.pplWeek = function (st) {
+    var cx = st.pc.cx, p = C.player(st), t = tick(st); if (!cx || !p) return;
+    cx.ppl.forEach(function (x) {
+      if (!st.players[x.pid]) return;
+      var idle = t - (x.iw != null ? x.iw : (x.t0 != null ? x.t0 : (x.t0 = t)));
+      if (idle > 6 && x.v > 50 && x.kind !== 'rival' && x.kind !== 'oldrival') x.v = clamp(x.v - 0.4, 0, 100);
+      if (x.kind === 'friend' && x.v >= 75) p.morale = clamp(p.morale + 0.6, 0, 100);
+      if (x.kind === 'mentor' && x.v >= 70 && Math.random() < 0.3) pAttr(p, ['tec', 'pas'], 0.04);
+      if (x.kind === 'capt' && x.v >= 70) cx.rel.mates = clamp(cx.rel.mates + 0.2, 0, 100);
+      if (x.kind === 'rival' && x.v < 20) cx.per.stress = clamp(cx.per.stress + 0.3, 0, 100);
+      if (x.kind === 'capt') cx.rel.capt = x.v;
+    });
+  };
+
   // ---------- Karrierephasen (dynamisch, ohne feste Zeiten) ----------
   X.PHASES = ['Jugendspieler', 'Nachwuchstalent', 'Übergang zu den Profis', 'Jungprofi', 'Etablierter Profi', 'Spitzenspieler', 'Erfahrener Profi', 'Karriereausklang'];
   X.PHASE_TXT = ['Erste Vereinserfahrungen – Schule, Training, Jugendliga.', 'Auswahlmannschaften und Sichtungen: Die ersten Augen sind auf dich gerichtet.', 'Der Sprung in den Erwachsenenbereich steht an.', 'Kampf um Einsatzzeiten bei den Profis.',
@@ -290,6 +361,7 @@
     if (per.stress > 60) p.morale = clamp(p.morale - (per.stress - 60) * 0.05, 0, 100);
     // Bezugspersonen, Kapitänsamt
     if (st.week % 8 === 1 || !cx.ppl.length) X.updatePeople(st);
+    X.pplWeek(st);
     if (!cx.captain && !p.youth && p.age >= 25 && per.lead >= 62 && pc.trust >= 70 && rel.mates >= 60 && st.phase === 'preseason') { cx.captain = true; C.milestone(st, 'captain', 'Kapitän!', 'Die Mannschaft wählt ' + W.playerName(p) + ' zum Kapitän.'); X.chron(st, 'highlight', '©', 'Kapitänsbinde', 'Die Mannschaft vertraut dir.', 3); }
     // Phase
     var ph = X.computePhase(st);

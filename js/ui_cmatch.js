@@ -7,7 +7,7 @@
   var U = R.ui, C = R.pc, X = R.cx, CM = R.cm, M = R.match, W = R.world, S = R.season, D = R.data;
   if (!U || !CM || !X) return;
   var esc = R.esc, HB = X.HB;
-  U.CM_SPEEDS = [['slow', 'Langsam', 950], ['normal', 'Normal', 420], ['fast', 'Schnell', 110], ['key', 'Nur Schlüsselszenen', 14], ['instant', 'Sofort', 0]];
+  U.CM_SPEEDS = [['slow', 'Langsam', 950], ['normal', 'Normal', 340], ['fast', 'Schnell', 110], ['key', 'Nur Schlüsselszenen', 14], ['instant', 'Sofort', 0]];
   function spd(k) { return U.CM_SPEEDS.filter(function (x) { return x[0] === k; })[0] || U.CM_SPEEDS[1]; }
 
   if (typeof document !== 'undefined' && !document.getElementById('cm-style')) {
@@ -108,11 +108,11 @@
     var news = m.events.slice(L.lastEv); L.lastEv = m.events.length;
     var slowish = g.speed === 'slow' || g.speed === 'normal', key = g.speed === 'key', hold = 0, pid = C.player(st).id;
     news.forEach(function (e) {
-      if (e.type === 'goal') { L.flash = { t: Date.now(), side: e.side }; hold = slowish ? 2000 : key ? 1600 : 700; U.animShot(L.anim, e.side, true, e); }
-      else if ((e.type === 'save' || e.type === 'miss') && slowish) { U.animShot(L.anim, e.side, false, e); hold = Math.max(hold, 800); }
+      if (e.type === 'goal') { var mine = e.pid === pid; L.flash = { t: Date.now(), side: e.side, mine: mine ? (C.player(st).first + ' ' + C.player(st).last) : null }; hold = mine ? (slowish ? 3200 : 2400) : HB ? (g.speed === 'slow' ? 1000 : slowish ? 450 : key ? 300 : 150) : slowish ? 2000 : key ? 1600 : 700; U.animShot(L.anim, e.side, true, e); } // eigenes Tor: längere Einblendung mit Namen
+      else if ((e.type === 'save' || e.type === 'miss') && slowish) { U.animShot(L.anim, e.side, false, e); hold = Math.max(hold, HB ? (g.speed === 'slow' ? 500 : 0) : g.speed === 'slow' ? 800 : 500); } // Handball: ~55 Tore und viele Würfe je Spiel – kurze Pausen, sonst dauert ein Spiel mehrere Minuten
       else if (e.type === 'chance') U.animAttack(L.anim, e.side);
       else if (e.type === 'red') hold = Math.max(hold, slowish ? 1100 : 500);
-      if (key && (e.pid === pid || e.pid2 === pid) && e.type !== 'info') hold = Math.max(hold, 1300);
+      if (key && (e.pid === pid || e.pid2 === pid) && e.type !== 'info') hold = Math.max(hold, HB ? 700 : 1300);
     });
     U.liveUpdate(news); markMine();
     return hold;
@@ -127,7 +127,7 @@
     }
     if (m.finished) { stopTimer(g); refresh(st, g); U.liveUpdate([]); return; }
     if (U.screen === 'pspiel') { var pl = document.getElementById('cmPlayer'); if (pl && (m.minute % 3 === 0 || hold)) refresh(st, g); }
-    var ms = spd(g.speed)[2];
+    var ms = spd(g.speed)[2]; if (HB && g.speed === 'normal') ms = 250; else if (HB && g.speed === 'slow') ms = 700;
     g.timer = setTimeout(loop, hold || ms);
   }
   function runInstant(g, st) { // Sofort: bis zum Abpfiff, Entscheidungen nach Regeln

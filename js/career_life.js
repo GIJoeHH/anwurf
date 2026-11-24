@@ -21,9 +21,9 @@
   L.first = function (g) { return pick(g === 'a' ? FN_A : FN_B); };
   var JOBS = [['Lehrerin/Lehrer', 'Schule'], ['Ärztin/Arzt', 'Klinik'], ['Architektin/Architekt', 'Büro'], ['Pflegekraft', 'Klinik'], ['Softwareentwicklung', 'Tech'], ['Journalismus', 'Medien'], ['Studium', 'Uni'], ['Eigenes Café', 'Selbstständig'], ['Physiotherapie', 'Praxis'], ['Unternehmensberatung', 'Büro'], ['Polizei', 'Behörde'], ['Mode & Design', 'Kreativ']];
   var INTR = ['Reisen', 'Kochen', 'Musik', 'Wandern', 'Kunst', 'Lesen', 'Yoga', 'Filme', 'Tiere', 'Fotografie', 'Tanzen', 'Gärtnern'];
-  var OUTLETS = { sach: ['Sportblick', 'Die Rundschau'], krit: ['Tagesspiegel Nord', 'Kick & Kritik'], boul: ['Abendpost Express', 'Promi-Echo'], nah: ['Vereinsecho', 'Stadionradio'] };
+  var OUTLETS = { sach: ['Sportblick', 'Die Rundschau'], krit: ['Tagesspiegel Nord', 'Kick & Kritik'], boul: ['Abendpost Express', 'Promi-Echo'], nah: ['Vereinsecho', HB ? 'Hallenradio' : 'Stadionradio'] };
   L.JTYPES = { sach: 'Sachlicher Sportjournalist', krit: 'Kritische Reporterin/Reporter', boul: 'Boulevardjournalismus', nah: 'Vereinsnahes Medium' };
-  L.FANS = { fam: 'Familienfans', gel: 'Gelegenheitsfans', club: 'Organisierte Fanclubs', aktiv: 'Aktive Fanszene', ultras: 'Ultras', away: 'Auswärtsfahrer', krit: 'Kritische Fangruppe' };
+  L.FANS = { fam: 'Familienfans', gel: 'Gelegenheitsfans', club: 'Organisierte Fanclubs', aktiv: 'Aktive Fanszene', ultras: HB ? 'Fanblock (harter Kern)' : 'Ultras', away: 'Auswärtsfahrer', krit: 'Kritische Fangruppe' };
   L.STAGES = ['Single', 'Kennenlernen', 'Erste Dates', 'Feste Partnerschaft', 'Zusammengezogen', 'Verlobt', 'Verheiratet'];
   L.FRK = { jugend: 'Aus der Jugend', heimat: 'Aus der Heimat', team: 'Mannschaftskamerad', aussen: 'Außerhalb des Sports', neu: 'Neue Bekanntschaft' };
 

@@ -153,7 +153,13 @@
       a.armL.sh.rotation.z = 0.12; a.armR.sh.rotation.z = -0.12;
       a.body.position.y = Math.abs(Math.cos(a.ph)) * 0.05 * amp;
       // Abwehr: Arme hoch, leicht in den Knien
-      if (it.def && !it.gk) { a.armL.sh.rotation.x = -2.3; a.armR.sh.rotation.x = -2.3; a.armL.sh.rotation.z = 0.35; a.armR.sh.rotation.z = -0.35; a.armL.el.rotation.x = -0.2; a.armR.el.rotation.x = -0.2; }
+      // Abwehr: Arme nur hoch, wenn der Ball nah ist und der Spieler steht (Blocken); beim Laufen natürliche Armbewegung
+      if (it.def && !it.gk) {
+        var dB = Math.hypot(X - ballW.x, Z - ballW.z), upT = Math.max(0, Math.min(1, (4.5 - dB) / 2.5)) * Math.max(0, Math.min(1, 1 - (a.sp - 1) / 2.5));
+        if (d.shot && dB < 6) upT = Math.max(upT, 0.9);
+        a.up = damp(a.up || 0, upT, Math.min(1, dt * 6)); var u = a.up;
+        if (u > 0.02) { a.armL.sh.rotation.x = a.armL.sh.rotation.x * (1 - u) - 2.4 * u; a.armR.sh.rotation.x = a.armR.sh.rotation.x * (1 - u) - 2.4 * u; a.armL.sh.rotation.z = 0.12 + 0.25 * u; a.armR.sh.rotation.z = -0.12 - 0.25 * u; a.armL.el.rotation.x = a.armL.el.rotation.x * (1 - u) - 0.2 * u; a.armR.el.rotation.x = a.armR.el.rotation.x * (1 - u) - 0.2 * u; }
+      }
       // Torwart: breite Grundstellung
       if (it.gk) { a.armL.sh.rotation.z = 0.9; a.armR.sh.rotation.z = -0.9; a.armL.sh.rotation.x = -0.6; a.armR.sh.rotation.x = -0.6; a.legL.hip.rotation.z = 0.18; a.legR.hip.rotation.z = -0.18; }
       var k = it.side + ':' + it.i;

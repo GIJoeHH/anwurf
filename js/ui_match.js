@@ -128,7 +128,7 @@
     U.go('match');
     U.liveSchedule();
   };
-  U.liveSpeedMs = function () { var s = U.st.settings.matchSpeed; return s === 'normal' ? 1500 : s === 'schnell' ? 260 : 0; };
+  U.liveSpeedMs = function () { var s = U.st.settings.matchSpeed; return s === 'normal' ? 1100 : s === 'schnell' ? 200 : 0; }; // 60 Takte je Spiel: normal ≈ 1,5 min, schnell ≈ 20 s
   U.liveSchedule = function () {
     var L = U.live; clearTimeout(L.timer);
     if (!L || L.paused || L.m.finished) return;
@@ -145,7 +145,7 @@
     var news = m.events.slice(L.lastEv); L.lastEv = m.events.length;
     var normal = U.st.settings.matchSpeed === 'normal';
     news.forEach(function (e) {
-      if (e.type === 'goal') { L.flash = { t: Date.now(), side: e.side }; L.hold = normal ? 1000 : 260; U.animShot(L.anim, e.side, true, e); U.beep(880, 0.12); }
+      if (e.type === 'goal') { L.flash = { t: Date.now(), side: e.side }; L.hold = normal ? 700 : 120; U.animShot(L.anim, e.side, true, e); U.beep(880, 0.12); }
       else if ((e.type === 'save' || e.type === 'miss') && normal) { U.animShot(L.anim, e.side, false, e); }
       else if (e.type === 'chance') U.animAttack(L.anim, e.side);
       else if (e.type === 'red') { L.hold = normal ? 1200 : 400; }
@@ -266,8 +266,8 @@
     if (full) tk.innerHTML = html; else if (html) tk.insertAdjacentHTML('afterbegin', html);
     if (L.flash && Date.now() - L.flash.t < 300) {
       var fb = g('flashBox'); var club = U.st.clubs[m.clubs[L.flash.side]];
-      fb.innerHTML = '<div class="goal-flash">TOR!<br><span style="font-size:22px">' + esc(club.short) + '</span></div>';
-      setTimeout(function () { if (fb) fb.innerHTML = ''; }, 1500);
+      var mineF = L.flash.mine; fb.innerHTML = mineF ? '<div class="goal-flash mine">TOR!<br><span class="gf-name">' + esc(mineF) + '</span><span class="gf-club">' + esc(club.short) + '</span></div>' : '<div class="goal-flash">TOR!<br><span style="font-size:22px">' + esc(club.short) + '</span></div>';
+      setTimeout(function () { if (fb) fb.innerHTML = ''; }, mineF ? 3400 : 1500); // eigenes Tor (Spielerkarriere): länger, mit Namen
     }
   };
   U.showHalftime = function () {

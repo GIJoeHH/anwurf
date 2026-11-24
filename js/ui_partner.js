@@ -74,6 +74,7 @@
     if (lf.preg) h += '<p class="small">🤰 Ihr erwartet ein Kind – noch etwa ' + Math.max(1, lf.preg.due - tick(st)) + ' Wochen.</p>';
     h += '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="sm primary" data-act="ptTalk">' + U.lc('heart-pulse', 14) + ' Mit ' + esc(fn(pt)) + ' reden</button>';
     var dec = P.decisions(st); dec.forEach(function (t) { h += '<button class="sm" data-act="ptDec" data-id="' + esc(t.id) + '">' + esc(t.ic || '🔭') + ' ' + esc(t.title || 'Zukunft besprechen') + '</button>'; });
+    h += '<button class="sm ghost" data-act="ptBreak" style="margin-left:auto">' + U.lc('log-out', 14) + ' ' + (pt.stage >= 6 ? 'Scheidung' : 'Beziehung beenden') + '</button>';
     h += '</div>';
     // Aktivitäten
     h += '<div class="pt-sec"><h4>Gemeinsam etwas unternehmen</h4><div class="pt-acts">' + Object.keys(P.ACTS).map(function (k) {
@@ -125,6 +126,15 @@
   U.acts.lfGoOut = function () {
     var st = U.st, r = P.AFF ? P.AFF.goOut(st) : { ok: false }; if (!r.ok) { U.toast(r.why || 'Gerade nicht möglich.', 4000); return; }
     U.autosave(); if (r.dlg) { U.showDlg(); U.render(); return; } U.render(); U.showResult('Abend in der Stadt', r.txt, 'freunde');
+  };
+  // Beziehung jederzeit selbst beenden (Kinder bleiben, Scheidung kostet Geld)
+  U.acts.ptBreak = function () {
+    var st = U.st, lf = L.life(st), pt = lf.partner; if (!pt) return;
+    var wed = pt.stage >= 6, kids = (lf.kids || []).length;
+    if (typeof confirm === 'function' && !confirm((wed ? 'Die Scheidung von ' : 'Die Beziehung mit ') + pt.name + ' wirklich beenden?' + (wed ? ' Anwalt und Unterhalt kosten Geld.' : '') + (kids ? ' Die Kinder bleiben Teil deines Lebens.' : '') + ' Das belastet dich einige Wochen.')) return;
+    L.breakup(st, 'du hast die Beziehung beendet'); if (R.cx && R.cx.eff) R.cx.eff(st, { well: -4, stress: 2 });
+    if (L.remember) try { L.remember(st, 'trennung', 'Du hast dich von ' + pt.name + ' getrennt.', pt.name); } catch (e) {}
+    U.toast((wed ? 'Geschieden von ' : 'Getrennt von ') + fn(pt) + '.', 4000); U.autosave(); U.render();
   };
   U.acts.ptAffEnd = function (d) { var st = U.st, x = P.AFF.get(st, d.id); if (!x) return; P.AFF.end(st, d.id); U.toast('Kontakt zu ' + fn(x) + ' beendet.', 3000); U.autosave(); U.render(); };
   U.acts.ptAffOff = function (d) {

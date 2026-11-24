@@ -550,3 +550,6 @@ table.t tr:has(+ tr.plus-sub) td { border-bottom: 0; }
 .plus-card h3 { margin: 0 0 4px; font-size: 14px; }
 .plus-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .plus-card.on { border-color: var(--ok, #22c55e); }
+.goal-flash.mine { flex-direction: column; color: #facc15; text-shadow: 4px 4px 0 #0a3a7a; animation: flash 3.3s ease-out forwards; }
+.goal-flash.mine .gf-name { font-size: 34px; color: #fff; margin-top: 4px; }
+.goal-flash.mine .gf-club { font-size: 18px; color: #e2e8f0; opacity: .85; }

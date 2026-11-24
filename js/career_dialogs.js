@@ -290,33 +290,38 @@
       o: [['Ihr habt recht. Ich arbeite hart daran.', { f_krit: 3, f_club: 2, conf: -1 }], ['Ich brauche euch gerade jetzt.', { f_fam: 3, f_club: 2, f_aktiv: 1 }], ['Ihr seht nicht alles, was im Training passiert.', { f_krit: -4, f_ultras: -2 }]] },
     pyro: { q: function () { return '„Wie stehst du zu Pyrotechnik in der Kurve?“'; },
       o: [['Ich lehne sie ab – die Sicherheitsrisiken sind zu groß.', { f_ultras: -6, f_aktiv: -3, f_fam: 4, board: 3, press: 2 }], ['Ich verstehe, dass sie zur Fankultur gehört.', { f_ultras: 5, f_aktiv: 3, f_fam: -2, board: -2, press: -1 }], ['Ich setze mich für sichere und legale Formen ein.', { f_ultras: 2, f_aktiv: 2, f_fam: 1, board: 1, press: 2 }], ['Gefährliche Aktionen kritisiere ich klar.', { f_ultras: -2, f_fam: 3, board: 2 }], ['Dazu äußere ich mich nicht öffentlich.', { media: -1 }], ['Lasst uns mit euren Vertretern und dem Verein reden.', { f_ultras: 3, f_club: 2, board: 1, lead: 1 }]] },
+    // Handball (ANWURF!): Hallen-Themen statt Pyrotechnik – Trommeln/Fanblock und Harzverbot
+    drums: { q: function () { return '„Die Hallenbetreiber wollen Trommeln und Megafone in unserem Block einschränken. Stehst du hinter uns?“'; },
+      o: [['Ohne euren Block fehlt uns die Heimstärke – ich setze mich für euch ein.', { f_ultras: 5, f_aktiv: 3, board: -2 }], ['Stimmung ja, aber auch Rücksicht auf Familien in der Halle.', { f_fam: 3, f_ultras: -1, f_club: 1 }], ['Lasst uns mit Verein und Hallenbetreiber eine Lösung finden.', { f_ultras: 2, f_club: 2, board: 2 }], ['Das entscheiden andere.', { f_ultras: -3, media: -1 }]] },
+    harz: { q: function () { return '„Die Stadt will in unserer Halle Harz verbieten. Was heißt das für euch Spieler?“'; },
+      o: [['Ohne Harz leiden Würfe und Tempo – das trifft unser Spiel hart.', { f_ultras: 2, f_aktiv: 3, board: -1 }], ['Wir trainieren mit harzfreien Bällen und stellen uns darauf ein.', { f_krit: 2, f_club: 2, board: 2 }], ['Der Verein muss mit der Stadt verhandeln – notfalls über eine Reinigungspauschale.', { f_club: 3, board: 1, press: 1 }]] },
     prices: { q: function () { return '„Die Eintrittspreise steigen jedes Jahr. Was sagst du dazu?“'; },
-      o: [['Fußball muss bezahlbar bleiben.', { f_fam: 3, f_aktiv: 3, f_ultras: 2, board: -2 }], ['Der Verein braucht die Einnahmen.', { board: 2, f_aktiv: -3, f_ultras: -2 }], ['Ich spreche das bei der Vereinsführung an.', { f_club: 2, f_aktiv: 2, board: -1 }]] },
-    comm: { q: function () { return '„Anstoßzeiten, Sponsoren, Montagsspiele – geht der Sport kaputt?“'; },
+      o: [[(HB ? 'Handball' : 'Fußball') + ' muss bezahlbar bleiben.', { f_fam: 3, f_aktiv: 3, f_ultras: 2, board: -2 }], ['Der Verein braucht die Einnahmen.', { board: 2, f_aktiv: -3, f_ultras: -2 }], ['Ich spreche das bei der Vereinsführung an.', { f_club: 2, f_aktiv: 2, board: -1 }]] },
+    comm: { q: function () { return HB ? '„Anwurfzeiten fürs Fernsehen, Spiele unter der Woche, immer mehr Sponsoren – geht der Sport kaputt?“' : '„Anstoßzeiten, Sponsoren, Montagsspiele – geht der Sport kaputt?“'; },
       o: [['Ich teile viele eurer Sorgen.', { f_ultras: 4, f_aktiv: 3, sponsor: -2 }], ['Ohne Geld geht es nicht – aber mit Maß.', { f_club: 1, f_gel: 2 }], ['Davon profitieren am Ende alle.', { f_ultras: -4, sponsor: 3 }]] },
     away: { q: function () { return '„Beim letzten Auswärtsspiel gab es Ärger mit den gegnerischen Fans. Deine Meinung?“'; },
-      o: [['Gewalt hat im Stadion nichts verloren.', { f_fam: 3, f_ultras: -2, board: 2 }], ['Rivalität ja – aber mit Respekt.', { f_ultras: 1, f_away: 2, f_fam: 1 }], ['Ich war nicht dabei, das kann ich nicht beurteilen.', {}]] },
+      o: [['Gewalt hat ' + (HB ? 'in der Halle' : 'im Stadion') + ' nichts verloren.', { f_fam: 3, f_ultras: -2, board: 2 }], ['Rivalität ja – aber mit Respekt.', { f_ultras: 1, f_away: 2, f_fam: 1 }], ['Ich war nicht dabei, das kann ich nicht beurteilen.', {}]] },
     rival: { q: function () { return '„Es heißt, ein Rivale sei an dir interessiert. Würdest du dorthin wechseln?“'; },
       o: [['Niemals.', { f_ultras: 6, f_club: 4, loyal: 3 }, 'promise_no_rival'], ['Ich schließe nichts aus.', { f_ultras: -6, f_club: -4, value: 1 }], ['Darüber denke ich gerade nicht nach.', { f_ultras: -1 }]] },
-    mood: { q: function () { return '„Die Stimmung im Stadion war zuletzt mau. Wie seht ihr Spieler das?“'; },
+    mood: { q: function () { return '„Die Stimmung ' + (HB ? 'in der Halle' : 'im Stadion') + ' war zuletzt mau. Wie seht ihr Spieler das?“'; },
       o: [['Wir müssen euch auch etwas zurückgeben.', { f_aktiv: 3, f_club: 2 }], ['Mit euch im Rücken sind wir stärker.', { f_aktiv: 2, f_fam: 2 }], ['Die Stimmung macht ihr, nicht wir.', { f_aktiv: -4 }]] },
     protest: { q: function () { return '„Wir planen einen Protest gegen die Vereinsführung. Stehst du hinter uns?“'; },
       o: [['Ich verstehe euren Ärger, bleibe aber neutral.', { f_ultras: 1, board: 1 }], ['Ja, eure Kritik ist berechtigt.', { f_ultras: 5, f_aktiv: 4, board: -6 }], ['Proteste schaden dem Team.', { f_ultras: -5, board: 3 }]] }
   };
   L.addDlg([{
     id: 'fans', cat: 'medien', ic: '📣', scene: function (c, d) { return d.grp === 'ultras' ? 'ultras' : 'fans'; }, max: function (c, d, s) { return (s.v.topics || []).length || 3; },
-    title: function (c, d) { return d.grp === 'ultras' ? 'Treffen mit den Ultras' : d.grp === 'fam' ? 'Treffen mit Familienfans und Jugendfans' : 'Fanclub-Treffen'; },
-    who: function (c, d) { return { n: d.rep || 'Fanvertretung', role: d.grp === 'ultras' ? 'Sprecher der Ultras' : d.grp === 'fam' ? 'Familienblock & Jugendfans' : 'Fanclub-Vorsitz', ic: '📣', kind: 'fans' }; },
+    title: function (c, d) { return d.grp === 'ultras' ? (HB ? 'Treffen mit dem Fanblock' : 'Treffen mit den Ultras') : d.grp === 'fam' ? 'Treffen mit Familienfans und Jugendfans' : 'Fanclub-Treffen'; },
+    who: function (c, d) { return { n: d.rep || 'Fanvertretung', role: d.grp === 'ultras' ? (HB ? 'Sprecher des Fanblocks' : 'Sprecher der Ultras') : d.grp === 'fam' ? 'Familienblock & Jugendfans' : 'Fanclub-Vorsitz', ic: '📣', kind: 'fans' }; },
     init: function (st, c, d, s) {
       d.grp = d.grp || 'club'; d.rep = d.rep || L.name();
-      var pool = d.grp === 'ultras' ? ['loyal', 'pyro', 'comm', 'protest', 'away', 'rival', 'mood'] : d.grp === 'fam' ? ['perf', 'prices', 'mood', 'loyal'] : ['loyal', 'perf', 'prices', 'pyro', 'mood', 'comm', 'rival'];
+      var pool = d.grp === 'ultras' ? ['loyal', HB ? 'drums' : 'pyro', 'comm', 'protest', 'away', 'rival', 'mood'] : d.grp === 'fam' ? ['perf', 'prices', 'mood', 'loyal'] : ['loyal', 'perf', 'prices', HB ? 'harz' : 'pyro', 'mood', 'comm', 'rival'];
       if (c.form >= 6.4) pool = pool.filter(function (k) { return k !== 'perf'; });
       var n = d.grp === 'fam' ? 2 : R.randInt(3, 4), t = [];
       while (t.length < n && pool.length) t.push(pool.splice(Math.floor(R.rand() * pool.length), 1)[0]);
       s.v = { topics: t, i: 0 };
     },
     nodes: { start: { say: fanSay, opts: fanOpts }, t: { say: fanSay, opts: fanOpts } },
-    sum: function (st, c, d, s) { var f = c.life.fans; return 'Stimmung danach: Ultras ' + Math.round(f.ultras) + ', Fanclubs ' + Math.round(f.club) + ', Familienfans ' + Math.round(f.fam) + '.'; }
+    sum: function (st, c, d, s) { var f = c.life.fans; return 'Stimmung danach: ' + (HB ? 'Fanblock ' : 'Ultras ') + Math.round(f.ultras) + ', Fanclubs ' + Math.round(f.club) + ', Familienfans ' + Math.round(f.fam) + '.'; }
   }]);
   function fanSay(c, d, s) { return FT[s.v.topics[s.v.i]].q(c, d); }
   function fanOpts(c, d, s) {

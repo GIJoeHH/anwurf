@@ -82,7 +82,7 @@
 
   U.screens.pspiel = function () {
     var st = U.st, g = U.pcm; if (!g) return U.screens.pkarriere();
-    g.speed = g.speed || (st.settings.cmSpeed || 'normal');
+    if (!g.speed) { var ds = st.settings.cmSpeed; g.speed = ds && ds !== 'instant' ? ds : st.settings.matchSpeed === 'schnell' ? 'fast' : 'normal'; } // „Sofort“ gilt nur für das laufende Spiel
     var m = g.m, L = live(g, st), H = st.clubs[m.clubs[0]], A = st.clubs[m.clubs[1]];
     var h = '<div class="page-h"><div><h1>Matchcenter</h1><div class="page-sub">' + esc(D.leagueNames[H.league] || '') + ' · ' + esc(H.stadiumName) + ' · Spielerkarriere</div></div></div>';
     h += '<div class="mc-head panel cm-head-fix"><div class="mch-team">' + U.crest(H, 64) + '<div><b>' + esc(H.name) + '</b><span>HEIM</span></div></div>' +
@@ -138,7 +138,7 @@
   U.acts.cmRun = function () { var g = U.pcm; if (!g || g.timer || g.inst) return; if (g.speed === 'instant') { runInstant(g, U.st); return; } live(g, U.st).paused = false; g.timer = setTimeout(loop, 10); refresh(U.st, g); };
   U.acts.cmPause = function () { var g = U.pcm; stopTimer(g); refresh(U.st, g); U.liveUpdate([]); };
   U.acts.cmSpeed = function (d) {
-    var g = U.pcm, st = U.st; if (!g) return; g.speed = d.v; st.settings.cmSpeed = d.v;
+    var g = U.pcm, st = U.st; if (!g) return; g.speed = d.v; if (d.v !== 'instant') st.settings.cmSpeed = d.v;
     if (d.v === 'instant') { stopTimer(g); runInstant(g, st); return; }
     refresh(st, g);
   };

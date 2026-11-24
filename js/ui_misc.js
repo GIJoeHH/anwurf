@@ -570,7 +570,7 @@
     }, function () { U.toast('Logos konnten nicht geladen werden (offline?).'); U.render(); });
   };
   U.acts.setGfx = function (d) { if (R.s3d) R.s3d.setQuality(d.v); U.render(); };
-  U.acts.setSpeed2 = function (d) { U.st.settings.matchSpeed = d.v; U.render(); };
+  U.acts.setSpeed2 = function (d) { var s = U.st.settings; s.matchSpeed = d.v; if (d.v !== 'sofort') s.cmSpeed = d.v === 'schnell' ? 'fast' : 'normal'; U.render(); };
   U.acts.setOpt = function (d, el) { U.st.settings[d.k] = el.checked; U.render(); };
   U.acts.setOptInv = function (d, el) { U.st.settings[d.k] = !el.checked; U.render(); };
 })(RFM);

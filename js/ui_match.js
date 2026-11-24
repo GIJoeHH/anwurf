@@ -106,7 +106,7 @@
   U.acts.mdTab = function (d) { U.p.stab = d.v; U.render(); };
   U.acts.mdVTab = function (d) { U.p.vtab = d.v; U.render(); };
   U.acts.pickSpeech = function (d) { U.speech = d.k; U.render(); };
-  U.acts.setSpeed = function (d) { U.st.settings.matchSpeed = d.v; U.render(); };
+  U.acts.setSpeed = function (d) { var s = U.st.settings; s.matchSpeed = d.v; if (d.v !== 'sofort') s.cmSpeed = d.v === 'schnell' ? 'fast' : 'normal'; U.render(); };
 
   // ---------- Live-Spiel ----------
   // Zuschauerzeile Heim/Gäste (Anzeigetafel, Vorschau)
@@ -188,7 +188,7 @@
   };
   U.viewSeg = function () { if (!R.m3d || !R.m3d.available()) return ''; var v = R.m3d.pref(); return '<div class="seg" title="Darstellung des Live-Spiels">' + [['3d', '3D'], ['2d', '2D']].map(function (x) { return '<button class="sm ' + (v === x[0] ? 'on' : '') + '" data-act="matchView" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>'; };
   U.acts.matchView = function (d) { R.m3d.setPref(d.v); document.querySelectorAll('[data-act="matchView"]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-v') === d.v); }); if (U.live) U.animLoop(); };
-  U.acts.matchSpeed = function (d) { U.st.settings.matchSpeed = d.v; if (d.v === 'sofort') U.acts.matchSkip(); else U.liveUpdate([]); };
+  U.acts.matchSpeed = function (d) { if (d.v === 'sofort') { U.acts.matchSkip(); return; } U.st.settings.matchSpeed = d.v; U.liveUpdate([]); }; // „Sofort“ im Spiel beendet nur dieses Spiel
 
   // Trikotfarben fürs Live-Spiel: Heim in Vereinsfarben, Gast weicht bei ähnlichen Farben auf Zweitfarbe
   // bzw. Ausweichtrikot (Weiß oder Dunkel) aus – nie mehr „Rot gegen Rot“

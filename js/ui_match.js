@@ -508,8 +508,8 @@
       var bpos;
       if (a.shot) {
         var sh = a.shot, sp = a.pos[sh.side + ':' + a.holder] || a.ball;
-        var gl = sh.side === 0 ? 0 : 40, gx = sh.goal ? (Math.random() < 0.5 ? -1 : 1) * 0.9 : (Math.random() < 0.5 ? -1 : 1) * 1.9;
-        if (!sh.gx) sh.gx = gx; var tt = ease((now - sh.t - 250) / 420);
+        var gl = sh.side === 0 ? 0 : 40, sg = Math.random() < 0.5 ? -1 : 1, rr = Math.random(), gx = sg * (sh.goal ? 0.8 + rr * 0.55 : Math.random() < 0.5 ? 0.2 + rr * 0.8 : 1.9);
+        if (!sh.gx) { sh.gx = gx; sh.to = { x: gx, y: gl + (sh.side === 0 ? 0.2 : -0.2) }; } var tt = ease((now - sh.t - 250) / 420);
         bpos = lerp(sp, { x: sh.gx, y: gl + (sh.side === 0 ? 0.2 : -0.2) }, tt);
       } else if (a.flight) {
         var f1 = a.pos[s + ':' + a.flight.from], f2 = a.pos[s + ':' + a.flight.to];

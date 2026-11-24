@@ -75,7 +75,7 @@
     var hair = new T.Mesh(G.hair, mHair); hair.position.y = 1.85; body.add(hair);
     var blob = new T.Mesh(G.blob, BLOB); blob.position.y = 0.075; root.add(blob);
     var k = 1.04 + ((h >> 12) % 12) / 100; body.scale.setScalar(k * (FB ? 1.25 : 1)); blob.scale.setScalar(FB ? 1.25 : 1); // Körpergröße 1,77–1,98 m
-    return { root: root, body: body, legL: legL, legR: legR, armL: armL, armR: armR, ph: (h % 100) / 16, yaw: 0, last: null, mats: [mShirt, mShorts, mSkin, mHair, mShoe, mSock, nm.material] };
+    return { root: root, body: body, blob: blob, legL: legL, legR: legR, armL: armL, armR: armR, ph: (h % 100) / 16, yaw: 0, last: null, mats: [mShirt, mShorts, mSkin, mHair, mShoe, mSock, nm.material] };
   }
   var BLOB = null;
 
@@ -129,12 +129,46 @@
   function damp(cur, tgt, k) { return cur + (tgt - cur) * k; }
   function angLerp(a, b, k) { var d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI; return a + d * k; }
 
+  // Torwart: Bereitschaftsstellung (leicht in den Knien), seitliches Nachschieben, Hechtsprung um den Körperschwerpunkt
+  function gkPose(a, it, d, X, Z, vx, vz, dt) {
+    var kk = a.body.scale.y, cy = Math.cos(a.yaw), sy = Math.sin(a.yaw);
+    a.lv = damp(a.lv || 0, vx * cy - vz * sy, Math.min(1, dt * 8));
+    var shf = Math.min(1, Math.abs(a.lv) / 2), stp = Math.sin(a.ph * 1.3);
+    // Wurf aufs eigene Tor: Seite und Weite einmal beim Reagieren festlegen
+    var tgt = 0;
+    if (d.shot && d.shot.side !== it.side) {
+      var tg = (d.now - d.shot.t) / 1000 - (FB ? 0.16 : 0.3);
+      if (tg > 0) {
+        if (a.dT !== d.shot.t) {
+          a.dT = d.shot.t; var to = d.shot.to ? M3.map(d.shot.to.x, d.shot.to.y) : [d.ballW.x, d.ballW.z];
+          var lz = to[1] - Z, al = Math.abs(lz); // Abstand entlang der Torlinie
+          a.dS = -lz * sy >= 0 ? 1 : -1; a.dM = al < 0.55 ? 0 : al > (FB ? 7 : 4) ? -1 : Math.max(0.4, Math.min(1, (al - 0.3) / (FB ? 3 : 1.3)));
+        }
+        if (a.dM >= 0) { var q = Math.min(1, tg / (FB ? 0.3 : 0.24)); tgt = q * q * (3 - 2 * q); }
+      }
+    }
+    a.dv = damp(a.dv || 0, tgt, Math.min(1, dt * (tgt > a.dv ? 16 : 2.6)));
+    var dM = a.dM > 0 ? a.dM : 0, e = a.dv * dM, c = a.dv * (dM > 0 ? 0 : 1), s = a.dS || 1, r = 1 - e;
+    // Beine: gebeugt, beim Verschieben Schritt zur Seite, im Sprung gestreckt
+    a.legL.hip.rotation.x = -0.32 * r - 0.1 * e; a.legR.hip.rotation.x = -0.32 * r + 0.15 * e;
+    a.legL.knee.rotation.x = 0.6 * r + 0.15 * e; a.legR.knee.rotation.x = 0.6 * r + 0.3 * e;
+    a.legL.hip.rotation.z = (0.2 + Math.max(0, stp) * 0.28 * shf) * r + 0.25 * e * s; a.legR.hip.rotation.z = (-0.2 - Math.max(0, -stp) * 0.28 * shf) * r + 0.25 * e * s;
+    // Arme: vor dem Körper bereit, beim Hechten über den Kopf zur Ballseite, beim Fangen nach vorn
+    var ax = -0.75 * r * (1 - c) - 2.9 * e - 1.35 * c;
+    a.armL.sh.rotation.x = ax; a.armR.sh.rotation.x = ax; a.armL.sh.rotation.z = 0.5 * r + 0.15 * c; a.armR.sh.rotation.z = -0.5 * r - 0.15 * c;
+    a.armL.el.rotation.x = -0.75 * r * (1 - c) - 0.1 * e - 0.25 * c; a.armR.el.rotation.x = a.armL.el.rotation.x;
+    // Körper: Drehpunkt in Hüfthöhe – Füße lösen sich vom Boden, Hüfte wandert zur Seite und sinkt
+    var hh = 1.0 * kk, th = -s * 1.4 * e, sx = s * 1.6 * kk * e, hy = hh * (1 - 0.22 * e) - 0.045 * r * kk - 0.02 * c * kk + Math.abs(Math.cos(a.ph * 1.3)) * 0.03 * shf * r;
+    a.body.rotation.z = th; a.body.position.x = sx + hh * Math.sin(th); a.body.position.y = hy - hh * Math.cos(th);
+    if (a.blob) { a.blob.position.x = sx; a.blob.scale.x = (FB ? 1.25 : 1) * (1 + 0.9 * e); }
+  }
+
   // d: { list:[{side,i,pid,P:{x,y},gk}], ball:{x,y,h}, holder:'side:i'|null, shooter:'side:i'|null, shot:{side,t}|null,
   //      att: angreifende Seite, now, dt, hl: pid, run }
   M3.frame = function (S, ctx, Wd, Ht, d) {
     var r = renderer(), dt = d.dt || 0.016;
     if (r.domElement.width !== Wd || r.domElement.height !== Ht) r.setSize(Wd, Ht, false);
-    var seen = {}, bw = M3.map(d.ball.x, d.ball.y), ballW = new T.Vector3(bw[0], d.ball.h, bw[1]), holderA = null, hlA = null, near = 2.2;
+    var seen = {}, bw = M3.map(d.ball.x, d.ball.y), ballW = new T.Vector3(bw[0], d.ball.h, bw[1]), holderA = null, hlA = null, near = 2.2; d.ballW = ballW;
     d.list.forEach(function (it) {
       var a = actor(S, it); seen[it.side + ':' + it.pid] = 1; a.root.visible = true;
       var w = M3.map(it.P.x, it.P.y), X = w[0], Z = w[1];
@@ -142,8 +176,8 @@
       var sp = Math.hypot(vx, vz); a.sp = damp(a.sp || 0, Math.min(8, sp), Math.min(1, dt * 8));
       a.root.position.set(X, 0, Z);
       // Blickrichtung: beim Laufen in Laufrichtung, sonst zum Ball
-      var face = a.sp > 1.2 ? Math.atan2(vx, vz) : Math.atan2(ballW.x - X, ballW.z - Z);
-      a.yaw = angLerp(a.yaw, face, Math.min(1, dt * 7)); a.root.rotation.y = a.yaw;
+      var face = a.sp > 1.2 && !it.gk ? Math.atan2(vx, vz) : Math.atan2(ballW.x - X, ballW.z - Z);
+      if (!(it.gk && (a.dv || 0) > 0.05)) a.yaw = angLerp(a.yaw, face, Math.min(1, dt * 7)); a.root.rotation.y = a.yaw;
       // Laufzyklus
       var amp = Math.min(1, a.sp / 5), f = d.run ? dt * (5 + a.sp * 1.6) : 0; a.ph += f;
       var sw = Math.sin(a.ph) * 0.75 * amp;
@@ -161,7 +195,7 @@
         if (u > 0.02) { a.armL.sh.rotation.x = a.armL.sh.rotation.x * (1 - u) - 2.4 * u; a.armR.sh.rotation.x = a.armR.sh.rotation.x * (1 - u) - 2.4 * u; a.armL.sh.rotation.z = 0.12 + 0.25 * u; a.armR.sh.rotation.z = -0.12 - 0.25 * u; a.armL.el.rotation.x = a.armL.el.rotation.x * (1 - u) - 0.2 * u; a.armR.el.rotation.x = a.armR.el.rotation.x * (1 - u) - 0.2 * u; }
       }
       // Torwart: breite Grundstellung
-      if (it.gk) { a.armL.sh.rotation.z = 0.9; a.armR.sh.rotation.z = -0.9; a.armL.sh.rotation.x = -0.6; a.armR.sh.rotation.x = -0.6; a.legL.hip.rotation.z = 0.18; a.legR.hip.rotation.z = -0.18; }
+      if (it.gk) gkPose(a, it, d, X, Z, vx, vz, dt);
       var k = it.side + ':' + it.i;
       // Wurfarm / Sprungwurf
       if (d.shooter === k && d.shot) {
@@ -170,7 +204,6 @@
         a.yaw = Math.atan2(d.goalX - X, -Z * 0.6); a.root.rotation.y = a.yaw;
       } else if (d.holder === k) { a.armR.sh.rotation.x = -0.9; a.armR.el.rotation.x = -1.1; }
       // Torwart reagiert auf den Wurf
-      if (it.gk && d.shot && d.shot.side !== it.side) { var tg = (d.now - d.shot.t - 450) / 1000; if (tg > 0 && tg < 0.6) { var dv = Math.sin(tg / 0.6 * Math.PI); a.body.rotation.z = (d.shot.gx || 1) > 0 ? -0.9 * dv : 0.9 * dv; a.armL.sh.rotation.x = -2.8; a.armR.sh.rotation.x = -2.8; } else a.body.rotation.z = 0; }
       if (d.holder === k) holderA = a; if (d.hl && it.pid === d.hl) hlA = a;
       if (d.holder === 'auto' && !d.shot && !it.gk) { var dn = Math.hypot(X - ballW.x, Z - ballW.z); if (dn < near) { near = dn; holderA = a; } } // Fußball: Spieler am Ball
     });

@@ -49,6 +49,7 @@
     var p = base + (q * A.cond(m, sh) - gq) / (HB ? 220 : 260) + (sh.id === x.p.id ? A.psy(x) : 0);
     if (m.pc && sh.id === m.pc.pid) p *= CM.CAL; // Kalibrierung: Szenen sollen im Mittel so viele Tore bringen wie die reine Simulation
     p = clamp(p, 0.04, 0.92);
+    if (kind === 'pen' || kind === 'seven') p = A.penP(sh, gk, A.cond(m, sh), gk ? A.cond(m, gk) : 1, sh.id === x.p.id ? A.psy(x) * 1.5 : 0); // Strafwurf: reale Quoten (Fußball ~78 %, Handball ~76 %)
     m.stats.shots[s]++; m.stats.chances[s]++;
     x.lastP = p;
     if (m.pc && sh.id === m.pc.pid) { m.pcOwn = m.pcOwn || [0, 0]; m.pcOwn[s]++; }
@@ -56,6 +57,9 @@
     if (gk && R.rand() < (HB ? 0.72 : 0.55)) return A.save(m, s, sh, txt && txt.s);
     return A.miss(m, s, sh, txt && txt.m);
   };
+  // Verwandlungsquote Elfmeter/7-Meter: Grundwert, Schützenqualität, Torwart, Ermüdung, Nerven – Spanne etwa 55–95 %
+  A.penP = function (sh, gk, cS, cG, nerve) { var q = sh.attr.sho * 0.75 + sh.attr.tec * 0.25, g = gk ? gk.attr.gk * (cG || 1) : 40;
+    return clamp((HB ? 0.76 : 0.78) + (q - 65) / (HB ? 260 : 250) - (g - 65) / (HB ? 450 : 500) - (1 - (cS || 1)) * 0.25 + (nerve || 0), HB ? 0.5 : 0.55, 0.95); };
   A.psy = function (x) { var cx = x.cx; return (cx.per.conf - 55) / 450 - Math.max(0, cx.per.stress - 50) / 600 + (x.pc.trust - 50) / 1500 + ((x.club && x.club.chemistry || 50) - 50) / 2500; };
   A.yellow = function (m, s, p, text) {
     if (HB) { var idx = m.onPitch[s].indexOf(p.id); if (idx < 0) return; m.onPitch[s][idx] = null; m.twoMins[p.id] = (m.twoMins[p.id] || 0) + 1; m.stats.twoMin[s]++; A.rate(m, p.id, -0.35); var third = m.twoMins[p.id] >= 3; m.susp2[s].push({ pid: p.id, idx: idx, until: m.minute + 2, out: third }); if (third) { m.sentOff[p.id] = true; A.ev(m, 'red', s, 'Dritte Zeitstrafe – ' + nm(p) + ' ist disqualifiziert!', p.id); } else A.ev(m, 'yellow', s, text || ('Zwei Minuten für ' + nm(p) + '!'), p.id, null, { twomin: true }); return; }
@@ -137,8 +141,12 @@
       o: [{ l: 'Zeit spielen', fx: function (m, x) { A.skip(m, x.o); A.rate(m, x.p.id, 0.1); return 'ok'; } }, { l: 'Auf das Tor gehen', fx: function (m, x) { A.skip(m, x.s); if (R.chance(0.5)) return A.shot(m, x, x.p, 0.22, [['sho', 0.6], ['tec', 0.4]], 'open'); return A.oppAttack(m, x, 0.2); } }] },
     { id: 'fb_tackle', key: true, w: 1, when: function (x) { return x.on && !x.isGK && (x.p.pos === 'ABW' || x.p.pos === 'MIT'); }, t: function () { return 'Konter des Gegners! Du bist der letzte Mann, der Stürmer zieht an dir vorbei.'; },
       o: [{ l: 'Notbremse', hint: 'Rot möglich', fx: function (m, x) { A.skip(m, x.o); if (R.chance(0.45)) { A.red(m, x.s, x.p, 'Notbremse! Rot für ' + nm(x.p) + '.'); return 'red'; } A.yellow(m, x.s, x.p, 'Taktisches Foul – Gelb für ' + nm(x.p) + '.'); return 'card'; } }, { l: 'Sauber nachsetzen', fx: function (m, x) { A.skip(m, x.o); if (R.rand() < clamp(0.4 + (x.p.attr.def + x.p.attr.spd - 120) / 200, 0.15, 0.75)) { A.rate(m, x.p.id, 0.3); A.ev(m, 'info', x.s, 'Starke Grätsche von ' + nm(x.p) + '!', x.p.id); return 'ok'; } return A.oppAttack(m, x, 0.35); } }, { l: 'Laufen lassen, Torwart vertrauen', fx: function (m, x) { A.skip(m, x.o); return A.oppAttack(m, x, 0.32); } }] },
-    { id: 'fb_dive', w: 0.6, when: att, t: function () { return 'Im Strafraum spürst du eine leichte Berührung.'; },
-      o: [{ l: 'Fallen lassen', hint: 'Gelb möglich', fx: function (m, x) { if (R.chance(0.25)) { A.skip(m, x.s); var r = A.shot(m, x, x.p, 0.66, [['sho', 0.8], ['tec', 0.2]], 'pen'); X.eff(x.st, { press: -2 }); return r; } A.yellow(m, x.s, x.p, 'Schwalbe! Gelb für ' + nm(x.p) + '.'); X.eff(x.st, { press: -3 }); return 'card'; } }, { l: 'Auf den Beinen bleiben', fx: function (m, x) { A.skip(m, x.s); return A.shot(m, x, x.p, 0.18, [['sho', 0.7], ['tec', 0.3]], 'open'); } }] },
+    { id: 'fb_dive', w: 0.45, when: att, t: function () { return 'Im Strafraum spürst du eine leichte Berührung.'; },
+      o: [{ l: 'Fallen lassen', hint: 'Elfmeter oder Gelb', fx: function (m, x) { A.skip(m, x.s); var pen = clamp(0.28 + (x.p.attr.tec - 60) / 300, 0.2, 0.4);
+          if (R.chance(pen)) { A.ev(m, 'info', x.s, 'Der Schiedsrichter zeigt auf den Punkt – Elfmeter nach Foul an ' + nm(x.p) + '!', x.p.id); X.eff(x.st, { press: -1 }); return A.shot(m, x, x.p, 0.74, [['sho', 0.8], ['tec', 0.2]], 'pen'); }
+          if (R.chance(0.45)) { A.yellow(m, x.s, x.p, 'Schwalbe! Gelb für ' + nm(x.p) + '.'); X.eff(x.st, { press: -3 }); return 'card'; }
+          A.ev(m, 'info', x.s, 'Kein Pfiff – ' + nm(x.p) + ' liegt am Boden, der Ball ist weg.', x.p.id); A.rate(m, x.p.id, -0.1); return 'ok'; } },
+        { l: 'Auf den Beinen bleiben', hint: 'Abschluss, fair', fx: function (m, x) { A.skip(m, x.s); A.rate(m, x.p.id, 0.05); return A.shot(m, x, x.p, 0.2, [['sho', 0.7], ['tec', 0.3]], 'open'); } }] },
     { id: 'fb_celebrate', w: 0.6, follow: true, when: function (x) { return x.on && freshGoal(x); }, t: function (x) { return 'Dein Tor zum ' + x.m.score[0] + ':' + x.m.score[1] + '! ' + (x.s === 1 ? 'Die gegnerische Kurve hat dich die ganze Zeit ausgepfiffen.' : 'Das Stadion bebt – wohin läufst du?'); },
       o: [{ l: 'Jubel vor der Gegnerkurve', req: function (x) { return x.s === 1; }, hint: 'Kartenrisiko', fx: function (m, x) { if (R.chance(0.35)) { A.yellow(m, x.s, x.p, 'Gelb für provokanten Torjubel.'); X.eff(x.st, { fans: 3, press: -2 }); return 'card'; } X.eff(x.st, { fans: 3, press: -2 }); return 'ok'; } }, { l: 'Ab in die Fankurve', req: function (x) { return x.s === 0; }, fx: function (m, x) { X.eff(x.st, { fans: 3 }); return 'ok'; } }, { l: 'Zum Trainer laufen', fx: function (m, x) { X.eff(x.st, { coach: 3, mates: 1 }); return 'ok'; } }] },
     { id: 'fb_cross', w: 0.9, when: att, t: function () { return 'Du bist auf dem Flügel durch. Flanke oder selbst nach innen?'; },
@@ -169,7 +177,7 @@
   ];
   function errEv(m, x) { A.ev(m, 'info', x.s, 'Fehlpass von ' + nm(x.p) + ' – beinahe das Gegentor.', x.p.id); }
   function m_rating(x) { return x.m.rating[x.p.id] || 6; }
-  function gkPen(m, x, dir) { A.skip(m, x.o); var sh = A.mate(m, x.o, null, 'sho'), sd = R.randInt(0, 2), p = clamp(0.62 + (sh.attr.sho - x.p.attr.gk) / 300, 0.4, 0.85); if (dir === sd && R.rand() < 0.55 + (x.p.attr.gk - 60) / 200) { A.rate(m, x.p.id, 0.8); m.stats.shots[x.o]++; A.save(m, x.o, sh, 'GEHALTEN! ' + nm(x.p) + ' ahnt die Ecke!'); X.eff(x.st, { conf: 4, fans: 3 }); return 'save'; } m.stats.shots[x.o]++; if (R.rand() < p / (dir === sd ? 0.6 : 0.85)) return A.goal(m, x.o, sh, null, 'pen', 'Elfmeter verwandelt von ' + nm(sh) + '.'); return A.miss(m, x.o, sh, nm(sh) + ' schießt den Elfmeter vorbei!'); }
+  function gkPen(m, x, dir) { A.skip(m, x.o); var sh = A.mate(m, x.o, null, 'sho'), sd = R.randInt(0, 2), p = clamp(0.86 + (sh.attr.sho - x.p.attr.gk) / 400, 0.65, 0.95); if (dir === sd && R.rand() < 0.38 + (x.p.attr.gk - 60) / 250) { A.rate(m, x.p.id, 0.8); m.stats.shots[x.o]++; A.save(m, x.o, sh, 'GEHALTEN! ' + nm(x.p) + ' ahnt die Ecke!'); X.eff(x.st, { conf: 4, fans: 3 }); return 'save'; } m.stats.shots[x.o]++; if (R.rand() < p) return A.goal(m, x.o, sh, null, 'pen', 'Elfmeter verwandelt von ' + nm(sh) + '.'); return A.miss(m, x.o, sh, nm(sh) + ' schießt den Elfmeter vorbei!'); }
   function subOn(m, x) { var st = m.st, s = x.s, out = m.onPitch[s].map(function (id) { return id && st.players[id]; }).filter(function (q) { return q && q.pos === x.p.pos; }).sort(function (a, b) { return (m.fit[a.id] || 0) - (m.fit[b.id] || 0); })[0]; return !!(out && m.subsLeft[s] > 0 && M.substitute(m, s, out.id, x.p.id)); }
 
   // ---------- Handball ----------
@@ -242,7 +250,7 @@
       o: [{ l: 'Auszeit fordern', fx: function (m, x) { if (m.timeouts[x.s] > 0) { m.timeouts[x.s]--; m.run[x.o] = 0; A.mot(m, x.s, 0.015); A.ev(m, 'tactic', x.s, 'Auszeit auf Wunsch der Mannschaft.'); } return 'ok'; } }, { l: 'Selbst Ruhe reinbringen', fx: function (m, x) { X.eff(x.st, { lead: 2 }); return 'ok'; } }] }
   ];
   function teamTimeout(m, x) { if (M.driveOn && m.timeouts[x.s] > 0) M.driveOn(m, x.s); }
-  function gk7(m, x, saveP) { A.skip(m, x.o); var sh = A.mate(m, x.o, null, 'sho'); m.stats.shots[x.o]++; m.stats.chances[x.o]++; var p = clamp(saveP + (x.p.attr.gk - sh.attr.sho) / 300, 0.08, 0.5); if (R.rand() < p) { A.save(m, x.o, sh, 'Siebenmeter gehalten! ' + nm(x.p) + ' wird gefeiert!'); A.rate(m, x.p.id, 0.25); X.eff(x.st, { conf: 3 }); return 'save'; } if (R.chance(0.1)) return A.miss(m, x.o, sh, 'Pfosten!'); return A.goal(m, x.o, sh, null, 'seven', nm(sh) + ' verwandelt den Siebenmeter.'); }
+  function gk7(m, x, saveP) { A.skip(m, x.o); var sh = A.mate(m, x.o, null, 'sho'); m.stats.shots[x.o]++; m.stats.chances[x.o]++; var p = clamp(saveP * 0.75 + (x.p.attr.gk - sh.attr.sho) / 350, 0.06, 0.4); if (R.rand() < p) { A.save(m, x.o, sh, 'Siebenmeter gehalten! ' + nm(x.p) + ' wird gefeiert!'); A.rate(m, x.p.id, 0.25); X.eff(x.st, { conf: 3 }); return 'save'; } if (R.chance(0.05)) return A.miss(m, x.o, sh, 'Pfosten!'); return A.goal(m, x.o, sh, null, 'seven', nm(sh) + ' verwandelt den Siebenmeter.'); }
 
   CM.SITS = HB ? HBS : FB; CM.FB = FB; CM.HBS = HBS;
 

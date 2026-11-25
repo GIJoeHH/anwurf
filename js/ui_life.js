@@ -110,7 +110,7 @@
   };
 
   // ---------- Hilfen ----------
-  function apDots(st) { var lf = L.life(st), n = L.apLeft(st), tot = Math.max(n, 2 + ['private', 'partner', 'friends', 'family', 'fans'].reduce(function (s, k) { return s + ((st.pc.cx.plan.a || {})[k] || 0); }, 0)); var h = '<span class="lf-ap" title="Freie Termine diese Woche">'; for (var i = 0; i < tot; i++) h += '<i class="' + (i < n ? '' : 'off') + '"></i>'; return h + '</span> <b>' + n + '</b> frei'; }
+  function apDots(st) { var lf = L.life(st), n = L.apLeft(st), tot = Math.max(n, 4 + ['private', 'partner', 'friends', 'family', 'fans'].reduce(function (s, k) { return s + ((st.pc.cx.plan.a || {})[k] || 0); }, 0)); var h = '<span class="lf-ap" title="Freie Termine diese Woche">'; for (var i = 0; i < tot; i++) h += '<i class="' + (i < n ? '' : 'off') + '"></i>'; return h + '</span> <b>' + n + '</b> frei'; }
   function btn(lbl, dlg, data, cls, extra) { var a = ' data-act="dlgStart" data-dlg="' + dlg + '"'; Object.keys(data || {}).forEach(function (k) { a += ' data-' + k + '="' + esc(String(data[k])) + '"'; }); return '<button class="sm ' + (cls || '') + '"' + a + (extra || '') + '>' + lbl + '</button>'; }
   function resume(st) { var s = L.active(st); return s && !s.done ? '<div class="help" style="margin-bottom:12px">' + U.lc('megaphone', 15) + ' Ein Gespräch ist noch offen: <b>' + esc(L.view(st).title || '') + '</b> <button class="sm primary" data-act="dlgResume">Fortsetzen</button> <button class="sm ghost" data-act="dlgCancel">Abbrechen</button></div>' : ''; }
 

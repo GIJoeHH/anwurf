@@ -131,11 +131,63 @@
     sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
   }]);
 
-  // Ausgehen ist jederzeit möglich – auch in einer Beziehung (dann mit Flirt-Risiko)
+  // Einfache Affäre (eine Nacht) beim Ausgehen trotz Partnerschaft – kann noch Wochen später auffliegen
+  A.flings = function (st) { var lf = L.life(st); return lf.flings || (lf.flings = []); };
+  A.flingOpen = function (st) { var t = tick(st); return A.flings(st).filter(function (f) { return !f.out && t - f.t <= 16; }); };
+  A.flingRisk = function (st) {
+    var lf = L.life(st), n = A.flingOpen(st).length; if (!n || !lf.partner) return 0;
+    return clamp(0.05 * n + st.pc.fame / 1800 + (lf.suspect && lf.suspect > tick(st) ? 0.05 : 0) + (n >= 2 ? 0.04 : 0), 0, 0.35);
+  };
+  A.flingWeekly = function (st) {
+    var lf = L.life(st), pc = st.pc; if (!lf || pc.retired || !lf.flings) return;
+    var t = tick(st); lf.flings = lf.flings.filter(function (f) { return t - f.t <= 40; });
+    if (!lf.partner) { lf.flings.forEach(function (f) { f.out = true; }); return; }
+    if (L.active(st) || !ch(A.flingRisk(st))) return;
+    var open = A.flingOpen(st), f = open[Math.floor(R.rand() * open.length)]; f.out = true;
+    var press = ch(Math.min(0.7, pc.fame / 120 + (f.pub >= 70 ? 0.1 : 0)));
+    L.start(st, 'fling_caught', { name: f.name, press: press ? 1 : 0, n: open.length });
+    A.scandal(st, press, 'partner');
+  };
+  C.on.weekly.push(A.flingWeekly);
+  L.addDlg([{
+    id: 'fling_night', cat: 'familie', ic: '🍸', scene: 'date', title: 'Spät in der Bar', max: 2, imp: 1,
+    init: function (st, c, d, s) { if (!L.life(st).partner) s.done = true; },
+    who: function (c, d) { return { n: d.name, role: 'Bekanntschaft in der Bar', ic: '🍸', kind: 'partner' }; },
+    nodes: {
+      start: { say: function (c, d) { var p = L.life(c.st).partner; return 'Es ist spät. ' + fn(d) + ' flirtet schon den ganzen Abend mit dir, jetzt beugt sie sich zu dir: „Kommst du noch mit zu mir?“ ' + (p ? fn(p) + ' glaubt, du bist mit den Jungs unterwegs.' : ''); },
+        opts: [
+          { l: 'Mitgehen – nur diese eine Nacht', hint: 'Laune +, Entdeckungsrisiko für Wochen', fx: function (st, c, d) { var pt = L.life(st).partner; A.flings(st).push({ name: d.name, t: tick(st), pub: R.randInt(20, 95) }); if (pt) P.partner(st).neg += 2;
+            X.chron(st, 'familie', '🍸', 'Affäre', 'Eine Nacht mit ' + d.name + ' – ' + (pt ? fn(pt) + ' darf davon nichts erfahren.' : ''), 1, 'date');
+            return endI(d, 'Am Morgen schleichst du dich raus. Auf dem Handy: drei Nachrichten von ' + (pt ? fn(pt) : 'zu Hause') + '. Das schlechte Gewissen fährt mit.', { well: 3, stress: 3 }); } },
+          { l: 'Noch ein bisschen flirten, dann allein nach Hause', fx: function (st, c, d) { var lf = L.life(st); if (ch(0.2)) { P.partner(st).neg += 3; lf.suspect = tick(st) + 8; return endI(d, 'Ein Bekannter von ' + fn(lf.partner) + ' hat euch an der Bar gesehen. Zu Hause gibt es Fragen.', { stress: 3 }); } return endI(d, 'Ein harmloser Flirt – du gehst allein nach Hause.', { well: 1 }); } },
+          { l: 'Abblocken – du bist vergeben', fx: function (st, c, d) { var pp = P.partner(st); if (pp) pp.v = Math.min(100, pp.v + 2); return endI(d, '„Schade.“ ' + fn(d) + ' zuckt mit den Schultern. Du fährst nach Hause, mit reinem Gewissen.', { well: 1, stress: -1 }); } }] }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }, {
+    id: 'fling_caught', cat: 'familie', ic: '💥', chron: true, imp: 3, max: 2, title: 'Die Affäre fliegt auf',
+    init: function (st, c, d, s) { if (!L.life(st).partner) s.done = true; },
+    scene: function (c, d) { return 'pt_' + (d.img || 'conflict'); },
+    who: function (c) { var p = L.life(c.st).partner; return { n: p ? p.name : '?', role: p ? 'Partnerperson' : '', ic: '💔', kind: 'partner', look: p ? p.look : null }; },
+    nodes: {
+      start: { say: function (c, d) { var p = L.life(c.st).partner; return (d.press ? fn(p) + ' knallt dir die Zeitung auf den Tisch: Fotos von dir und ' + fn(d) + ' vor einer Bar, mitten in der Nacht. ' : fn(p) + ' hält dir dein Handy hin. Eine Nachricht von ' + fn(d) + ': „War schön neulich. Wiederholen?“ ') + '„Erklär mir das. Sofort.“'; },
+        opts: [
+          { l: 'Gestehen: „Es war nur eine Nacht. Es tut mir leid.“', fx: function (st, c, d) { var p = P.partner(st);
+            var stay = clamp((p.v - 35) / 100 + (p.confl === 'harmonie' ? 0.1 : 0) + (p.stage >= 6 ? 0.08 : 0) - (d.press ? 0.15 : 0) - ((d.n || 1) - 1) * 0.15, 0.05, 0.5);
+            if (ch(stay)) { p.v = Math.max(10, p.v - 30); p.neg += 8; P.open(st, 'trust'); P.mem(st, 'betrayal', 'Vertrauensbruch', 'die Nacht mit ' + fn(d)); d.img = 'thought'; return endI(d, fn(p) + ' schreit, weint, schweigt tagelang. Dann: „Ein einziges Mal noch – und ich bin weg.“ Die Beziehung steckt in einer tiefen Krise.', { stress: 10, well: -8 }); }
+            L.breakup(st, 'Seitensprung mit ' + d.name); return endI(d, '„Eine Nacht? Das ändert gar nichts.“ ' + fn(p) + ' zieht noch am selben Abend aus.', { stress: 14, well: -12 }, 'farewell'); } },
+          { l: 'Alles abstreiten', fx: function (st, c, d) { var p = P.partner(st), lf = L.life(st);
+            if (d.press || ch(0.5) || (lf.suspect && lf.suspect > tick(st))) { L.breakup(st, 'Lügen nach dem Seitensprung (' + d.name + ')'); return endI(d, '„Du lügst mir ins Gesicht?!“ Die Beweise sind eindeutig – ' + fn(p) + ' beendet die Beziehung.', { stress: 16, well: -12, conf: -3 }, 'farewell'); }
+            p.v = Math.max(8, p.v - 15); p.neg += 5; lf.suspect = tick(st) + 16; return endI(d, fn(p) + ' glaubt dir nicht wirklich. Ab jetzt wird jede Nachricht auf deinem Handy beobachtet.', { stress: 8 }, 'thought'); } }] }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }]);
+
+  // Ausgehen ist jederzeit möglich – auch in einer Beziehung (dann mit Flirt- und Affärenrisiko)
   A.goOut = function (st) {
     var r = L.spend(st, 1, 60); if (!r.ok) return r;
     var lf = L.life(st), cx = st.pc.cx, pt = lf.partner;
     if (pt) { lf.affOut = tick(st); P.partner(st).neg += 0.5; }
+    if (pt && ch(0.3 + (cx.per.conf - 50) / 300)) { L.ensure(st).dlg = null; L.start(st, 'fling_night', { name: L.name('a') }); return { ok: true, dlg: true }; }
     if (ch(0.45 + (cx.per.conf - 50) / 200 - (pt ? 0.1 : 0))) { var x = L.newCand(st); L.ensure(st).dlg = null; L.start(st, 'meet', { cid: x.id, where: pt ? 'Beim Ausgehen ohne ' + fn(pt) : 'Beim Ausgehen mit Freunden' }); return { ok: true, dlg: true }; }
     L.eff(st, { well: 2, stress: -1 }); if (lf.friends[0]) lf.friends[0].v = Math.min(100, lf.friends[0].v + 3);
     return { ok: true, txt: 'Ein netter Abend mit Freunden – heute ohne neue Bekanntschaft. Wohlbefinden +2, Stress −1' };

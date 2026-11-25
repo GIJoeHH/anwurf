@@ -257,7 +257,9 @@
     if (!taker) return;
     m.stats.shots[side]++; m.stats.chances[side]++; m.stats.corners[side]++;
     var gkp = goalkeeper(m, opp);
-    var p = gkp ? R.clamp(0.75 + (taker.attr.sho - 65) / 400 - (gkp.attr.gk * cond(m, gkp) - 65) / 450, 0.55, 0.9) : 0.98;
+    // 7-Meter: Grundquote 76 %, Werfer, Torwart, Ermüdung (Spanne ~50–95 %)
+    var tq = taker.attr.sho * 0.75 + taker.attr.tec * 0.25;
+    var p = gkp ? R.clamp(0.76 + (tq - 65) / 260 - (gkp.attr.gk * cond(m, gkp) - 65) / 450 - (1 - cond(m, taker)) * 0.25, 0.5, 0.95) : 0.98;
     ev(m, 'chance', side, '7-Meter für ' + st.clubs[m.clubs[side]].short + '! ' + name(taker) + ' tritt an …', taker.id, null, { pen: true });
     if (R.rand() < p) scored(m, side, taker, null, 'seven', gkp);
     else if (gkp && R.chance(0.8)) saved(m, side, taker, gkp, true);
@@ -464,7 +466,7 @@
       [0, 1].forEach(function (s) {
         var shooters = m.onPitch[s].concat(m.bench[s]).filter(Boolean).map(function (id) { return st.players[id]; }).filter(function (x) { return x && x.pos !== 'TW' && !m.sentOff[x.id]; }).sort(function (a, b) { return b.attr.sho - a.attr.sho; });
         var sh = shooters[r % Math.max(1, shooters.length)], g = gks[1 - s];
-        var pr = 0.74 + (sh ? (sh.attr.sho - 65) / 400 : 0) - (g ? (g.attr.gk - 65) / 450 : 0);
+        var pr = R.clamp(0.74 + (sh ? (sh.attr.sho * 0.75 + sh.attr.tec * 0.25 - 65) / 260 : 0) - (g ? (g.attr.gk - 65) / 450 : 0), 0.5, 0.93);
         if (R.rand() < pr) p[s]++;
       });
       if (r > 30) { p[0]++; break; }

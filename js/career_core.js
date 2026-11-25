@@ -192,7 +192,7 @@
 
   // ---------- Wochenplanung ----------
   // Zeitbudget je Woche: 10 Einheiten. Mannschaftstraining ist fest (4), Schule für Minderjährige ebenfalls (2).
-  X.BUDGET = 10;
+  X.BUDGET = 12; // Zeiteinheiten pro Woche (vorher 10)
   X.ACTS = {
     team: { n: 'Mannschaftstraining', ic: 'users', c: 4, fixed: true, d: 'Pflicht. Grundlage für Entwicklung und Trainervertrauen.' },
     extra: { n: 'Zusatztraining', ic: 'dumbbell', c: 2, d: 'Schnellere Entwicklung, aber mehr Belastung und Verletzungsrisiko.', dev: 0.22, fit: -5, load: 8, coach: 0.4, inj: 0.012 },
@@ -205,7 +205,31 @@
     media: { n: 'Medienauftritte', ic: 'mic', c: 1, d: 'Bekanntheit und Medienansehen steigen, kleine Gage. Der Trainer sieht es kritisch.', fame: 0.5, press: 0.6, coach: -0.25, cash: 0.08, dev: -0.03 },
     sponsor: { n: 'Sponsorentermine', ic: 'badge-dollar-sign', c: 1, d: 'Pflegt Sponsoren (mehr Einnahmen), kostet Zeit.', spons: 1, fame: 0.2, dev: -0.02 },
     finance: { n: 'Finanzen selbst verwalten', ic: 'wallet', c: 1, d: 'Zeit für Depot, Konten und Verträge. Ohne Berater nötig, sonst wachsen Fehler und Stress.', fin: 1 },
-    private: { n: 'Freizeit & Privatleben', ic: 'heart', c: 1, d: 'Familie, Freunde, Erholung. Laune hoch, Stress runter.', family: 0.8, stress: -2, morale: 2 }
+    private: { n: 'Freizeit & Privatleben', ic: 'heart', c: 1, d: 'Familie, Freunde, Erholung. Laune hoch, Stress runter.', family: 0.8, stress: -2, morale: 2 },
+    focus: { n: 'Einzeltraining', ic: 'target', c: 1, d: 'Gezielt an einem Attribut arbeiten (Auswahl unten). Mit Personaltrainer deutlich wirksamer.', fit: -2, load: 3, inj: 0.002 }
+  };
+  // ---------- Einzeltraining & Personaltrainer ----------
+  X.PTRAINER = [null,
+    { n: 'Fitnesscoach', cost: 350, d: 'Betreut dein Einzeltraining zweimal pro Woche.', foc: 0.5, dev: 0.02, inj: -0.001, fit: 1 },
+    { n: 'Athletiktrainer', cost: 900, d: 'Individuelle Trainingspläne, Ernährung, Belastungssteuerung.', foc: 1, dev: 0.04, inj: -0.002, fit: 2 },
+    { n: 'Top-Personaltrainer', cost: 2200, d: 'Arbeitet sonst mit Nationalspielern – maximale Betreuung.', foc: 1.6, dev: 0.07, inj: -0.003, fit: 3 }];
+  X.focusKeys = function (st) { var p = C.player(st); return D.attrKeys.filter(function (k) { return k !== 'gk' || (p && p.pos === 'TW'); }); };
+  X.ptrainer = function (st) { var cx = X.ensure(st), l = cx && cx.ptr ? cx.ptr.lvl : 0; return l ? X.PTRAINER[l] : null; };
+  X.setFocus = function (st, k) { var cx = X.ensure(st); if (X.focusKeys(st).indexOf(k) < 0) return { ok: false }; cx.focusK = k; return { ok: true }; };
+  X.hireTrainer = function (st, lvl) {
+    var cx = X.ensure(st), t = X.PTRAINER[lvl];
+    if (!lvl) { if (cx.ptr) X.chron(st, 'sport', '👋', 'Personaltrainer entlassen', 'Du trainierst wieder ohne persönliche Betreuung.', 1); cx.ptr = null; return { ok: true, msg: 'Personaltrainer entlassen.' }; }
+    if (!t) return { ok: false };
+    if (R.pf && R.pf.liquid(st) < t.cost * 4) return { ok: false, why: 'Dafür reicht das Geld nicht – du solltest mindestens vier Wochen (' + R.fmtMoney(t.cost * 4) + ') bezahlen können.' };
+    cx.ptr = { lvl: lvl, since: tick(st) };
+    X.chron(st, 'sport', '🏋️', 'Personaltrainer eingestellt', t.n + ' für ' + R.fmtMoney(t.cost) + ' pro Woche.', 1);
+    return { ok: true, msg: t.n + ' eingestellt.' };
+  };
+  X.focusGain = function (st) { // Attributzuwachs pro Woche für das gewählte Attribut
+    var cx = X.ensure(st), p = C.player(st), a = cx.plan.a || {}, n = a.focus || 0; if (!p || !n || p.inj) return 0;
+    var t = X.ptrainer(st), ageF = p.age <= 21 ? 1.25 : p.age <= 25 ? 1 : p.age <= 29 ? 0.7 : 0.45, k = cx.focusK || 'spd', v = p.attr ? p.attr[k] || 50 : 50;
+    var capF = v >= 90 ? 0.25 : v >= 80 ? 0.6 : 1, potF = W.overallFor(p, p.pos) >= (p.pot || 99) + 2 ? 0.4 : 1;
+    return 0.08 * [0, 1, 1.7, 2.2, 2.6][Math.min(4, n)] * ageF * capF * potF * (1 + (t ? t.foc : 0)) * (1 + (cx.per.disc - 50) / 250);
   };
   X.PRESETS = {
     ausgewogen: { n: 'Ausgewogen', a: { extra: 1, video: 1, regen: 1, private: 1, finance: 1 } },
@@ -221,7 +245,7 @@
   };
   X.planCost = function (a) { var n = 0; Object.keys(a).forEach(function (k) { if (X.ACTS[k]) n += X.ACTS[k].c * a[k]; }); return n; };
   X.fitPlan = function (a) { // überschreitet das Budget? → freiwillige Aktivitäten kürzen
-    var order = ['media', 'sponsor', 'teamev', 'finance', 'private', 'extra', 'video', 'regen', 'physio', 'agent'];
+    var order = ['media', 'sponsor', 'teamev', 'finance', 'private', 'focus', 'extra', 'video', 'regen', 'physio', 'agent'];
     while (X.planCost(a) > X.BUDGET) { var k = order.filter(function (x) { return a[x] > 0; })[0]; if (!k) break; a[k]--; if (!a[k]) delete a[k]; }
     return a;
   };
@@ -240,6 +264,7 @@
       var x = X.ACTS[k], n = a[k]; if (!x || !n) return;
       f.dev += (x.dev || 0) * n; f.fit += (x.fit || 0) * n; f.trust += (x.coach || 0) * n; f.fame += (x.fame || 0) * n * 2; f.inj += (x.inj || 0) * n; f.cash += (x.cash || 0) * n; f.mor += (x.morale || 0) * n;
     });
+    var tr = X.ptrainer(st); if (tr) { f.dev += tr.dev; f.inj += tr.inj; f.fit += tr.fit; }
     if (p && p.inj) { f.dev = Math.min(f.dev, 0); f.inj = 0; }
     f.inj = Math.max(0, f.inj); f.n = 'Wochenplan';
     if (cx) { f.dev += (cx.per.disc - 50) / 600 + (cx.per.amb - 50) / 700 - Math.max(0, cx.per.stress - 60) / 300; }
@@ -347,6 +372,12 @@
       if (x.heal && p.inj && p.inj.weeks > 1 && R.chance(x.heal * n)) p.inj.weeks--;
     });
     if (!a.private && !a.regen) per.stress = clamp(per.stress + 0.6, 0, 100);
+    // Einzeltraining: gezielter Zuwachs auf ein Attribut
+    var fg = X.focusGain(st), fk = cx.focusK || 'spd';
+    if (fg > 0 && p.attr && p.attr[fk] != null) { p.attr[fk] = Math.min(99, p.attr[fk] + fg); if (W.recalc) W.recalc(p); cx.focusSum = (cx.focusSum || 0) + fg; }
+    // Personaltrainer: wöchentliches Honorar; ohne Geld kündigt er
+    var ptr = X.ptrainer(st);
+    if (ptr && R.pf) { if (R.pf.liquid(st) >= ptr.cost) R.pf.book(st, -ptr.cost, 'Personaltrainer'); else { cx.ptr = null; X.chron(st, 'sport', '💸', 'Personaltrainer weg', ptr.n + ' hört auf – das Honorar konnte nicht mehr bezahlt werden.', 2); } }
     // Persönlichkeit driftet mit Form, Einsatzzeit und Lage
     var form = p.form || 6;
     per.conf = clamp(per.conf + (form - 6) * 0.5 - Math.max(0, per.stress - 55) * 0.04 + (55 - per.conf) * 0.02, 5, 100);

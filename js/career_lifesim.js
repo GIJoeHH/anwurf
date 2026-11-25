@@ -24,7 +24,7 @@
 
   // ---------- Personen erzeugen ----------
   L.newCand = function (st) {
-    var lf = L.life(st), g = R.rand() < 0.5 ? 'a' : 'b', intr = [];
+    var lf = L.life(st), g = R.rand() < 0.9 ? 'a' : 'b', intr = []; // überwiegend Frauen kennenlernen (der Spieler ist ein Mann)
     while (intr.length < 2) { var i = pick(INTR); if (intr.indexOf(i) < 0) intr.push(i); }
     var x = { id: 'c' + (lf.uid++), name: L.name(g), g: g, job: pick(JOBS), intr: intr, goal: pick(GOALS), sport: R.randInt(20, 90), move: R.randInt(15, 85), kids: R.randInt(10, 95), time: R.randInt(30, 85), v: 50, stage: 0, dates: 0, t: tick(st) };
     lf.cands.push(x); if (lf.cands.length > 3) lf.cands.shift();
@@ -335,6 +335,7 @@
   };
   L.contractOffers = function (st) { // nach C.makeOffers: Entscheidung des Vereins respektieren
     var pc = st.pc, cs = L.cstat(st);
+    if (pc.moving || pc.loanPending) { pc.offers = pc.offers.filter(function (o) { return !o.renew; }); return; } // Wechsel vereinbart: kein Verlängerungsangebot mehr
     if (cs.dec === 'no' || (cs.dec === 'renew' && cs.ownGone)) pc.offers = pc.offers.filter(function (o) { return !o.renew; });
     else if (cs.dec === 'renew' && cs.own) { pc.offers = pc.offers.filter(function (o) { return !o.renew; }); pc.offers.unshift(cs.own); }
   };
@@ -343,6 +344,7 @@
   var baseAccept2 = C.acceptOffer;
   C.acceptOffer = function (st, id) {
     var pc = st.pc, p = C.player(st), o = pc.offers.filter(function (x) { return x.id === id; })[0];
+    if (o && o.renew && pc.moving) { pc.offers = pc.offers.filter(function (x) { return !x.renew; }); return { ok: false, why: 'Dein Wechsel ist bereits vereinbart – das Verlängerungsangebot ist hinfällig.' }; }
     if (o && o.now && p && !p.clubId) { // vereinslos: sofort unterschreiben
       var c = st.clubs[o.clubId]; T.executeTransfer(st, p, c, 0, o.wage, o.years); C.checkClub(st, p); pc.offers = []; L.life(st).free = 0;
       X.chron(st, 'vertrag', '🖊️', 'Neuer Verein: ' + c.short, 'Du unterschreibst bis ' + (st.season + o.years) + ' und bist ab sofort dabei.', 3);
@@ -350,7 +352,7 @@
       return { ok: true, msg: 'Unterschrieben bei ' + c.short + ' – ab sofort dabei.' };
     }
     var r = baseAccept2(st, id);
-    if (r && r.ok && o && o.renew) L.cstat(st).ownGone = true;
+    if (r && r.ok && o) { var cs2 = L.cstat(st); cs2.ownGone = true; if (!o.renew) cs2.own = null; } // nach einem Wechsel ist das alte Verlängerungsangebot vom Tisch
     return r;
   };
   L.onClubless = function (st) { // Saisonstart ohne Verein

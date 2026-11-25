@@ -211,20 +211,23 @@
   U.screens.match = function () {
     var L = U.live; if (!L) return U.screens.spieltag();
     var st = U.st, m = L.m, H = st.clubs[m.clubs[0]], A = st.clubs[m.clubs[1]], K = L.kits = U.matchKits(H, A), fx = L.queue[L.idx] || {};
-    var coach = m.userSide >= 0 && U.can('sport');
+    var coach = m.userSide >= 0 && U.can('sport'), mine = m.userSide >= 0 ? st.clubs[m.clubs[m.userSide]] : H;
     var title = fx.comp === 'league' ? (st.week + 1) + '. SPIELTAG' : fx.comp === 'cup' || fx.comp === 'final' ? S.fxLabel(st, fx).toUpperCase() : fx.comp === 'euro' ? S.fxLabel(st, fx).toUpperCase() : fx.comp === 'releg' ? 'AUFSTIEGSRUNDE' : fx.comp === 'friendly' ? 'TESTSPIEL' : 'LIVE';
     var h = '<div class="page-h"><div><h1>Matchcenter</h1><div class="page-sub">' + esc(m.neutral ? 'Final 4' + (fx.venue ? ' · ' + fx.venue.name + ', ' + fx.venue.city : '') : H.stadiumName) + ' · ' + esc(D.leagueNames[W.lk(H)] || '') + '</div></div></div>';
-    h += '<div class="mc-head"><div class="mc-team">' + U.crest(H, 64) + '<div><b>' + esc(H.name) + '</b><span>HEIM · ' + esc(m.neutral ? (fx.venue ? fx.venue.city : 'Neutrale Halle') : H.stadiumName) + '</span></div></div>' +
-      '<div class="mc-score"><span class="mc-live">LIVE · ' + esc(title) + '</span><b><span id="sbH">0</span> : <span id="sbA">0</span></b><span id="sbMin">0\'</span>' + U.attLine(L.att, H, A, 'mc-att') + '</div>' +
-      '<div class="mc-team away"><div><b>' + esc(A.name) + '</b><span>GAST' + (K[1].alt ? ' · Ausweichtrikot' : '') + '</span></div>' + U.crest(A, 64) + '</div></div>';
-    var feed = '<div class="panel mc-feed"><div class="mc-feed-h"><span class="mc-label">SPIELVERLAUF</span><div class="row" id="liveCtl" style="gap:6px"><button class="sm" data-act="matchPause" id="pauseBtn">Pause</button><div class="seg">' + [['normal', 'Normal'], ['schnell', 'Schnell'], ['sofort', 'Sofort']].map(function (x) { return '<button class="sm ' + (st.settings.matchSpeed === x[0] ? 'on' : '') + '" data-act="matchSpeed" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' + U.viewSeg() + '<button class="sm" data-act="matchSkip">Überspringen</button>' + (coach ? '<button class="sm" data-act="liveTactics">Taktik</button>' : '') + '</div></div>' +
-      '<div class="mc-last" id="mcLast"><b>0′</b><span>Anwurf!</span></div><div class="ticker mc-ticker" id="ticker"></div></div>';
-    h += '<div class="mc-main"><div class="mc-left"><div class="mc-stage"><canvas id="pitchCv" class="mc-canvas" width="1200" height="660"></canvas><div id="flashBox"></div>' +
-      '<div class="mc-kits"><span><i style="background:' + K[0].fill + ';border-color:' + K[0].stroke + '"></i>' + esc(H.short) + '</span><span><i style="background:' + K[1].fill + ';border-color:' + K[1].stroke + '"></i>' + esc(A.short) + '</span></div></div>' + feed + '</div>';
-    h += '<div class="mc-side"><div class="panel mc-stats"><h2>Spielstatistik</h2>' +
-      [['Würfe', 'stShots'], ['Paraden', 'stSv'], ['7-Meter', 'stCh'], ['Zeitstrafen', 'stPoss'], ['Auszeiten übrig', 'stTo']].map(function (r) { return '<div class="mc-stat"><span>' + r[0] + '</span><b id="' + r[1] + '">0 : 0</b></div>'; }).join('') + '</div>' +
-      '<div class="panel mc-voice"><h2>Stimmen von der Bank</h2><p id="mcVoice">„Konzentriert bleiben – erste Welle!“</p><div class="muted small" id="mcNext">Nächste Aktion: Wechsel / Taktik</div>' +
-      (coach ? '<div class="row" style="margin-top:10px;gap:6px"><button class="sm" data-act="liveTactics">' + U.lc('arrow-left-right', 14) + 'Wechsel / Taktik</button><button class="sm" data-act="liveDrive" id="toBtn">' + U.lc('timer', 14) + 'Auszeit</button></div>' : '<div class="muted small" style="margin-top:8px">' + (m.userSide >= 0 ? 'Als Geschäftsführer coacht der Trainer.' : 'Neutrales Spiel') + '</div>') + '</div></div></div>';
+    h += '<div class="mc-head panel"><div class="mch-team">' + U.crest(H, 64) + '<div><b>' + esc(H.name) + '</b><span>HEIM · ' + esc(m.neutral ? (fx.venue ? fx.venue.city : 'Neutrale Halle') : H.stadiumName) + '</span></div></div>' +
+      '<div class="mc-score"><span class="mc-live" id="mcLive">LIVE · ' + esc(title) + '</span><b><span id="sbH">0</span><i>:</i><span id="sbA">0</span></b><em id="sbMin">0. Minute</em></div>' +
+      '<div class="mch-team r"><div><b>' + esc(A.name) + '</b><span>GAST' + (K[1].alt ? ' · Ausweichtrikot' : '') + '</span></div>' + U.crest(A, 64) + '</div></div>';
+    var feed = '<div class="panel mc-flow"><div class="mc-flow-h"><div><div class="sub-h" style="margin-top:0">Spielverlauf</div><div class="mc-last" id="mcLast"><b>0\'</b><span>Gleich geht es los.</span></div></div>' +
+      '<div class="row" id="liveCtl"><button data-act="matchPause" id="pauseBtn">' + U.lc('pause', 15) + ' Pause</button>' + (coach ? '<button data-act="liveTactics">' + U.lc('sliders-horizontal', 15) + ' Taktik</button>' : '') +
+      '<div class="seg">' + [['normal', 'Normal'], ['schnell', 'Schnell'], ['sofort', 'Sofort']].map(function (x) { return '<button class="sm ' + (st.settings.matchSpeed === x[0] ? 'on' : '') + '" data-act="matchSpeed" data-v="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' + U.viewSeg() +
+      '<button class="ghost" data-act="matchSkip">' + U.lc('fast-forward', 15) + ' Überspringen</button></div></div>' +
+      (m.userSide >= 0 && !U.can('sport') ? '<p class="muted small" style="margin:6px 0 0">Als Geschäftsführer verfolgen Sie das Spiel von der Tribüne.</p>' : '') +
+      '<div class="ticker mc-ticker" id="ticker"></div></div>';
+    h += '<div class="mc-grid"><div class="mc-left"><div class="panel tight mc-stage"><div style="position:relative"><canvas id="pitchCv" class="mc-canvas" width="1120" height="600"></canvas><div id="flashBox"></div></div>' + (L.att ? U.attLine(L.att, H, A, 'mc-att') : '') + '</div>' + feed + '</div>';
+    h += '<div class="grid" style="align-content:start"><div class="panel"><h2>Spielstatistik</h2><div class="mc-stats">' +
+      [['stShots', 'Würfe'], ['stSv', 'Paraden'], ['stCh', '7-Meter'], ['stPoss', 'Zeitstrafen'], ['stTo', 'Auszeiten übrig']].map(function (x) { return '<div class="mc-stat"><span>' + x[1] + '</span><b id="' + x[0] + '">0 : 0</b><i class="mc-sbar"><em id="' + x[0] + 'B" style="width:50%"></em></i></div>'; }).join('') + '</div></div>' +
+      '<div class="panel"><h2>Stimmen von der Bank</h2><p class="mc-quote" id="mcVoice">„Konzentriert bleiben – erste Welle!“</p><div class="muted small" id="mcNext">Nächste Aktion: Wechsel / Taktik</div>' +
+      '<div class="row" style="margin-top:10px">' + (coach ? '<button class="sm secondary" data-act="liveTactics">' + U.lc('arrow-left-right', 14) + 'Wechsel / Taktik</button><button class="sm secondary" data-act="liveDrive" id="toBtn">' + U.lc('timer', 14) + 'Auszeit</button>' : '') + '<span class="pill">' + U.crest(mine, 14) + ' ' + esc(mine.short) + '</span></div></div></div></div>';
     U.after = function () { U.liveUpdate([], true); U.animLoop(); };
     return h;
   };
@@ -249,11 +252,13 @@
     g('stShots').textContent = m.stats.shots[0] + ' : ' + m.stats.shots[1]; g('stCh').textContent = m.stats.corners[0] + ' : ' + m.stats.corners[1];
     g('stSv').textContent = m.stats.saves[0] + ' : ' + m.stats.saves[1]; g('stTo').textContent = m.timeouts[0] + ' : ' + m.timeouts[1];
     var tb = g('toBtn'); if (tb) tb.disabled = m.finished || m.timeouts[m.userSide] <= 0;
-    var pb = g('pauseBtn'); if (pb) pb.textContent = L.paused ? 'Weiter' : 'Pause';
+    var pb = g('pauseBtn'); if (pb) pb.innerHTML = L.paused ? U.lc('play', 15) + ' Weiter' : U.lc('pause', 15) + ' Pause';
+    var lv = g('mcLive'); if (lv) { lv.classList.toggle('done', !!m.finished); if (m.finished) lv.textContent = 'ENDSTAND'; }
+    [['stShots', m.stats.shots], ['stSv', m.stats.saves], ['stCh', m.stats.corners], ['stPoss', m.stats.twoMin], ['stTo', m.timeouts]].forEach(function (x) { var e = g(x[0] + 'B'), t = (x[1][0] || 0) + (x[1][1] || 0); if (e) e.style.width = (t ? Math.round(x[1][0] / t * 100) : 50) + '%'; });
     var vc = g('mcVoice'); if (vc) vc.textContent = U.benchVoice(m);
     var nx = g('mcNext'); if (nx) nx.textContent = m.finished ? 'Spiel beendet' : m.timeouts[m.userSide >= 0 ? m.userSide : 0] > 0 ? 'Nächste Aktion: Wechsel / Taktik oder Auszeit' : 'Nächste Aktion: Wechsel / Taktik';
     var lastE = m.events.filter(function (e) { return e.type !== 'chance'; }).slice(-1)[0], ml = g('mcLast');
-    if (lastE && ml) ml.innerHTML = '<b>' + lastE.min + '′</b><span class="' + (lastE.type === 'goal' ? 'goal' : '') + '">' + esc(lastE.text) + '</span>';
+    if (lastE && ml) ml.innerHTML = '<b class="' + (lastE.type === 'goal' ? 'goal' : '') + '">' + lastE.min + '\'</b><span>' + esc(lastE.text) + '</span>';
     var tk = g('ticker');
     if (full) L.shown = 0;
     var list = m.events.slice(L.shown || 0); L.shown = m.events.length;

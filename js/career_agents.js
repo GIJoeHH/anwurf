@@ -228,7 +228,7 @@
       ['ag_fake', !ag.fakeOn && pc.offers.some(function (o) { return o.renew; }) ? (100 - a.a.hon) * a.a.risk / 120000 : 0],
       ['ag_sponsor', p.youth ? 0 : a.a.med / 4000 * (0.4 + pc.fame / 60)],
       ['ag_warn', (a.a.hon + a.a.care) / 9000 * (pc.offers.some(function (o) { return !o.renew && o.info && o.info.rank > AG.SLOTS[p.pos] + 1; }) ? 4 : 0)],
-      ['ag_renewprep', p.contract <= 1 && !p.youth && pc.offers.length === 0 && st.week > 10 ? a.a.care / 3000 : 0],
+      ['ag_renewprep', p.contract <= 1 && !p.youth && !pc.moving && pc.offers.length === 0 && st.week > 10 ? a.a.care / 3000 : 0],
       ['ag_invest', a.a.comm > 55 && a.a.hon < 60 && R.pf && R.pf.liquid(st) > 50000 * K ? 0.006 : 0],
       ['ag_media', a.ty === 'star' ? 0.01 : a.a.med > 70 ? 0.004 : 0]
     ];

@@ -194,7 +194,7 @@
   L.jrn = function (st, id) { var k = String(id).replace(/^j_j_/, 'j_'); return L.life(st).jrn.filter(function (j) { return j.id === k || 'j_' + j.type === k; })[0] || null; };
   L.kidAge = function (st, k) { return Math.max(0, st.season - k.born); };
   L.apLeft = function (st) { var lf = L.life(st); L.refreshAp(st); return lf.ap; };
-  L.refreshAp = function (st) { var lf = L.life(st), cx = st.pc.cx, wk = tick(st); if (lf.apWeek !== wk) { var a = cx.plan.a || {}; lf.ap = 2 + (a.private || 0) + (a.partner || 0) + (a.friends || 0) + (a.family || 0) + (a.fans || 0); lf.apWeek = wk; } };
+  L.refreshAp = function (st) { var lf = L.life(st), cx = st.pc.cx, wk = tick(st); if (lf.apWeek !== wk) { var a = cx.plan.a || {}; lf.ap = 4 + (a.private || 0) + (a.partner || 0) + (a.friends || 0) + (a.family || 0) + (a.fans || 0); lf.apWeek = wk; } };
   L.spend = function (st, n, cost) {
     var lf = L.life(st); L.refreshAp(st); n = n == null ? 1 : n;
     if (lf.ap < n) return { ok: false, why: 'Für diese Woche sind keine freien Termine mehr übrig. Mehr Zeit gibt es über Freizeit, Partnerschaft oder Freunde im Wochenplan.' };

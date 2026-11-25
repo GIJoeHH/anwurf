@@ -150,6 +150,12 @@
     X.chron(st, 'familie', '💞', 'Mehr als eine Affäre', 'Aus der Sache mit ' + f.name + ' wird mehr – ihr datet jetzt richtig.', 1, 'date');
     return x;
   };
+  A.flingMeet = function (st, name) { // selbst melden: kostet einen Termin
+    if (!A.flingOpen(st).some(function (f) { return f.name === name; })) return { ok: false, why: 'Diese Affäre läuft nicht mehr.' };
+    if (L.active(st)) return { ok: false, why: 'Erst das laufende Gespräch beenden.' };
+    var r = L.spend(st, 1, 0); if (!r.ok) return r;
+    L.ensure(st).dlg = null; L.start(st, 'fling_again', { name: name, own: 1 }); return { ok: true, dlg: true };
+  };
   A.flingAsk = function (st, name) { // will sie auch mehr?
     var f = A.flingOpen(st).filter(function (x) { return x.name === name; })[0]; if (!f) return { ok: false };
     var n = A.flingOpen(st).length, p = clamp(0.45 + f.meets * 0.08 + (st.pc.cx.per.conf - 50) / 250 - (n - 1) * 0.08 - (f.pub >= 100 ? 0.15 : 0), 0.15, 0.85);
@@ -211,7 +217,7 @@
     init: function (st, c, d, s) { if (!A.flingOpen(st).some(function (f) { return f.name === d.name; })) s.done = true; },
     who: function (c, d) { return { n: d.name, role: 'Affäre', ic: '📱', kind: 'partner' }; },
     nodes: {
-      start: { say: function (c, d) { var n = A.flingOpen(c.st).length; return fn(d) + ' schreibt: „Lust, heute noch vorbeizukommen?“' + (n >= 2 ? ' Parallel laufen gerade ' + n + ' Geschichten – den Überblick zu behalten wird anstrengend.' : ''); },
+      start: { say: function (c, d) { var n = A.flingOpen(c.st).length; return (d.own ? 'Du schreibst ' + fn(d) + ': „Lust auf heute Abend?“ Die Antwort kommt schnell: „Komm vorbei.“' : fn(d) + ' schreibt: „Lust, heute noch vorbeizukommen?“') + (n >= 2 ? ' Parallel laufen gerade ' + n + ' Geschichten – den Überblick zu behalten wird anstrengend.' : ''); },
         opts: [
           { l: 'Hinfahren', hint: 'Spaß, aber Stress und Frische −', fx: function (st, c, d) { var f = A.flingOpen(st).filter(function (x) { return x.name === d.name; })[0]; if (f) { f.last = tick(st); f.meets++; } if (L.life(st).partner) P.partner(st).neg += 1.5; return endI(d, 'Wieder ein später Abend bei ' + fn(d) + '. Der Wecker morgen wird brutal.', { well: 3, stress: 2, fit: -3 }); } },
           { l: 'Mehr daraus machen – richtig daten', hint: function (c) { return L.life(c.st).partner ? 'Wird zum heimlichen Kontakt neben der Beziehung' : 'Kann eine feste Beziehung werden'; }, fx: function (st, c, d) { var r = A.flingAsk(st, d.name);
@@ -261,6 +267,74 @@
     },
     sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
   }]);
+
+  // Bekanntschaften: zwischen den Dates passiert auch etwas – schreiben, einladen, eine Nacht, Klartext reden; sie melden sich auch selbst
+  function money(v) { return R.fmtMoney ? R.fmtMoney(v) : v + ' €'; }
+  function cnd(st, d) { return A.get(st, d.cid) || { id: '', name: d.name || 'Sie', v: 50, dates: 0, stage: 1, sport: 50, gone: 1 }; } // Platzhalter, falls sie inzwischen weg ist
+  function cOut(st, x, why) { var lf = L.life(st); lf.cands = lf.cands.filter(function (y) { return y !== x; }); if (why) X.chron(st, 'familie', '🍂', 'Kontakt eingeschlafen', why, 1); }
+  function together(st, x) { // feste Beziehung (oder heimlich, falls schon vergeben)
+    if (x.gone) return '';
+    var pt = L.life(st).partner; L.makePartner(st, x); return pt ? 'Ihr trefft euch ab jetzt heimlich – ' + fn(pt) + ' darf nichts merken.' : 'Ihr seid jetzt offiziell ein Paar.';
+  }
+  L.addDlg([{
+    id: 'cand_chat', cat: 'familie', ic: '💬', scene: 'date', title: function (c, d) { var x = cnd(c.st, d); return 'Nachricht an ' + fn(x); }, max: 2, imp: 1,
+    init: function (st, c, d, s) { if (cnd(st, d).gone) s.done = true; },
+    who: function (c, d) { var x = cnd(c.st, d); return { n: x ? x.name : '?', role: x ? (L.STAGES[x.stage] || 'Bekanntschaft') + ' · ' + x.job : '', ic: '💬', kind: 'partner', look: x ? x.look : null }; },
+    nodes: {
+      start: { say: function (c, d) { var x = cnd(c.st, d); return x ? 'Du öffnest den Chat mit ' + fn(x) + '. Interesse: ' + Math.round(x.v) + '/100. ' + (x.dates ? 'Ihr hattet schon ' + x.dates + ' Date' + (x.dates > 1 ? 's' : '') + '.' : 'Ihr kennt euch erst kurz.') : ''; },
+        opts: [
+          { l: 'Flirten', fx: function (st, c, d) { var x = cnd(st, d), t = tick(st), fresh = x.msgT !== t; x.msgT = t; if (fresh) x.v = clamp(x.v + 4, 0, 100);
+            if (fresh && ch(0.3)) { x.v = clamp(x.v + 2, 0, 100); return endI(d, fn(x) + ' antwortet mit drei Emojis – und: „Wann sehen wir uns endlich?“', { well: 2 }); }
+            return endI(d, fresh ? 'Ihr schreibt bis spät in die Nacht.' : fn(x) + ' antwortet knapp – ihr habt heute schon viel geschrieben.', fresh ? { well: 1 } : {}); } },
+          { l: 'Zum nächsten Heimspiel einladen', fx: function (st, c, d) { var x = cnd(st, d); if (x.match === tick(st)) return endI(d, 'Die Einladung steht schon.', {}); x.match = tick(st); x.v = clamp(x.v + (x.sport >= 50 ? 6 : 2), 0, 100);
+            return endI(d, x.sport >= 50 ? fn(x) + ' ist begeistert: „Ich hol mir ein Trikot!“' : fn(x) + ': „Ich hab keine Ahnung von Sport – aber für dich komm ich.“', { well: 1 }); } },
+          { l: 'Noch spontan bei ihr vorbeischauen (1 Termin)', req: function (c, d) { var x = cnd(c.st, d); return !!x && (x.dates || 0) >= 1 && x.v >= 55; }, hint: 'Kann die Nacht werden – oder zu schnell sein',
+            fx: function (st, c, d) { var x = cnd(st, d), r = L.spend(st, 1, 0); if (!r.ok) return endI(d, r.why, {}); var pt = L.life(st).partner;
+              if (ch(0.4 + (x.v - 55) / 60)) { x.v = clamp(x.v + 7, 0, 100); x.night = (x.night || 0) + 1; x.dates = (x.dates || 0) + 1; if (pt) { P.partner(st).neg += 2; if (ch(0.15)) L.life(st).suspect = tick(st) + 8; }
+                return endI(d, 'Aus „nur kurz vorbeischauen“ wird eine lange Nacht. ' + fn(x) + ' schläft noch, als du dich rausschleichst.', { well: 3, stress: pt ? 2 : 0, fit: -2 }); }
+              x.v = clamp(x.v - 3, 0, 100); return endI(d, fn(x) + ' macht nur kurz die Tür auf: „Heute nicht – aber schön, dass du da bist.“', { conf: -1 }); } },
+          { l: 'Fragen, was das zwischen euch ist', req: function (c, d) { var x = cnd(c.st, d); return !!x && (x.dates || 0) >= 2 && !x.aff; },
+            fx: function (st, c, d) { var x = cnd(st, d); if (ch(0.4 + (x.v - 60) / 50 + (x.night ? 0.08 : 0))) { var t = together(st, x); return endI(d, fn(x) + ' grinst: „Ich dachte schon, du fragst nie.“ ' + t, { well: 5, stress: L.life(st).partner ? 3 : -1 }); }
+              x.v = clamp(x.v - 4, 0, 100); return endI(d, fn(x) + ' zögert: „Ich mag dich – aber lass uns nichts überstürzen.“', { conf: -1 }); } },
+          { l: 'Kontakt einschlafen lassen', fx: function (st, c, d) { var x = cnd(st, d); cOut(st, x, 'Der Kontakt zu ' + x.name + ' ist eingeschlafen.'); return endI(d, 'Du antwortest nicht mehr. Irgendwann schreibt ' + fn(x) + ' auch nicht mehr.', {}); } }] }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }, {
+    id: 'cand_ping', cat: 'familie', ic: '📱', scene: 'date', title: function (c, d) { var x = cnd(c.st, d); return fn(x) + ' meldet sich'; }, max: 2, imp: 1,
+    init: function (st, c, d, s) { if (cnd(st, d).gone) s.done = true; },
+    who: function (c, d) { var x = cnd(c.st, d); return { n: x ? x.name : '?', role: x ? (L.STAGES[x.stage] || 'Bekanntschaft') : '', ic: '📱', kind: 'partner', look: x ? x.look : null }; },
+    nodes: {
+      start: { say: function (c, d) { var x = cnd(c.st, d), f = fn(x);
+          return { party: f + ': „Samstag feiere ich Geburtstag – kommst du? Meine Freunde wollen dich unbedingt kennenlernen.“',
+            tickets: f + ': „Mein Bruder ist riesiger Fan von euch … meinst du, du könntest zwei Karten besorgen?“',
+            clarity: f + ': „Wir treffen uns jetzt schon eine Weile. Ich muss wissen, woran ich bei dir bin.“',
+            jealous: f + ': „Ich hab dich neulich mit einer anderen gesehen. Was läuft da?“',
+            miss: f + ': „Hey, du meldest dich gar nicht mehr. Alles okay?“' }[d.k] || ''; },
+        opts: function (c, d) { var k = d.k;
+          if (k === 'party') return [{ l: 'Hingehen', fx: function (st, c2, d2) { var x = cnd(st, d2); x.v = clamp(x.v + 7, 0, 100); return endI(d2, 'Ein großartiger Abend – ' + fn(x) + 's Freunde mögen dich.', { well: 3, stress: -1, fit: -1 }); } },
+            { l: 'Absagen – Spiel am Wochenende', fx: function (st, c2, d2) { var x = cnd(st, d2); x.v = clamp(x.v - 4, 0, 100); return endI(d2, '„Schade. Dann eben ein anderes Mal.“', { disc: 1 }); } }];
+          if (k === 'tickets') return [{ l: 'Karten besorgen (' + money(120) + ')', fx: function (st, c2, d2) { var x = cnd(st, d2); if (R.pf) R.pf.book(st, -120, 'Freizeit & Privatleben'); x.v = clamp(x.v + 6, 0, 100); return endI(d2, 'Ihr Bruder schickt ein Selfie aus dem Stadion. ' + fn(x) + ' ist gerührt.', { well: 1 }); } },
+            { l: 'Leider nicht möglich', fx: function (st, c2, d2) { var x = cnd(st, d2); x.v = clamp(x.v - 2, 0, 100); return endI(d2, '„Okay, kein Problem.“ Klingt ein bisschen enttäuscht.', {}); } }];
+          if (k === 'clarity') return [{ l: 'Eine feste Beziehung', fx: function (st, c2, d2) { var x = cnd(st, d2); var t = together(st, x); return endI(d2, fn(x) + ' fällt dir um den Hals. ' + t, { well: 5 }); } },
+            { l: 'Lieber locker bleiben', fx: function (st, c2, d2) { var x = cnd(st, d2); x.v = clamp(x.v - 8, 0, 100); if (ch(0.35)) { cOut(st, x, x.name + ' wollte mehr – du nicht. Es ist vorbei.'); return endI(d2, '„Dann ist das nichts für mich.“ ' + fn(x) + ' zieht einen Schlussstrich.', { stress: 2 }, 'farewell'); } return endI(d2, '„Okay … ich überleg es mir.“', { stress: 1 }); } },
+            { l: 'Ehrlich sein und es beenden', fx: function (st, c2, d2) { var x = cnd(st, d2); cOut(st, x, 'Du hast die Sache mit ' + x.name + ' beendet.'); return endI(d2, 'Es tut kurz weh, aber es ist ehrlich.', { stress: -1 }, 'farewell'); } }];
+          if (k === 'jealous') return [{ l: 'Erklären: „Nur eine Bekannte.“', fx: function (st, c2, d2) { var x = cnd(st, d2); if (ch(0.55)) { x.v = clamp(x.v - 3, 0, 100); return endI(d2, fn(x) + ' glaubt dir – halbwegs.', { stress: 1 }); } x.v = clamp(x.v - 10, 0, 100); return endI(d2, '„Klar. Nur eine Bekannte.“ Die Stimmung ist im Keller.', { stress: 3 }); } },
+            { l: 'Offen sagen, dass du noch andere datest', fx: function (st, c2, d2) { var x = cnd(st, d2); if (ch(0.5)) { cOut(st, x, x.name + ' will nicht eine von mehreren sein.'); return endI(d2, '„Dann ohne mich.“', { stress: 2 }, 'farewell'); } x.v = clamp(x.v - 4, 0, 100); return endI(d2, '„Wenigstens bist du ehrlich. Aber streng dich an.“', {}); } }];
+          return [{ l: 'Treffen ausmachen', fx: function (st, c2, d2) { var x = cnd(st, d2); x.v = clamp(x.v + 4, 0, 100); return endI(d2, 'Ihr verabredet euch für nächste Woche.', { well: 1 }); } },
+            { l: 'Ehrlich sagen, dass es nicht passt', fx: function (st, c2, d2) { var x = cnd(st, d2); cOut(st, x, 'Du hast den Kontakt zu ' + x.name + ' beendet.'); return endI(d2, '„Schade. Mach’s gut.“', {}, 'farewell'); } }]; } }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }]);
+  A.candWeekly = function (st) {
+    var lf = L.life(st), p = C.player(st); if (!lf || !p || st.pc.retired || L.active(st)) return;
+    var t = tick(st), pool = lf.cands.filter(function (x) { return x.stage >= 1 && !x.aff; }); if (!pool.length || !ch(Math.min(0.25, 0.08 * pool.length))) return;
+    var x = pool[Math.floor(R.rand() * pool.length)], ks = ['party', 'tickets', 'miss'];
+    if ((x.dates || 0) >= 3) ks.push('clarity', 'clarity');
+    if (pool.length >= 2 || A.flingOpen(st).length) ks.push('jealous');
+    if (t - (x.lastD || x.t || t) <= 2) ks = ks.filter(function (k) { return k !== 'miss'; });
+    L.start(st, 'cand_ping', { cid: x.id, k: ks[Math.floor(R.rand() * ks.length)] });
+  };
+  C.on.weekly.push(A.candWeekly);
 
   // Alte Schulfreundin meldet sich – kann Freundschaft, Beziehung oder Affäre werden
   A.schoolWhere = ['Beim Klassentreffen in ', 'Bei einem Heimatbesuch in ', 'Nach Jahren schreibt dir eine alte Schulfreundin aus '];

@@ -139,9 +139,10 @@
   };
   U.flingBox = function (st) {
     var A = P.AFF; if (!A || !A.flingOpen) return ''; var fo = A.flingOpen(st); if (!fo.length) return '';
-    return '<div style="margin:6px 0"><b class="small">🍸 Lockere Affären (' + fo.length + ')</b>' + fo.map(function (f) { return '<div class="cx-row small" style="align-items:center;gap:6px;margin-top:4px"><span style="flex:1">' + esc(f.name) + ' <span class="muted">· ' + f.meets + '× getroffen</span></span><button class="sm ghost" data-act="ptFlingEnd" data-n="' + esc(f.name) + '">Beenden</button></div>'; }).join('') +
+    return '<div style="margin:6px 0"><b class="small">🍸 Lockere Affären (' + fo.length + ')</b>' + fo.map(function (f) { return '<div class="cx-row small" style="align-items:center;gap:6px;margin-top:4px"><span style="flex:1">' + esc(f.name) + ' <span class="muted">· ' + f.meets + '× getroffen</span></span><button class="sm" data-act="ptFlingDate" data-n="' + esc(f.name) + '" title="Fragen, ob sie mehr will – kann eine Beziehung werden">Mehr daraus machen</button><button class="sm ghost" data-act="ptFlingEnd" data-n="' + esc(f.name) + '">Beenden</button></div>'; }).join('') +
       '<p class="small ' + (A.flingRisk(st) >= 0.06 ? 'neg' : 'muted') + '">Entdeckungsrisiko: <b>' + A.flingRiskTxt(st) + '</b> · Jede Affäre kostet pro Woche Stress und Frische. Fliegt es auf (Partnerin, eine der Frauen oder Presse), sinken Ansehen, Frische, Wohlbefinden, Medien, Familie und Fans deutlich.</p></div>';
   };
+  U.acts.ptFlingDate = function (d) { var st = U.st, r = P.AFF.flingAsk(st, d.n), f = String(d.n).split(' ')[0]; U.toast(r.ok ? f + ' will auch mehr – ihr datet jetzt richtig.' : f + ' will es locker halten.', 4000); U.autosave(); U.render(); };
   U.acts.ptFlingEnd = function (d) { var st = U.st; P.AFF.flingEnd(st, d.n); U.toast('Affäre mit ' + String(d.n).split(' ')[0] + ' beendet.', 3000); U.autosave(); U.render(); };
   U.acts.ptAffEnd = function (d) { var st = U.st, x = P.AFF.get(st, d.id); if (!x) return; P.AFF.end(st, d.id); U.toast('Kontakt zu ' + fn(x) + ' beendet.', 3000); U.autosave(); U.render(); };
   U.acts.ptAffOff = function (d) {

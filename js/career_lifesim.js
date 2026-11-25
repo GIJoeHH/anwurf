@@ -27,7 +27,14 @@
     var lf = L.life(st), g = R.rand() < 0.9 ? 'a' : 'b', intr = []; // überwiegend Frauen kennenlernen (der Spieler ist ein Mann)
     while (intr.length < 2) { var i = pick(INTR); if (intr.indexOf(i) < 0) intr.push(i); }
     var x = { id: 'c' + (lf.uid++), name: L.name(g), g: g, job: pick(JOBS), intr: intr, goal: pick(GOALS), sport: R.randInt(20, 90), move: R.randInt(15, 85), kids: R.randInt(10, 95), time: R.randInt(30, 85), v: 50, stage: 0, dates: 0, t: tick(st) };
-    lf.cands.push(x); if (lf.cands.length > 3) lf.cands.shift();
+    lf.cands.push(x);
+    // höchstens 5 Bekanntschaften: zuerst fallen flüchtige Begegnungen (noch kein Kontakt) raus, dann lose Kontakte –
+    // wen du schon datest („Erste Dates“) oder heimlich triffst, bleibt immer
+    while (lf.cands.length > 5) {
+      var loose = lf.cands.filter(function (y) { return !y.stage && !y.aff && y !== x; });
+      var drop = loose[0] || lf.cands.filter(function (y) { return y.stage === 1 && !y.aff && y !== x; }).sort(function (a, b) { return a.v - b.v; })[0];
+      if (!drop) break; lf.cands.splice(lf.cands.indexOf(drop), 1);
+    }
     return x;
   };
   L.makePartner = function (st, x) {

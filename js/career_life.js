@@ -156,7 +156,7 @@
     var s = L.active(st); if (!s) return null;
     var d = L.DLG[s.id], c = ctx(st), who = d.who ? d.who(c, s.data, s) : { n: '?', role: '' }, n = nodeOf(d, s), say = '';
     if (!s.done) { try { say = typeof n.say === 'function' ? n.say(c, s.data, s) : n.say; } catch (er) { say = '…'; } }
-    var opts = s.done ? [] : L.optsOf(st, s).map(function (x) { return { i: x.i, l: typeof x.o.l === 'function' ? x.o.l(c, s.data, s) : x.o.l, hint: x.o.hint || '' }; });
+    var opts = s.done ? [] : L.optsOf(st, s).map(function (x) { return { i: x.i, l: typeof x.o.l === 'function' ? x.o.l(c, s.data, s) : x.o.l, hint: typeof x.o.hint === 'function' ? x.o.hint(c, s.data, s) : (x.o.hint || '') }; });
     var max = typeof d.max === 'function' ? d.max(c, s.data, s) : (d.max || 5);
     var scene = typeof d.scene === 'function' ? d.scene(c, s.data, s) : d.scene;
     return { id: s.id, cat: d.cat, who: who, img: L.sceneImg(scene, s.done ? 'closing' : s.react ? 'response' : 'opening'), say: say, opts: opts, react: s.react, step: Math.min(s.step, max), max: max, done: s.done, sum: s.sum, log: s.log, mood: s.mood, title: d.title ? (typeof d.title === 'function' ? d.title(c, s.data, s) : d.title) : '' };

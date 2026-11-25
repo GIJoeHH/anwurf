@@ -131,36 +131,100 @@
     sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
   }]);
 
-  // Einfache Affäre (eine Nacht) beim Ausgehen trotz Partnerschaft – kann noch Wochen später auffliegen
+  // Lockere Affären beim Ausgehen – auch mehrere gleichzeitig, mit oder ohne feste Partnerschaft.
+  // Laufend: Spaß, aber Stress und weniger Frische. Fliegt etwas auf (Partnerin, eine der Frauen, Presse), wird es teuer:
+  // Ansehen, Stress, Frische, Wohlbefinden, Medien, Familie und (normale) Fans leiden deutlich.
   A.flings = function (st) { var lf = L.life(st); return lf.flings || (lf.flings = []); };
-  A.flingOpen = function (st) { var t = tick(st); return A.flings(st).filter(function (f) { return !f.out && t - f.t <= 16; }); };
+  A.flingOpen = function (st) { return A.flings(st).filter(function (f) { return f.on; }); };
   A.flingRisk = function (st) {
-    var lf = L.life(st), n = A.flingOpen(st).length; if (!n || !lf.partner) return 0;
-    return clamp(0.05 * n + st.pc.fame / 1800 + (lf.suspect && lf.suspect > tick(st) ? 0.05 : 0) + (n >= 2 ? 0.04 : 0), 0, 0.35);
+    var lf = L.life(st), n = A.flingOpen(st).length; if (!n) return 0;
+    return clamp(0.03 * n + 0.035 * (n - 1) + st.pc.fame / 2000 + (lf.partner ? 0.02 : 0) + (lf.suspect && lf.suspect > tick(st) ? 0.05 : 0), 0, 0.4);
+  };
+  A.flingRiskTxt = function (st) { var r = A.flingRisk(st); return r >= 0.12 ? 'hoch' : r >= 0.06 ? 'mittel' : r > 0 ? 'gering' : '–'; };
+  A.flingAdd = function (st, name) { var t = tick(st), f = { name: name, t: t, last: t, on: true, meets: 1, pub: R.randInt(20, 95) }; A.flings(st).push(f); return f; };
+  A.flingEnd = function (st, name) { A.flingOpen(st).forEach(function (f) { if (!name || f.name === name) f.on = false; }); };
+  // Folgen, wenn es herauskommt (how: { press, frau, partner })
+  A.flingExposed = function (st, how, names) {
+    var lf = L.life(st), p = C.player(st), t = tick(st), pr = !!how.press, n = (names || []).length || 1;
+    var k = pr ? 1 : how.frau ? 0.75 : 0.6, m = 1 + Math.min(2, n - 1) * 0.2;
+    lf.scandal = { t: t, until: t + (pr ? 8 : 4), press: pr, fling: 1 };
+    lf.flingHit = { t: t, press: pr, frau: !!how.frau, partner: !!how.partner };
+    X.eff(st, { stress: Math.round(16 * k * m), fit: -Math.round(14 * k * m), pop: -Math.round(10 * k * m), fame: -(pr ? 3 : 1), media: pr ? -12 : -2, conf: -3, coach: pr ? -3 : 0 });
+    L.eff(st, { well: -Math.round(18 * k * m), fam: -Math.round(10 * k), f_fam: -Math.round(12 * k * m), f_gel: -Math.round(8 * k * m), sponsor: pr ? -6 : 0 });
+    if (p) { p.morale = clamp(p.morale - Math.round(14 * k), 0, 100); p.form = Math.max(4, (p.form || 6) - (pr ? 0.4 : 0.2)); }
+    var nm = p ? R.world.playerName(p) : 'Profi', who = (names || []).join(', ');
+    X.chron(st, pr ? 'medien' : 'familie', pr ? '📰' : '💥', pr ? 'Boulevard: Frauengeschichten' : 'Affäre aufgeflogen',
+      pr ? '„Die Frauen des ' + nm + '“ – die Klatschpresse berichtet über deine Affären' + (who ? ' (' + who + ')' : '') + '.' : 'Deine Affären' + (who ? ' (' + who + ')' : '') + ' sind aufgeflogen – das Gerede ist groß.', 3, pr ? 'presse' : 'date');
+    if (pr && S && S.news) S.news(st, 'Boulevard-Schlagzeile um ' + nm, 'Berichte über mehrere Frauengeschichten sorgen für Wirbel. Familienfans und Sponsoren reagieren verstimmt.', 'medien');
+    if (pr && L.remember) L.remember(st, 'scandal', 'Affären in der Boulevardpresse', 'Boulevard');
   };
   A.flingWeekly = function (st) {
     var lf = L.life(st), pc = st.pc; if (!lf || pc.retired || !lf.flings) return;
-    var t = tick(st); lf.flings = lf.flings.filter(function (f) { return t - f.t <= 40; });
-    if (!lf.partner) { lf.flings.forEach(function (f) { f.out = true; }); return; }
+    var t = tick(st); lf.flings = lf.flings.filter(function (f) { return f.on || t - f.t <= 40; });
+    A.flingOpen(st).forEach(function (f) { if (t - f.last > 6) f.on = false; }); // ohne Treffen schläft es ein
+    var open = A.flingOpen(st), n = open.length; if (!n) return;
+    // laufende Belastung: mehr Spaß, aber weniger Schlaf und Ruhe
+    X.eff(st, { stress: 1.2 * n + (n >= 3 ? 1.5 : 0), fit: -(1.2 * n + (n >= 3 ? 1 : 0)) });
+    L.eff(st, { well: Math.min(2, 0.8 * n) - (n >= 3 ? 1 : 0) });
+    if (lf.partner) P.partner(st).neg += 0.6 * n;
     if (L.active(st) || !ch(A.flingRisk(st))) return;
-    var open = A.flingOpen(st), f = open[Math.floor(R.rand() * open.length)]; f.out = true;
-    var press = ch(Math.min(0.7, pc.fame / 120 + (f.pub >= 70 ? 0.1 : 0)));
-    L.start(st, 'fling_caught', { name: f.name, press: press ? 1 : 0, n: open.length });
-    A.scandal(st, press, 'partner');
+    var f = open[Math.floor(R.rand() * n)], pt = lf.partner;
+    var press = ch(Math.min(0.7, pc.fame / 110 + (f.pub >= 70 ? 0.1 : 0) + (n >= 3 ? 0.1 : 0)));
+    var byPartner = !!pt && ch(0.5), byFrau = !byPartner && n >= 2 && (ch(0.6) || !press);
+    if (!byPartner && !byFrau && !press) return; // single, nur eine Affäre, keiner interessiert sich
+    var names = byFrau || press ? open.map(function (x) { return x.name; }) : [f.name];
+    if (press) open.forEach(function (x) { x.pub = 100; });
+    A.flingExposed(st, { press: press, frau: byFrau, partner: byPartner || (press && !!pt) }, names);
+    if (pt && (byPartner || press)) { f.on = false; L.start(st, 'fling_caught', { name: f.name, press: press ? 1 : 0, n: n }); }
+    else if (byFrau) { var o = open.filter(function (x) { return x !== f; }); L.start(st, 'fling_clash', { name: f.name, other: o.map(function (x) { return x.name; }).join(' und '), press: press ? 1 : 0 }); }
+    else L.start(st, 'fling_press', { names: names.join(', ') });
   };
   C.on.weekly.push(A.flingWeekly);
   L.addDlg([{
-    id: 'fling_night', cat: 'familie', ic: '🍸', scene: 'date', title: 'Spät in der Bar', max: 2, imp: 1,
-    init: function (st, c, d, s) { if (!L.life(st).partner) s.done = true; },
+    id: 'fling_night', cat: 'familie', ic: '🍸', scene: 'date', title: 'Spät in der Bar', max: 3, imp: 1,
     who: function (c, d) { return { n: d.name, role: 'Bekanntschaft in der Bar', ic: '🍸', kind: 'partner' }; },
     nodes: {
-      start: { say: function (c, d) { var p = L.life(c.st).partner; return 'Es ist spät. ' + fn(d) + ' flirtet schon den ganzen Abend mit dir, jetzt beugt sie sich zu dir: „Kommst du noch mit zu mir?“ ' + (p ? fn(p) + ' glaubt, du bist mit den Jungs unterwegs.' : ''); },
+      start: { say: function (c, d) { var p = L.life(c.st).partner, n = A.flingOpen(c.st).length; return 'Es ist spät. ' + fn(d) + ' flirtet schon den ganzen Abend mit dir, jetzt beugt sie sich zu dir: „Kommst du noch mit zu mir?“ ' + (p ? fn(p) + ' glaubt, du bist mit den Jungs unterwegs.' : n ? 'Es wäre nicht die einzige Frau, mit der du gerade etwas laufen hast.' : ''); },
         opts: [
-          { l: 'Mitgehen – nur diese eine Nacht', hint: 'Laune +, Entdeckungsrisiko für Wochen', fx: function (st, c, d) { var pt = L.life(st).partner; A.flings(st).push({ name: d.name, t: tick(st), pub: R.randInt(20, 95) }); if (pt) P.partner(st).neg += 2;
-            X.chron(st, 'familie', '🍸', 'Affäre', 'Eine Nacht mit ' + d.name + ' – ' + (pt ? fn(pt) + ' darf davon nichts erfahren.' : ''), 1, 'date');
-            return endI(d, 'Am Morgen schleichst du dich raus. Auf dem Handy: drei Nachrichten von ' + (pt ? fn(pt) : 'zu Hause') + '. Das schlechte Gewissen fährt mit.', { well: 3, stress: 3 }); } },
-          { l: 'Noch ein bisschen flirten, dann allein nach Hause', fx: function (st, c, d) { var lf = L.life(st); if (ch(0.2)) { P.partner(st).neg += 3; lf.suspect = tick(st) + 8; return endI(d, 'Ein Bekannter von ' + fn(lf.partner) + ' hat euch an der Bar gesehen. Zu Hause gibt es Fragen.', { stress: 3 }); } return endI(d, 'Ein harmloser Flirt – du gehst allein nach Hause.', { well: 1 }); } },
-          { l: 'Abblocken – du bist vergeben', fx: function (st, c, d) { var pp = P.partner(st); if (pp) pp.v = Math.min(100, pp.v + 2); return endI(d, '„Schade.“ ' + fn(d) + ' zuckt mit den Schultern. Du fährst nach Hause, mit reinem Gewissen.', { well: 1, stress: -1 }); } }] }
+          { l: 'Mitgehen', hint: 'Spaß, aber Stress, weniger Frische und Entdeckungsrisiko', fx: function (st, c, d) { var pt = L.life(st).partner; A.flingAdd(st, d.name); if (pt) P.partner(st).neg += 2;
+            X.chron(st, 'familie', '🍸', 'Affäre', 'Eine Nacht mit ' + d.name + (pt ? ' – ' + fn(pt) + ' darf davon nichts erfahren.' : '.'), 1, 'date');
+            return endI(d, pt ? 'Am Morgen schleichst du dich raus. Auf dem Handy: drei Nachrichten von ' + fn(pt) + '. Das schlechte Gewissen fährt mit.' : 'Eine lange Nacht. ' + fn(d) + ' schreibt dir am Morgen: „Bis bald?“', pt ? { well: 3, stress: 3, fit: -3 } : { well: 4, stress: 1, fit: -3 }); } },
+          { l: 'Flirten, Nummer tauschen, allein nach Hause', fx: function (st, c, d) { var lf = L.life(st); if (lf.partner && ch(0.2)) { P.partner(st).neg += 3; lf.suspect = tick(st) + 8; return endI(d, 'Ein Bekannter von ' + fn(lf.partner) + ' hat euch an der Bar gesehen. Zu Hause gibt es Fragen.', { stress: 3 }); } return endI(d, 'Ein harmloser Flirt – du gehst allein nach Hause.', { well: 1 }); } },
+          { l: function (c) { return L.life(c.st).partner ? 'Abblocken – du bist vergeben' : 'Freundlich absagen'; }, fx: function (st, c, d) { var pp = P.partner(st); if (pp) pp.v = Math.min(100, pp.v + 2); return endI(d, '„Schade.“ ' + fn(d) + ' zuckt mit den Schultern. Du fährst nach Hause und schläfst aus.', { well: 1, stress: -1, fit: 1 }); } }] }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }, {
+    id: 'fling_again', cat: 'familie', ic: '📱', scene: 'date', title: 'Nachricht am Abend', max: 4, imp: 1,
+    init: function (st, c, d, s) { if (!A.flingOpen(st).some(function (f) { return f.name === d.name; })) s.done = true; },
+    who: function (c, d) { return { n: d.name, role: 'Affäre', ic: '📱', kind: 'partner' }; },
+    nodes: {
+      start: { say: function (c, d) { var n = A.flingOpen(c.st).length; return fn(d) + ' schreibt: „Lust, heute noch vorbeizukommen?“' + (n >= 2 ? ' Parallel laufen gerade ' + n + ' Geschichten – den Überblick zu behalten wird anstrengend.' : ''); },
+        opts: [
+          { l: 'Hinfahren', hint: 'Spaß, aber Stress und Frische −', fx: function (st, c, d) { var f = A.flingOpen(st).filter(function (x) { return x.name === d.name; })[0]; if (f) { f.last = tick(st); f.meets++; } if (L.life(st).partner) P.partner(st).neg += 1.5; return endI(d, 'Wieder ein später Abend bei ' + fn(d) + '. Der Wecker morgen wird brutal.', { well: 3, stress: 2, fit: -3 }); } },
+          { l: 'Schluss machen', fx: function (st, c, d) { A.flingEnd(st, d.name); return endI(d, '„Okay. War schön mit dir.“ Ein bisschen Wehmut – und ein bisschen Erleichterung.', { stress: -2, well: -1 }); } },
+          { l: 'Nicht antworten', fx: function (st, c, d) { return endI(d, 'Du legst das Handy weg. ' + fn(d) + ' wird sich wieder melden – oder auch nicht.', {}); } }] }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }, {
+    id: 'fling_clash', cat: 'familie', ic: '💥', chron: true, imp: 3, max: 3, title: 'Die Frauen wissen voneinander',
+    who: function (c, d) { return { n: d.name, role: 'Affäre', ic: '💥', kind: 'partner' }; },
+    nodes: {
+      start: { say: function (c, d) { return fn(d) + ' steht vor deiner Tür, das Handy in der Hand: „Ich weiß von ' + d.other + '. Wie viele sind es noch?“' + (d.press ? ' Die Geschichte steht inzwischen auch in der Zeitung.' : ' Im Freundeskreis wird bereits geredet.'); },
+        opts: [
+          { l: 'Mit allen Schluss machen', fx: function (st, c, d) { A.flingEnd(st); return endI(d, 'Du beendest alles. Ruhe kehrt ein – aber das Gerede bleibt noch eine Weile.', { stress: -3, well: -2 }, 'farewell'); } },
+          { l: function (c, d) { return 'Bei ' + fn(d) + ' bleiben, die anderen beenden'; }, fx: function (st, c, d) { A.flingOpen(st).forEach(function (f) { if (f.name !== d.name) f.on = false; }); if (ch(0.5)) { A.flingEnd(st, d.name); return endI(d, '„Zu spät.“ ' + fn(d) + ' dreht sich um und geht. Am Ende stehst du ohne alle da.', { stress: 3, well: -4 }, 'farewell'); } return endI(d, fn(d) + ' zögert – und bleibt. Vorerst.', { stress: 1 }); } },
+          { l: 'Schulterzucken: „Wir haben nie über Exklusivität geredet.“', fx: function (st, c, d) { A.flingOpen(st).forEach(function (f) { if (ch(0.6)) f.on = false; }); return endI(d, 'Ehrlich, aber kalt. Einige sind weg, und der Ruf als Frauenheld hängt dir an.', { pop: -3, f_fam: -3, stress: 2 }); } }] }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }, {
+    id: 'fling_press', cat: 'medien', ic: '📰', chron: true, imp: 3, max: 3, title: 'Schlagzeilen über deine Affären',
+    who: function () { return { n: 'Boulevardpresse', role: 'Medien', ic: '📰', kind: 'interview' }; },
+    nodes: {
+      start: { say: function (c, d) { return 'Fotos von dir mit ' + d.names + ' – mitten in der Nacht, vor Bars und Hotels. Die Boulevardpresse fragt nach einem Statement.'; },
+        opts: [
+          { l: 'Öffentlich entschuldigen', fx: function (st, c, d) { return endI(d, 'Du entschuldigst dich bei Fans und Familie. Ein Teil glaubt dir, die Häme bleibt.', { media: 3, f_fam: 4, fam: 3, stress: 2 }); } },
+          { l: '„Das ist meine Privatsache.“', fx: function (st, c, d) { return endI(d, 'Kurz und knapp. Die Presse findet dich arrogant, die Familienfans schütteln den Kopf.', { media: -3, f_fam: -2, conf: 1 }); } },
+          { l: 'Schweigen und abtauchen', fx: function (st, c, d) { return endI(d, 'Du sagst nichts. Die Geschichte läuft ein paar Tage, dann wird es leiser.', { stress: 1 }); } }] }
     },
     sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
   }, {
@@ -187,7 +251,8 @@
     var r = L.spend(st, 1, 60); if (!r.ok) return r;
     var lf = L.life(st), cx = st.pc.cx, pt = lf.partner;
     if (pt) { lf.affOut = tick(st); P.partner(st).neg += 0.5; }
-    if (pt && ch(0.3 + (cx.per.conf - 50) / 300)) { L.ensure(st).dlg = null; L.start(st, 'fling_night', { name: L.name('a') }); return { ok: true, dlg: true }; }
+    var fo = A.flingOpen(st); if (fo.length && ch(0.35)) { L.ensure(st).dlg = null; L.start(st, 'fling_again', { name: fo[Math.floor(R.rand() * fo.length)].name }); return { ok: true, dlg: true }; }
+    if (ch((pt ? 0.3 : 0.25) + (cx.per.conf - 50) / 300)) { L.ensure(st).dlg = null; L.start(st, 'fling_night', { name: L.name('a') }); return { ok: true, dlg: true }; }
     if (ch(0.45 + (cx.per.conf - 50) / 200 - (pt ? 0.1 : 0))) { var x = L.newCand(st); L.ensure(st).dlg = null; L.start(st, 'meet', { cid: x.id, where: pt ? 'Beim Ausgehen ohne ' + fn(pt) : 'Beim Ausgehen mit Freunden' }); return { ok: true, dlg: true }; }
     L.eff(st, { well: 2, stress: -1 }); if (lf.friends[0]) lf.friends[0].v = Math.min(100, lf.friends[0].v + 3);
     return { ok: true, txt: 'Ein netter Abend mit Freunden – heute ohne neue Bekanntschaft. Wohlbefinden +2, Stress −1' };

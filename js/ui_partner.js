@@ -105,6 +105,7 @@
           '<button class="sm ghost" data-act="ptAffEnd" data-id="' + esc(x.id) + '">Beenden</button></div>';
       }).join('');
       if (aff.length || A.dating(st).length) h += '<p class="small ' + (A.risk(st) >= 0.06 ? 'neg' : 'muted') + '">Entdeckungsrisiko: <b>' + A.riskTxt(st) + '</b> · Heimlichkeit kostet Nerven (Stress) und Zeit für ' + esc(fn(pt)) + '. Fliegt es auf, drohen Trennung, Schlagzeilen und Folgen auf dem Platz.</p>';
+      h += U.flingBox(st);
       h += '<button class="sm" data-act="lfGoOut">Ausgehen (1 Termin, ' + money(60) + ')</button></div>';
     }
     var mode = lf.ptMode || 'normal';
@@ -136,6 +137,12 @@
     if (L.remember) try { L.remember(st, 'trennung', 'Du hast dich von ' + pt.name + ' getrennt.', pt.name); } catch (e) {}
     U.toast((wed ? 'Geschieden von ' : 'Getrennt von ') + fn(pt) + '.', 4000); U.autosave(); U.render();
   };
+  U.flingBox = function (st) {
+    var A = P.AFF; if (!A || !A.flingOpen) return ''; var fo = A.flingOpen(st); if (!fo.length) return '';
+    return '<div style="margin:6px 0"><b class="small">🍸 Lockere Affären (' + fo.length + ')</b>' + fo.map(function (f) { return '<div class="cx-row small" style="align-items:center;gap:6px;margin-top:4px"><span style="flex:1">' + esc(f.name) + ' <span class="muted">· ' + f.meets + '× getroffen</span></span><button class="sm ghost" data-act="ptFlingEnd" data-n="' + esc(f.name) + '">Beenden</button></div>'; }).join('') +
+      '<p class="small ' + (A.flingRisk(st) >= 0.06 ? 'neg' : 'muted') + '">Entdeckungsrisiko: <b>' + A.flingRiskTxt(st) + '</b> · Jede Affäre kostet pro Woche Stress und Frische. Fliegt es auf (Partnerin, eine der Frauen oder Presse), sinken Ansehen, Frische, Wohlbefinden, Medien, Familie und Fans deutlich.</p></div>';
+  };
+  U.acts.ptFlingEnd = function (d) { var st = U.st; P.AFF.flingEnd(st, d.n); U.toast('Affäre mit ' + String(d.n).split(' ')[0] + ' beendet.', 3000); U.autosave(); U.render(); };
   U.acts.ptAffEnd = function (d) { var st = U.st, x = P.AFF.get(st, d.id); if (!x) return; P.AFF.end(st, d.id); U.toast('Kontakt zu ' + fn(x) + ' beendet.', 3000); U.autosave(); U.render(); };
   U.acts.ptAffOff = function (d) {
     var st = U.st, x = P.AFF.get(st, d.id), pt = L.life(st).partner; if (!x) return;

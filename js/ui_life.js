@@ -127,7 +127,7 @@
     h += '<div class="grid g2"><div class="panel"><h2>' + U.lc('heart-pulse', 17) + ' Wie geht es dir?</h2><table class="t small">' +
       '<tr><td>Wohlbefinden</td><td style="width:50%">' + bar(lf.well) + '</td><td class="num">' + Math.round(lf.well) + '</td></tr>' +
       '<tr><td>Zufriedenheit</td><td>' + bar(cx.per.sat) + '</td><td class="num">' + Math.round(cx.per.sat) + '</td></tr>' +
-      '<tr><td>Stress</td><td>' + bar(cx.per.stress, cx.per.stress > 60 ? 'var(--red)' : '') + '</td><td class="num">' + Math.round(cx.per.stress) + '</td></tr>' +
+      '<tr><td>Stress</td><td>' + bar(cx.per.stress, cx.per.stress > 60 ? 'var(--red)' : cx.per.stress < 30 ? 'var(--green)' : 'var(--amber)') + '</td><td class="num">' + Math.round(cx.per.stress) + '</td></tr>' +
       '<tr><td>Familie</td><td>' + bar(cx.rel.family) + '</td><td class="num">' + Math.round(cx.rel.family) + '</td></tr></table>' +
       '<p class="small" style="margin-top:8px">Termine diese Woche: ' + apDots(st) + '</p><p class="muted small">Mehr freie Termine gibt es über Freizeit, Partnerschaft, Freunde, Familie oder Fantermine im <a href="#" data-act="nav" data-s="pwoche">Wochenplan</a>. Karriere und Privatleben konkurrieren um dasselbe Zeitbudget.</p></div>';
     // Partnerschaft

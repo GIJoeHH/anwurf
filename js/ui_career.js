@@ -99,7 +99,7 @@
     return h;
   };
   function tile(cat, emo) { return '<span class="cx-tile" style="--c:' + (CATCOL[cat] || '#3b82f6') + '">' + (emo || '•') + '</span>'; }
-  function barRow(lbl, v, extra) { return '<tr><td>' + lbl + '</td><td style="width:50%">' + U.bar(v, 100, v < 30 ? 'var(--red)' : v > 70 ? 'var(--green)' : '') + '</td><td class="num">' + Math.round(v) + (extra || '') + '</td></tr>'; }
+  function barRow(lbl, v, extra, inv) { return '<tr><td>' + lbl + '</td><td style="width:50%">' + U.bar(v, 100, inv ? (v > 60 ? 'var(--red)' : v < 30 ? 'var(--green)' : 'var(--amber)') : v < 30 ? 'var(--red)' : v > 70 ? 'var(--green)' : '') + '</td><td class="num">' + Math.round(v) + (extra || '') + '</td></tr>'; }
   function weeksLeft(st, t) { var w = Math.max(0, t - tick(st)); return w <= 1 ? 'diese Woche' : 'noch ' + w + ' Wochen'; }
   function inboxCard(st, it) {
     var e = X.REG[it.id] || {};
@@ -439,7 +439,7 @@
       U.kpi('Immobilien', money(Math.round(PF.homesValue(st) + rp.value))) + U.kpi('Produkte (Beratung)', money(Math.round(FA.productsValue(st)))) + U.kpi('Verbindlichkeiten', money(Math.round(PF.debt(st)))) + U.kpi('Nettovermögen', '<b>' + money(Math.round(sec.nw)) + '</b>') + '</div>';
     h += '<div class="grid g2" style="margin-top:14px"><div class="panel"><h2>Finanzielle Sicherheit</h2>' + levelBar(sec.lvl) + '<h3 style="margin:8px 0 2px">Stufe ' + sec.lvl + ': ' + esc(PF.LEVELS[sec.lvl]) + '</h3><p class="small">' + esc(PF.LEVEL_TXT[sec.lvl]) + '</p>' +
       '<table class="t small"><tr><td>Reserve (Monate Fixkosten)</td><td class="num">' + num(sec.months, 1) + '</td></tr><tr><td>Monatlicher Saldo</td><td class="num">' + sgn(sec.cf) + '</td></tr><tr><td>Schuldendienst / Einkommen</td><td class="num">' + pct(sec.dsr) + '</td></tr><tr><td>Anteil schwankender Anlagen</td><td class="num">' + pct(Math.min(1, sec.vol)) + '</td></tr>' +
-      barRow('Finanzstress (subjektiv)', sec.stress) + '</table><p class="muted small">Die Stufe wird objektiv aus Reserven, Saldo, Schulden und Vertragslage berechnet. Der Stress hängt zusätzlich von Persönlichkeit und Kursschwankungen ab – er wirkt begrenzt auf Konzentration und Entwicklung.</p></div>';
+      barRow('Finanzstress (subjektiv)', sec.stress, '', true) + '</table><p class="muted small">Die Stufe wird objektiv aus Reserven, Saldo, Schulden und Vertragslage berechnet. Der Stress hängt zusätzlich von Persönlichkeit und Kursschwankungen ab – er wirkt begrenzt auf Konzentration und Entwicklung.</p></div>';
     var rows = function (o, sign) { return Object.keys(o).map(function (k) { return '<tr><td>' + esc(k) + '</td><td class="num">' + (sign < 0 ? '−' : '') + money(Math.abs(o[k])) + '</td></tr>'; }).join(''); };
     h += '<div class="panel"><h2>Monatsrechnung (Prognose)</h2><table class="t small"><tr><th>Einnahmen</th><th></th></tr>' + rows(m.inc, 1) + '<tr><th>Ausgaben</th><th></th></tr>' + rows(m.exp, -1) + '<tr><td><b>Saldo</b></td><td class="num"><b>' + sgn(m.cf) + '</b></td></tr></table>' +
       '<p class="muted small">Steuern: vereinfachtes Modell (' + esc(cx.prof.nat === 'Österreich' || cx.prof.nat === 'Schweiz' ? cx.prof.nat : 'Deutschland') + ', effektiv etwa ' + pct(PF.effRate(st, (C.player(st) || { wage: 0 }).wage)) + '). Prämien kommen zusätzlich hinzu.</p></div></div>';

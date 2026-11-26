@@ -114,18 +114,20 @@
   };
 
   // ---------- Aktionen ----------
+  // Ergebnisse von Partner-Interaktionen immer als eigenes Pop-up (kein kleines Toast-Feld)
+  function pop(st, msg, title, sc) { if (!msg) return; var a = L.active(st); if (a && !a.done) return; U.showResult(title || 'Privatleben', msg, sc || null); }
   function after(st, r) { U.autosave(); if (L.active(st) && !L.active(st).done) { U.showDlg(); U.render(); } else U.render(); return r; }
   U.acts.ptTalk = function () {
     var st = U.st, cur = L.active(st); if (cur && !cur.done) { U.showDlg(); return; }
-    var r = P.talk(st); if (r && r.moment) { U.toast(r.moment, 3500); after(st); return; } after(st);
+    var r = P.talk(st); if (r && r.moment) { after(st); pop(st, r.moment, 'Ein kleiner Moment', 'date'); return; } after(st);
   };
   U.acts.ptAct = function (d) {
     var st = U.st, r = P.doAct(st, d.k);
-    if (!r.ok) { U.toast(r.why || 'Gerade nicht möglich.', 3500); return; }
-    if (r.txt) U.toast(r.txt, 4000); after(st);
+    if (!r.ok) { pop(st, r.why || 'Gerade nicht möglich.', 'Gerade nicht möglich'); return; }
+    after(st); if (r.txt) pop(st, r.txt, 'Gemeinsame Zeit', 'date');
   };
   U.acts.lfGoOut = function () {
-    var st = U.st, r = P.AFF ? P.AFF.goOut(st) : { ok: false }; if (!r.ok) { U.toast(r.why || 'Gerade nicht möglich.', 4000); return; }
+    var st = U.st, r = P.AFF ? P.AFF.goOut(st) : { ok: false }; if (!r.ok) { pop(U.st, r.why || 'Gerade nicht möglich.'); return; }
     U.autosave(); if (r.dlg) { U.showDlg(); U.render(); return; } U.render(); U.showResult('Abend in der Stadt', r.txt, 'freunde');
   };
   // Beziehung jederzeit selbst beenden (Kinder bleiben, Scheidung kostet Geld)
@@ -135,26 +137,26 @@
     if (typeof confirm === 'function' && !confirm((wed ? 'Die Scheidung von ' : 'Die Beziehung mit ') + pt.name + ' wirklich beenden?' + (wed ? ' Anwalt und Unterhalt kosten Geld.' : '') + (kids ? ' Die Kinder bleiben Teil deines Lebens.' : '') + ' Das belastet dich einige Wochen.')) return;
     L.breakup(st, 'du hast die Beziehung beendet'); if (R.cx && R.cx.eff) R.cx.eff(st, { well: -4, stress: 2 });
     if (L.remember) try { L.remember(st, 'trennung', 'Du hast dich von ' + pt.name + ' getrennt.', pt.name); } catch (e) {}
-    U.toast((wed ? 'Geschieden von ' : 'Getrennt von ') + fn(pt) + '.', 4000); U.autosave(); U.render();
+    pop(U.st, (wed ? 'Geschieden von ' : 'Getrennt von ') + fn(pt) + '.'); U.autosave(); U.render();
   };
   U.flingBox = function (st) {
     var A = P.AFF; if (!A || !A.flingOpen) return ''; var fo = A.flingOpen(st); if (!fo.length) return '';
     return '<div style="margin:6px 0"><b class="small">🍸 Lockere Affären (' + fo.length + ')</b>' + fo.map(function (f) { return '<div class="cx-row small" style="align-items:center;gap:6px;margin-top:4px"><span style="flex:1">' + esc(f.name) + ' <span class="muted">· ' + f.meets + '× getroffen</span></span><button class="sm" data-act="ptFlingMeet" data-n="' + esc(f.name) + '" title="Selbst melden und treffen">Treffen (1 Termin)</button><button class="sm" data-act="ptFlingDate" data-n="' + esc(f.name) + '" title="Fragen, ob sie mehr will – kann eine Beziehung werden">Mehr daraus machen</button><button class="sm ghost" data-act="ptFlingEnd" data-n="' + esc(f.name) + '">Beenden</button></div>'; }).join('') +
       '<p class="small ' + (A.flingRisk(st) >= 0.06 ? 'neg' : 'muted') + '">Entdeckungsrisiko: <b>' + A.flingRiskTxt(st) + '</b> · Jede Affäre kostet pro Woche Stress und Frische. Fliegt es auf (Partnerin, eine der Frauen oder Presse), sinken Ansehen, Frische, Wohlbefinden, Medien, Familie und Fans deutlich.</p></div>';
   };
-  U.acts.ptFlingMeet = function (d) { var st = U.st, r = P.AFF.flingMeet(st, d.n); if (!r.ok) { U.toast(r.why || 'Gerade nicht möglich.', 4000); return; } U.autosave(); U.showDlg(); U.render(); };
-  U.acts.ptFlingDate = function (d) { var st = U.st, r = P.AFF.flingAsk(st, d.n), f = String(d.n).split(' ')[0]; U.toast(r.ok ? f + ' will auch mehr – ihr datet jetzt richtig.' : f + ' will es locker halten.', 4000); U.autosave(); U.render(); };
-  U.acts.ptFlingEnd = function (d) { var st = U.st; P.AFF.flingEnd(st, d.n); U.toast('Affäre mit ' + String(d.n).split(' ')[0] + ' beendet.', 3000); U.autosave(); U.render(); };
-  U.acts.ptAffEnd = function (d) { var st = U.st, x = P.AFF.get(st, d.id); if (!x) return; P.AFF.end(st, d.id); U.toast('Kontakt zu ' + fn(x) + ' beendet.', 3000); U.autosave(); U.render(); };
+  U.acts.ptFlingMeet = function (d) { var st = U.st, r = P.AFF.flingMeet(st, d.n); if (!r.ok) { pop(U.st, r.why || 'Gerade nicht möglich.'); return; } U.autosave(); U.showDlg(); U.render(); };
+  U.acts.ptFlingDate = function (d) { var st = U.st, r = P.AFF.flingAsk(st, d.n), f = String(d.n).split(' ')[0]; pop(U.st, r.ok ? f + ' will auch mehr – ihr datet jetzt richtig.' : f + ' will es locker halten.'); U.autosave(); U.render(); };
+  U.acts.ptFlingEnd = function (d) { var st = U.st; P.AFF.flingEnd(st, d.n); pop(U.st, 'Affäre mit ' + String(d.n).split(' ')[0] + ' beendet.'); U.autosave(); U.render(); };
+  U.acts.ptAffEnd = function (d) { var st = U.st, x = P.AFF.get(st, d.id); if (!x) return; P.AFF.end(st, d.id); pop(U.st, 'Kontakt zu ' + fn(x) + ' beendet.'); U.autosave(); U.render(); };
   U.acts.ptAffOff = function (d) {
     var st = U.st, x = P.AFF.get(st, d.id), pt = L.life(st).partner; if (!x) return;
     if (typeof confirm === 'function' && !confirm('Mit ' + x.name + ' offiziell zusammen sein? Die Beziehung mit ' + (pt ? pt.name : '') + ' endet dann.')) return;
-    P.AFF.official(st, d.id); P.AFF.scandal(st, st.pc.fame >= 45, 'aff'); U.toast('Du bist jetzt offiziell mit ' + fn(x) + ' zusammen.', 4000); U.autosave(); U.render();
+    P.AFF.official(st, d.id); P.AFF.scandal(st, st.pc.fame >= 45, 'aff'); pop(U.st, 'Du bist jetzt offiziell mit ' + fn(x) + ' zusammen.'); U.autosave(); U.render();
   };
   U.acts.ptDec = function (d) { var st = U.st; P.start(st, d.id); after(st); };
-  U.acts.ptMode = function (d) { var st = U.st; L.life(st).ptMode = d.m === 'wenig' ? 'wenig' : 'normal'; U.toast(d.m === 'wenig' ? 'Kleine Momente laufen jetzt automatisch – du siehst nur wichtige Gespräche.' : 'Privatleben wieder in normaler Taktung.', 3000); U.autosave(); U.render(); };
+  U.acts.ptMode = function (d) { var st = U.st; L.life(st).ptMode = d.m === 'wenig' ? 'wenig' : 'normal'; pop(U.st, d.m === 'wenig' ? 'Kleine Momente laufen jetzt automatisch – du siehst nur wichtige Gespräche.' : 'Privatleben wieder in normaler Taktung.'); U.autosave(); U.render(); };
   U.acts.ptTodo = function (d) {
     var st = U.st, x = P.todos(st).filter(function (y) { return y.k === d.k; })[0]; if (!x) return;
-    if (x.dlg && L.DLG[x.dlg]) U.acts.dlgStart({ dlg: x.dlg }); else U.toast(x.l, 3000);
+    if (x.dlg && L.DLG[x.dlg]) U.acts.dlgStart({ dlg: x.dlg }); else pop(U.st, x.l);
   };
 })(RFM);

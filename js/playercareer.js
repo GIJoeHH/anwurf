@@ -99,7 +99,7 @@
       if (p.ovr >= avg - (p.age >= 18 ? 4 : p.age >= 17 ? 2 : 0) || (p.age >= 17 && p.ovr >= avg - 6 && pc.trust >= 65)) C.promote(st, 'Der Trainer holt dich zu den Profis!');
     }
     // Nationalmannschaft
-    if (!p.youth && p.ovr >= W.fromMoneyScale(st, CFG.natOvr) && st.phase === 'season' && st.week % 8 === 4) {
+    if (!R.nt && !p.youth && p.ovr >= W.fromMoneyScale(st, CFG.natOvr) && st.phase === 'season' && st.week % 8 === 4) {
       pc.nat++; pc.fame = clamp(pc.fame + 2, 0, 100);
       C.milestone(st, 'nat', 'Berufung in die ' + CFG.nat + '!', 'Der Bundestrainer setzt auf ' + W.playerName(p) + '.');
     }

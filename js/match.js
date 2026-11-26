@@ -14,7 +14,7 @@
   M.TIMEOUTS = 3;               // Team-Timeouts je Spiel
   M.HALF = 30; M.FULL = 60; M.OT = 10;
 
-  function available(p) { return p && !p.inj && p.susp <= 0; }
+  function available(p) { return p && !p.inj && p.susp <= 0 && !p.ntAway; } // ntAway: beim Nationalteam (Turnier)
   M.available = available;
   function slotsOf(club) { return D.formations[club.tactic.formation] || D.formations['6:0']; }
   M.slotsOf = slotsOf;

@@ -1,5 +1,5 @@
 /* ANWURF! – Service Worker für den Offline-Betrieb (automatisch erzeugt von web/deploy.sh, nicht von Hand ändern) */
-const VERSION = 'd0583be810';
+const VERSION = '2cb4d85459';
 const CACHE = 'anwurf-' + VERSION;
 const CORE = [
   './',
@@ -31,6 +31,8 @@ const CORE = [
   './js/career_life.js',
   './js/career_lifesim.js',
   './js/career_match.js',
+  './js/career_nt.js',
+  './js/career_nt_events.js',
   './js/career_partner.js',
   './js/career_partner_lib.js',
   './js/career_partner_lib2.js',
@@ -72,6 +74,7 @@ const CORE = [
   './js/ui_mail.js',
   './js/ui_match.js',
   './js/ui_misc.js',
+  './js/ui_nt.js',
   './js/ui_partner.js',
   './js/ui_pc.js',
   './js/ui_plus.js',

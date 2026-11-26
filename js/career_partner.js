@@ -96,6 +96,7 @@
     c.sw = HB ? 'Handball' : 'Fußball'; c.goalW = HB ? 'Tor' : 'Tor';
     c.wk = st.week; c.summer = st.phase !== 'season'; c.late = st.phase === 'season' && st.week >= (S.SEASON_WEEKS || 34) - 6;
     c.winter = st.phase === 'season' && st.week >= (S.WINTER_AFTER || 17) - 3 && st.week <= (S.WINTER_AFTER || 17) + 2;
+    var pff = R.pf ? R.pf.ensure(st) : {}; c.carNew = pff.carT != null && tick(st) - pff.carT <= 12 && ((R.pf.CARS[pff.car] || {}).price || 0) >= 45000; c.carBuys = pff.carBuys || 0;
     c.money = R.pf ? R.pf.liquid(st) : 0; c.lifeK = R.pf ? R.pf.ensure(st).life : 'komfortabel';
     c.load = c.cx.plan && c.cx.plan.a ? (c.cx.plan.a.train || 0) + (c.cx.plan.a.extra || 0) : 0;
     c.ld = !!(p && p.ld); c.moving = !!c.pc.moving; c.offers = (c.pc.offers || []).filter(function (o) { return !o.renew; });

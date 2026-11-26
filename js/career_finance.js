@@ -144,7 +144,7 @@
     // Tagesgeld wie im Managerspiel: Zinsen laufen wöchentlich auf, Gutschrift monatlich (alle 4 Spielwochen) aufs Girokonto
     if (w.savings > 0 && st.savingsRate) w.interestAccrued = (w.interestAccrued || 0) + w.savings * st.savingsRate / E.WEEKS;
     if (w.interestAccrued && E.interestPayday(st)) { E.payInterest(st, w); pc.cash = w.cash; }
-    if (pc.nat > (f.natPaid || 0)) { C.pay(st, (pc.nat - (f.natPaid || 0)) * (HB ? 1500 : 12000), 'Nationalmannschaftsprämie'); f.natPaid = pc.nat; }
+    if (!R.nt && pc.nat > (f.natPaid || 0)) { C.pay(st, (pc.nat - (f.natPaid || 0)) * (HB ? 1500 : 12000), 'Nationalmannschaftsprämie'); f.natPaid = pc.nat; }
     // Sponsoren
     f.spons = f.spons.filter(function (s) { return s.until > t; });
     f.spons.forEach(function (s) { C.pay(st, s.y / E.WEEKS, 'Sponsoring'); });
@@ -219,6 +219,7 @@
     var f = PF.ensure(st), K2 = PF.CARS[k]; if (!K2) return { ok: false }; if (PF.minor(st) && k !== 'keins') return { ok: false, why: 'Erst ab 18.' };
     if (K2.price && !finance) { if (PF.liquid(st) < K2.price) return { ok: false, why: 'Nicht genug Geld – Finanzierung möglich.' }; PF.book(st, -K2.price, 'Autokauf'); }
     if (K2.price && finance) { var r = PF.takeLoan(st, 'auto', K2.price); if (!r.ok) return r; PF.book(st, -K2.price, 'Autokauf'); }
+    if (K2.price && k !== f.car && K2.price > ((PF.CARS[f.car] || {}).price || 0)) { f.carBuys = (f.carBuys || 0) + 1; f.carT = st.tick || 0; } // für passende Reaktionen
     f.car = k; return { ok: true };
   };
   PF.setIns = function (st, k, on) { var f = PF.ensure(st); if (!PF.INS[k]) return; f.ins[k] = !!on; };

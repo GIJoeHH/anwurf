@@ -320,8 +320,8 @@
     { id: 'k13', cat: 'konflikt', cd: 100, when: function (c) { return c.pt.ld; }, nodes: { start: { img: 'conflict', s: '{n} am Telefon: „Du hast gestern nicht angerufen. Ich habe gewartet.“', o: [
       ['Tut mir leid, die Mannschaftssitzung ging lange.', '„Schreib mir dann wenigstens.“', { partner: 1 }],
       ['Ich kann nicht jeden Abend.', { c_direkt: '„Dann sag es vorher.“', def: '„Okay …“' }, { partner: -2 }]] } } },
-    { id: 'k14', cat: 'konflikt', cd: 120, when: function (c) { return c.pt.stage >= 4 && c.money > 50000; }, nodes: { start: { img: 'conflict', s: '{n}: „Du hast schon wieder ein teures Auto angeschaut? Wir wollten doch sparen.“', o: [
-      ['Stimmt. Ich lasse es.', '„Danke. Wir hatten einen Plan.“', { partner: 2 }],
+    { id: 'k14', cat: 'konflikt', cd: 120, when: function (c) { return c.pt.stage >= 4 && c.carNew; }, nodes: { start: { img: 'conflict', s: function (c) { return c.carBuys >= 2 ? '{n}: „Schon wieder ein neues Auto? Wir wollten doch sparen.“' : '{n}: „Ein neues Auto – einfach so, ohne mit mir zu reden? Wir wollten doch sparen.“'; }, o: [
+      ['Du hast recht. Ich hätte vorher mit dir reden sollen.', '„Danke. Beim nächsten Mal entscheiden wir das zusammen.“', { partner: 2 }],
       ['Es ist mein Geld.', { indep: '', c_direkt: '„Und unser Leben.“', def: '„Ja. Aber unsere Pläne.“' }, { partner: -3 }]] } } },
     { id: 'k15', cat: 'konflikt', cd: 60, when: function (c, p) { return p.v >= 55 && P.closed(p, 'quarrel'); }, nodes: { start: { img: 'reconcile', s: '{n}: „Ich finde, wir streiten besser als früher. Fairer.“', o: [
       ['Wir lernen eben dazu.', '„Ja. Das mag ich an uns.“', { partner: 3 }],

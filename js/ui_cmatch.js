@@ -78,13 +78,13 @@
     if (el('cmOv')) el('cmOv').innerHTML = overlay(st, g);
     if (el('cmCtl')) el('cmCtl').innerHTML = controls(st, g);
   }
-  function compName(st, fx) { return fx && fx.comp && fx.comp !== 'league' && S.fxLabel ? S.fxLabel(st, fx) : (st.week + 1) + '. Spieltag'; }
+  function compName(st, fx) { if (fx && fx.label) return fx.label; return fx && fx.comp && fx.comp !== 'league' && S.fxLabel ? S.fxLabel(st, fx) : (st.week + 1) + '. Spieltag'; }
 
   U.screens.pspiel = function () {
     var st = U.st, g = U.pcm; if (!g) return U.screens.pkarriere();
     if (!g.speed) { var ds = st.settings.cmSpeed; g.speed = ds && ds !== 'instant' ? ds : st.settings.matchSpeed === 'schnell' ? 'fast' : 'normal'; } // „Sofort“ gilt nur für das laufende Spiel
     var m = g.m, L = live(g, st), H = st.clubs[m.clubs[0]], A = st.clubs[m.clubs[1]];
-    var h = '<div class="page-h"><div><h1>Matchcenter</h1><div class="page-sub">' + esc(D.leagueNames[H.league] || '') + ' · ' + esc(H.stadiumName) + ' · Spielerkarriere</div></div></div>';
+    var h = '<div class="page-h"><div><h1>Matchcenter</h1><div class="page-sub">' + esc(g.fx.nt ? 'Länderspiel' : (D.leagueNames[H.league] || '')) + ' · ' + esc(H.stadiumName) + ' · Spielerkarriere</div></div></div>';
     h += '<div class="mc-head panel cm-head-fix"><div class="mch-team">' + U.crest(H, 64) + '<div><b>' + esc(H.name) + '</b><span>HEIM</span></div></div>' +
       '<div class="mc-score"><span class="mc-live" id="mcLive">LIVE · ' + esc(compName(st, g.fx)).toUpperCase() + '</span><b><span id="sbH">0</span><i>:</i><span id="sbA">0</span></b><em id="sbMin">0. Minute</em></div>' +
       '<div class="mch-team r"><div><b>' + esc(A.name) + '</b><span>GAST</span></div>' + U.crest(A, 64) + '</div></div>';

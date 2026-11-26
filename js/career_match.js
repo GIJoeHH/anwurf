@@ -88,7 +88,7 @@
 
   // ---------- Kontext ----------
   CM.ctx = function (m) {
-    var st = m.st, pc = st.pc, p = C.player(st), s = m.played[p.id] != null ? m.played[p.id] : (m.clubs[0] === p.clubId ? 0 : 1);
+    var st = m.st, pc = st.pc, p = C.player(st), s = m.ntSide != null ? m.ntSide : m.played[p.id] != null ? m.played[p.id] : (m.clubs[0] === p.clubId ? 0 : 1);
     return { st: st, m: m, s: s, o: 1 - s, p: p, pc: pc, cx: pc.cx, min: m.minute, diff: m.score[s] - m.score[1 - s], on: A.on(m, s, p.id), bench: m.bench[s].indexOf(p.id) >= 0, gk: A.gk(m, 1 - s), club: st.clubs[m.clubs[s]], opp: st.clubs[m.clubs[1 - s]], fit: m.fit[p.id] != null ? m.fit[p.id] : p.fitness, late: m.minute >= FULL - (HB ? 6 : 10), isGK: p.pos === 'TW', sp: !!X.mem(st, 'setPieces') };
   };
   function att(x) { return x.on && !x.isGK; }
@@ -308,8 +308,8 @@
   CM.RESULT_TXT = { goal: 'Tor!', save: 'Gehalten', miss: 'Vorbei', lost: 'Ballverlust', card: 'Karte', red: 'Platzverweis', injury: 'Verletzung', sub: 'Ausgewechselt', on: 'Eingewechselt', ok: 'Erledigt', safe: 'Sicher', none: '–' };
   // Spielbericht der Szenen merken (nach dem Abpfiff)
   CM.wrap = function (st, m) {
-    if (!m.pc) return; var cx = X.ensure(st), s = m.clubs[0] === C.player(st).clubId ? 0 : 1;
-    cx.lastMatch = { season: st.season, week: st.week, home: st.clubs[m.clubs[0]].short, away: st.clubs[m.clubs[1]].short, score: m.score.slice(), side: s, rating: m.rating[m.pc.pid] || null, goals: m.goals[m.pc.pid] || 0, decisions: m.pc.log.slice(0, 12), mode: m.pc.mode };
+    if (!m.pc) return; var cx = X.ensure(st), s = m.ntSide != null ? m.ntSide : m.clubs[0] === C.player(st).clubId ? 0 : 1;
+    cx.lastMatch = { season: st.season, week: st.week, home: st.clubs[m.clubs[0]].short, away: st.clubs[m.clubs[1]].short, score: m.score.slice(), side: s, rating: m.rating[m.pc.pid] || null, goals: m.goals[m.pc.pid] || 0, decisions: m.pc.log.slice(0, 12), mode: m.pc.mode, nt: m.ntSide != null };
     X.mem(st, 'scenes', m.pc.log.length);
   };
   // Automatischer Durchlauf (Tests, Simulationen, Auto-Modus): wählt nach Strategie

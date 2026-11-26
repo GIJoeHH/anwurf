@@ -108,7 +108,7 @@
   }
   U.acts.cxPick = function (d) { var st = U.st, msg = X.resolve(st, +d.uid, +d.i); U.toast(msg, 4500); U.autosave(); U.render(); };
   function phaseTrack(cx) { return '<div class="cx-phases">' + X.PHASES.map(function (n, i) { return '<span class="' + (i === cx.phase ? 'on' : i < cx.phase ? 'done' : '') + '" title="' + esc(X.PHASE_TXT[i]) + '">' + esc(n) + '</span>'; }).join('') + '</div>'; }
-  function compName(fx) { return fx.comp === 'cup' ? 'Pokal' : fx.comp === 'league' ? 'Liga' : fx.comp === 'euro' || /euro|cl|el/i.test(fx.comp) ? 'Europapokal' : fx.comp; }
+  function compName(fx) { if (fx.label) return fx.label; return fx.comp === 'cup' ? 'Pokal' : fx.comp === 'league' ? 'Liga' : fx.comp === 'euro' || /euro|cl|el/i.test(fx.comp) ? 'Europapokal' : fx.comp; }
   function levelBar(lvl) { var col = ['', '#22c55e', '#4ade80', '#3b82f6', '#f59e0b', '#f97316', '#ef4444'][lvl]; var h = '<div class="cx-lvl">'; for (var i = 6; i >= 1; i--) h += '<i class="' + (i >= lvl ? 'on' : '') + '" style="--c:' + col + '"></i>'; return h + '</div>'; }
 
   // ---------- Karriere-Zentrale ----------
@@ -272,7 +272,9 @@
   U.acts.cmPick = function (d) { var g = U.pcm; if (!g || !g.inst) return; var e = CM.choose(g.m, g.inst, +d.i); g.inst = null; g.last = e; U.render(); setTimeout(function () { if (U.pcm === g && !g.inst && !g.m.finished && !g.timer) U.acts.cmRun(); }, 1300); };
   U.acts.cmDone = function () {
     var g = U.pcm, st = U.st; if (!g) return; stopTimer(g);
-    CM.wrap(st, g.m); var played = {}; played[g.fx.key] = g.m; U.pcm = null;
+    CM.wrap(st, g.m);
+    if (g.fx.nt && R.nt) { U.pcm = null; var res = R.nt.finish(st, g.m, g.fx.ntKey); U.autosave(); if (U.ntAfter) U.ntAfter(res); else U.render(); return; } // Länderspiel: Woche läuft danach normal weiter
+    var played = {}; played[g.fx.key] = g.m; U.pcm = null;
     U.finishWeek(played);
   };
 

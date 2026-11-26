@@ -81,9 +81,9 @@
     var same = cur && cur.id === d.dlg && Object.keys(d).every(function (k) { return ['act', 'dlg', 'ap', 'cost'].indexOf(k) >= 0 || String(cur.data[k]) === String(d[k]); });
     if (cur && !cur.done && same) { U.showDlg(); return; } // dasselbe Gespräch fortsetzen
     if (cur) { var cx0 = st.pc.cx; cx0.dlg = null; } // anderes Gespräch gewählt: offenes Gespräch ohne weitere Wirkung beenden
-    if (d.ap) { var r = L.spend(st, +d.ap, +(d.cost || 0)); if (!r.ok) { U.toast(r.why, 4000); return; } }
-    var s = L.start(st, d.dlg, data); if (!s) { U.toast('Gerade nicht möglich.'); return; }
-    if (s.done) { var v = L.view(st); L.close(st); U.toast((v && v.sum) || 'Gerade nicht möglich.', 4500); U.render(); return; }
+    if (d.ap) { var r = L.spend(st, +d.ap, +(d.cost || 0)); if (!r.ok) { U.showResult('Gerade nicht möglich', r.why); return; } }
+    var s = L.start(st, d.dlg, data); if (!s) { U.showResult('Gerade nicht möglich', 'Gerade nicht möglich.'); return; }
+    if (s.done) { var v = L.view(st); L.close(st); U.render(); U.showResult('Privatleben', (v && v.sum) || 'Gerade nicht möglich.'); return; }
     U.autosave(); U.showDlg();
   };
   U.acts.dlgPick = function (d) { L.pick(U.st, +d.i); U.autosave(); U.showDlg(); };
@@ -91,7 +91,7 @@
   U.acts.dlgResume = function () { U.showDlg(); };
   U.acts.dlgCancel = function () { // Verklickt: Gespräch ohne jede Wirkung beenden
     var st = U.st, cur = L.active(st); if (cur) { st.pc.cx.dlg = null; U._dlgSeen = null; }
-    U.closeModal(); U.autosave(); U.render(); U.toast('Gespräch abgebrochen – ohne Folgen.', 3000);
+    U.closeModal(); U.autosave(); U.render(); U.showResult('Gespräch abgebrochen', 'Gespräch abgebrochen – ohne Folgen.');
   };
 
   // ---------- Ergebnisfenster statt kurzer Meldung (Entscheidungen, Aktivitäten) ----------
@@ -161,7 +161,7 @@
     return h;
   };
   U.acts.lfGoOut = function () {
-    var st = U.st, r = L.spend(st, 1, 60); if (!r.ok) { U.toast(r.why, 4000); return; }
+    var st = U.st, r = L.spend(st, 1, 60); if (!r.ok) { U.showResult('Gerade nicht möglich', r.why); return; }
     var lf = L.life(st), cx = st.pc.cx;
     if (R.rand() < 0.45 + (cx.per.conf - 50) / 200) { var x = L.newCand(st); st.pc.cx.dlg = null; L.start(st, 'meet', { cid: x.id, where: 'Beim Ausgehen mit Freunden' }); U.autosave(); U.showDlg(); return; }
     L.eff(st, { well: 2, stress: -1 }); if (lf.friends[0]) lf.friends[0].v = Math.min(100, lf.friends[0].v + 3);
@@ -195,7 +195,7 @@
     U.modal(esc(B.n), body, '<button data-act="closeModal">Schließen</button>', true);
   };
   U.acts.pcBldAct = function (d) {
-    var st = U.st, r = L.bldAct(st, d.b, d.k); if (!r.ok) { U.toast(r.why, 4000); return; }
+    var st = U.st, r = L.bldAct(st, d.b, d.k); if (!r.ok) { U.showResult('Gerade nicht möglich', r.why); return; }
     U.autosave(); if (r.dlg) { U.showDlg(); return; }
     var a = L.BLD[d.b].acts.filter(function (x) { return x.k === d.k; })[0]; U.render(); U.showResult(a.n, a.d + ' – erledigt. ' + (r.txt || ''), d.b === 'stadion' ? 'fans' : d.b === 'medizin' ? 'medizin' : 'training');
   };

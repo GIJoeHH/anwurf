@@ -92,10 +92,10 @@
       ['Na klar, ich bringe eins mit.', '„Er wird ausflippen.“ Ein kleiner Moment, der Freude macht.', { f_fam: 1, partner: 1 }],
       ['Ich mache gleich ein Foto mit ihm.', '„Du bist so lieb.“', { partner: 2, f_fam: 1 }],
       ['Ich will zu Hause eigentlich nicht der Profi sein.', '„Verstehe ich. Ich sage ihnen, du bist im Stress.“', {}]] } } },
-    { id: 'a22', cat: 'alltag', when: function (c) { return c.st.phase === 'season'; }, nodes: { start: { img: 'relaxed', s: '{n}: „Morgen früh ist wieder Abfahrt zum Auswärtsspiel?“', o: [
-      ['Ja, ganz früh. Ich packe heute.', '„Ich stelle dir einen Kaffee hin.“', { partner: 1 }],
-      ['Kommst du am Sonntag mit zum Bahnhof?', '„Klar, ich hole dich ab.“', { partner: 2 }],
-      ['Nein, wir spielen zu Hause.', { fan: '„Ach stimmt! Ich hatte den Spielplan verwechselt. Peinlich.“', def: '„Oh. Ich habe den Überblick verloren.“' }, {}]] } } },
+    { id: 'a22', cat: 'alltag', when: function (c) { return c.st.phase === 'season'; }, nodes: { start: { img: 'relaxed', s: '{n}: „Wann ist eigentlich die nächste Auswärtsfahrt? Ich will das Wochenende planen.“', o: [
+      ['Ich schick dir gleich den Spielplan.', '„Perfekt. Dann trage ich mir alles ein.“', { partner: 1 }],
+      ['Komm doch mal mit zu einem Auswärtsspiel!', '„Echt? Gern – das wollte ich schon immer mal.“', { partner: 2 }],
+      ['Erst mal kommen zwei Heimspiele.', { fan: '„Super, dann bin ich im Stadion!“', def: '„Schön, dann bist du öfter zu Hause.“' }, { partner: 1 }]] } } },
     { id: 'a23', cat: 'alltag', nodes: { start: { img: 'relaxed', s: '{n}: „Erinnerst du dich an {mem}? Ich habe heute daran gedacht.“', o: [
       ['Wie könnte ich das vergessen.', '{n} lächelt. Für einen Moment ist der Alltag weit weg.', { partner: 3 }],
       ['Das sollten wir wiederholen.', '„Unbedingt. Ich nehme dich beim Wort.“', { partner: 2 }],
@@ -218,7 +218,7 @@
     { id: 's17', cat: 'sport', len: 'kurz', cd: 80, when: function (c) { return c.cx.captain; }, nodes: { start: { img: 'success', s: '{n}: „Kapitän! Hast du das kommen sehen?“', o: [
       ['Nein, ich bin selbst überrascht.', '„Ich nicht. Du kümmerst dich um alle.“', { partner: 2, conf: 1 }],
       ['Das ist viel Verantwortung.', '„Die du tragen kannst.“', { conf: 1 }]] } } },
-    { id: 's18', cat: 'sport', len: 'kurz', cd: 60, when: function (c) { return c.pc.nat > 0 && c.st.week % 8 <= 5; }, nodes: { start: { img: 'success', s: '{n}: „Du fährst wieder zur Nationalmannschaft? Ich bin so stolz!“', o: [
+    { id: 's18', cat: 'sport', len: 'kurz', cd: 60, when: function (c) { return c.pc.nt && c.pc.nt.caps > 0 && c.pc.nt.status === 'squad' && R.nt && R.nt.away(c.st) > 0; }, nodes: { start: { img: 'success', s: '{n}: „Du fährst wieder zur Nationalmannschaft? Ich bin so stolz!“', o: [
       ['Das ist jedes Mal ein Traum.', '„Ich schaue jedes Spiel. Versprochen.“', { partner: 2 }],
       ['Dann bin ich wieder eine Woche weg.', '„Ich weiß. Wir telefonieren jeden Abend.“', { partner: 1 }]] } } },
     { id: 's19', cat: 'sport', len: 'kurz', cd: 40, when: function (c) { return c.pc.fame >= 30 && c.cx.per.stress > 50; }, nodes: { start: { img: 'thought', s: '{n}: „In den Medien wird gerade viel über dich geschrieben. Wie gehst du damit um?“', o: [

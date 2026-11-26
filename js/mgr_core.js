@@ -453,6 +453,8 @@
     });
     // Entdeckungsrisiko heimlicher Beziehungen
     if (pt && MX.affs(st).length && !st.mx.dlg && hr('aff' + t + (st.seed || 0), 7) < MX.affRisk(st)) { var ax = MX.affs(st)[0], press = hr('affp' + t, 3) < 0.35 + (st.manager.reputation || 40) / 250; MX.start(st, 'life_aff_caught', { cid: ax.id, press: press ? 1 : 0 }, { prio: 7 }); }
+    // Geheimes Dating-Profil: Partnerin/Partner kann es finden
+    if (pt && lf.partner && MX.appRisk && !st.mx.dlg && hr('appf' + t + (st.seed || 0), 8) < MX.appRisk(st)) { var rp = (st.manager.reputation || 40), hw = hr('appfh' + t, 9), how = hw < Math.min(0.25, rp / 300) ? 'press' : hw < 0.45 ? 'fan' : hw < 0.7 ? 'phone' : hw < 0.88 ? 'friend' : 'notif'; MX.start(st, 'life_app_found', { how: how }, { prio: 7 }); }
     // Stress wirkt: ein angespannter Manager strahlt weniger Ruhe aus (kleiner Einfluss auf die Kabine)
     if (lf.stress > 80) st.mx.kabMod = clamp(st.mx.kabMod - 0.3, -15, 15);
   };

@@ -469,4 +469,144 @@
     },
     sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
   }]);
+
+  // ---------- Dating-App selbst öffnen (einmal pro Woche) – und was passiert, wenn die Partnerperson das Profil entdeckt ----------
+  // lf.app = { on, t (zuletzt benutzt), n (Nutzungen), single (Profil stammt aus der Single-Zeit), m (Matches) }
+  A.appFree = function (st) { var lf = L.life(st); return !!lf && (lf.appT == null || tick(st) - lf.appT >= 1); };
+  A.appOn = function (st) { var lf = L.life(st); return lf && lf.app && lf.app.on ? lf.app : null; };
+  A.appDel = function (st) { var lf = L.life(st); if (lf && lf.app) lf.app.on = false; };
+  A.appRisk = function (st) { // Wahrscheinlichkeit pro Woche, dass die Partnerperson das Profil findet
+    var lf = L.life(st), a = A.appOn(st), pt = lf && lf.partner; if (!a || !pt) return 0;
+    var t = tick(st), fresh = t - (a.t || 0);
+    var r = (a.single && !a.pt ? 0.025 : 0.05) + Math.min(5, a.n || 1) * 0.01 + Math.min(3, a.m || 0) * 0.015 + (st.pc.fame || 0) / 2500 +
+      (pt.stage >= 4 && !pt.ld ? 0.03 : 0) + (lf.suspect && lf.suspect > t ? 0.05 : 0) + (lf.phoneOpen && lf.phoneOpen > t ? 0.15 : 0) + (fresh <= 2 ? 0.02 : 0);
+    if (fresh > 12) r *= 0.5;
+    return clamp(r, 0, 0.4);
+  };
+  A.appRiskTxt = function (st) { var r = A.appRisk(st); return r >= 0.12 ? 'hoch' : r >= 0.06 ? 'mittel' : r > 0 ? 'gering' : '–'; };
+  // Offene Handys verraten auch heimliche Beziehungen schneller
+  var baseRisk = A.risk;
+  A.risk = function (st) { var lf = L.life(st), r = baseRisk(st); return r && lf.phoneOpen && lf.phoneOpen > tick(st) ? clamp(r + 0.08, 0, 0.5) : r; };
+  function addCand(st, x) {
+    var lf = L.life(st); if (lf.cands.indexOf(x) < 0) lf.cands.push(x);
+    while (lf.cands.length > 5) {
+      var drp = lf.cands.filter(function (y) { return !y.stage && !y.aff && y !== x; })[0] || lf.cands.filter(function (y) { return y.stage === 1 && !y.aff && y !== x; }).sort(function (a, b) { return a.v - b.v; })[0];
+      if (!drp) break; lf.cands.splice(lf.cands.indexOf(drp), 1);
+    }
+    return x;
+  }
+  A.openApp = function (st) {
+    var lf = L.life(st), p = C.player(st); if (!lf || !p) return { ok: false, why: 'Gerade nicht möglich.' };
+    if (p.age < 18) return { ok: false, why: 'Dating-Apps gibt es erst ab 18.' };
+    var cur = L.active(st); if (cur && !cur.done) return { ok: false, why: 'Erst das laufende Gespräch beenden.' };
+    if (!A.appFree(st)) return { ok: false, why: 'Diese Woche hast du schon geswipt. Nächste Woche gibt es neue Profile.' };
+    lf.appT = tick(st);
+    var keep = lf.cands.slice(), prof = [];
+    for (var i = 0; i < 3; i++) { var x = L.newCand(st); x.src = 'app'; x.where = 'Dating-App'; x.note = 'Match in der Dating-App.'; prof.push(x); }
+    lf.cands = keep; // die Profile sind erst nach einem Match echte Kontakte
+    L.ensure(st).dlg = null; L.start(st, 'app_swipe', { prof: prof });
+    return { ok: true, dlg: true };
+  };
+  function used(st, m) { // Nutzung merken; in einer Beziehung mit Sofort-Risiko (Benachrichtigung, während die Partnerperson daneben sitzt)
+    var lf = L.life(st), pt = lf.partner, t = tick(st), a = lf.app && lf.app.on ? lf.app : (lf.app = { on: true, n: 0, m: 0, single: !pt, t0: t });
+    a.t = t; a.n = (a.n || 0) + 1; a.m = (a.m || 0) + (m || 0); if (pt) { a.pt = 1; a.single = false; lf.suspect = Math.max(lf.suspect || 0, t + 4); }
+    if (pt && hroll(st, 'appnow' + a.n) < 0.06 + (st.pc.fame || 0) / 1500 + (pt.stage >= 4 && !pt.ld ? 0.04 : 0)) L.start(st, 'app_found', { how: 'notif' });
+  }
+  function appProf(d) { return (d.prof || []).filter(function (x) { return !x.gone; }); }
+  function matchChance(st, c, x, f) { return clamp(0.32 + c.cx.per.conf / 300 + (x.v - 50) / 70 + (st.pc.fame || 0) / 400, 0.1, 0.85) * (f || 1); }
+  function matched(st, x) { x.stage = 1; x.v = Math.max(x.v, 56); x.t = tick(st); addCand(st, x); if (L.life(st).partner) P.partner(st).neg += 1; }
+  L.addDlg([{
+    id: 'app_swipe', cat: 'familie', ic: '💘', scene: 'date', title: 'Dating-App', max: 2, imp: 1, chron: false,
+    who: function (c) { var pt = L.life(c.st).partner; return { n: 'Dating-App', role: pt ? 'Profil unter anderem Namen' : 'Dein Profil', ic: '💘', kind: 'partner' }; },
+    nodes: {
+      start: { say: function (c, d) { var pt = L.life(c.st).partner, a = A.appOn(c.st);
+          return (pt ? (a && a.pt ? 'Dein geheimes Profil unter anderem Namen ist noch online – ' : a ? 'Dein altes Profil aus der Single-Zeit ist noch online – ' : 'Du legst dir heimlich ein Profil unter anderem Namen an – ') + fn(pt) + ' darf davon nichts wissen. ' : '') +
+            'Drei Profile in deiner Nähe: ' + appProf(d).map(function (x) { return x.name + ' (' + x.job + ', mag ' + x.intr.join(' und ') + ')'; }).join(' · ') + '.'; },
+        opts: function (c, d) {
+          var pt = L.life(c.st).partner, hint = pt ? 'Heimlich – Entdeckungsrisiko' : '';
+          var o = appProf(d).map(function (x) {
+            return { l: '💘 ' + fn(x) + ' liken', hint: hint, fx: function (st, c2, d2) { var y = appProf(d2).filter(function (z) { return z.id === x.id; })[0] || x;
+              if (ch(matchChance(st, c2, y))) { matched(st, y); used(st, 1); return endI(d2, 'Match! ' + fn(y) + ' schreibt: „Hey! Dein Profil hat mich neugierig gemacht. Kaffee diese Woche?“' + (pt ? ' Du stellst das Handy schnell auf lautlos.' : ''), pt ? { stress: 2, well: 1 } : { well: 2, conf: 1 }); }
+              used(st, 0); return endI(d2, 'Kein Match – ' + fn(y) + ' hat weitergewischt.', { conf: -1 }); } };
+          });
+          o.push({ l: 'Allen dreien ein Like geben', hint: pt ? 'Heimlich – Entdeckungsrisiko' : 'Weniger Chancen je Person', fx: function (st, c2, d2) {
+            var hit = appProf(d2).filter(function (y) { return ch(matchChance(st, c2, y, 0.6)); }); hit.forEach(function (y) { matched(st, y); }); used(st, hit.length);
+            return endI(d2, hit.length ? 'Match mit ' + hit.map(fn).join(' und ') + '! Jetzt heißt es: Nachrichten beantworten.' : 'Kein einziges Match. Vielleicht wirkt das Profil zu sehr nach Mannschaftsfoto.', hit.length ? { well: 1 } : { conf: -1 }); } });
+          if (pt && A.appOn(c.st)) o.push({ l: 'Profil löschen und die App deinstallieren', fx: function (st, c2, d2) { A.appDel(st); return endI(d2, 'Weg damit. Das Risiko ist kleiner – ganz verschwunden ist es nicht, solange es Screenshots gibt.', { stress: -1 }); } });
+          o.push({ l: 'App wieder schließen', fx: function (st, c2, d2) { return endI(d2, 'Du legst das Handy weg.', {}); } });
+          return o; } }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }, {
+    // Eskalation: Die Partnerperson entdeckt das Dating-Profil (Benachrichtigung, Freundin, Handy, Presse)
+    id: 'app_found', cat: 'familie', ic: '💥', chron: true, imp: 3, max: 4, title: 'Das Dating-Profil',
+    init: function (st, c, d, s) { var lf = L.life(st); if (!lf.partner) { s.done = true; return; } var a = lf.app || {}; d.single = a.single && !a.pt ? 1 : 0; d.k = lf.appCaught || 0; d.m = a.m || 0;
+      var mt = lf.cands.filter(function (x) { return x.src === 'app' && x.stage >= 1; })[0]; d.mn = mt ? mt.name : ''; lf.appCaught = d.k + 1;
+      if (d.how === 'press') { var pl = C.player(st), nm = pl ? R.world.playerName(pl) : 'Profi', t = tick(st); lf.scandal = { t: t, until: t + 5, press: true };
+        X.eff(st, { stress: 10, media: -8, pop: -5, coach: -2 }); L.eff(st, { f_fam: -6, sponsor: -4 }); if (pl) pl.morale = clamp(pl.morale - 10, 0, 100);
+        if (S && S.news) S.news(st, 'Boulevard: Geheimes Dating-Profil von ' + nm, 'Der Profi ist vergeben – und trotzdem in einer Dating-App unterwegs. Die Klatschpresse hat Screenshots.', 'medien');
+        if (L.remember) L.remember(st, 'scandal', 'Geheimes Dating-Profil in der Boulevardpresse', 'Boulevard'); }
+      else X.eff(st, { stress: 6 });
+      X.chron(st, 'familie', '💘', 'Dating-Profil entdeckt', fn(lf.partner) + ' hat dein Profil in der Dating-App gefunden' + (d.how === 'press' ? ' – über die Boulevardpresse.' : '.'), 2, 'date'); },
+    scene: function (c, d) { return 'pt_' + (d.img || 'conflict'); },
+    who: function (c) { var p = L.life(c.st).partner; return { n: p ? p.name : '?', role: p ? L.STAGES[p.stage] : '', ic: '💔', kind: 'partner', look: p ? p.look : null }; },
+    nodes: {
+      start: { say: function (c, d) { var p = L.life(c.st).partner, n = fn(p), wed = p && p.stage >= 6;
+          var t = { notif: 'Dein Handy liegt auf dem Tisch, als der Bildschirm aufleuchtet: „💘 Neues Match!“ ' + n + ' hat es gesehen. Ganz leise: „Was. Ist. Das.“',
+            friend: n + ' kommt nach Hause und hält dir das Handy vors Gesicht – ein Screenshot. „Meine Freundin hat dich in der Dating-App gefunden. Unter falschem Namen. Erklär mir das.“',
+            phone: n + ' sucht auf deinem Handy ein Urlaubsfoto – und findet die Dating-App. Dein Profil, ' + (d.m ? d.m + (d.m === 1 ? ' Match' : ' Matches') : 'Likes') + ', offene Chats. „Ernsthaft?!“',
+            press: 'Die Schlagzeile ist überall: „Vergeben – und trotzdem auf der Suche? Profi mit geheimem Dating-Profil“. ' + n + ' hat den Artikel gelesen, bevor du überhaupt aufgestanden bist.' }[d.how] || (n + ' hat dein Dating-Profil gefunden.');
+          return t + (wed ? ' „Wir sind verheiratet!“' : '') + (d.k ? ' „Und das nicht zum ersten Mal. Du hattest es mir versprochen!“' : ''); },
+        opts: [
+          { l: 'Ehrlich zugeben und die App vor den Augen löschen', fx: function (st, c, d) { var p = P.partner(st), lf = L.life(st); A.appDel(st);
+            var stay = clamp((p.v - 25) / 100 + (p.confl === 'harmonie' ? 0.1 : 0) + (p.stage >= 6 ? 0.08 : 0) - d.k * 0.25 - (d.how === 'press' ? 0.1 : 0) - A.dating(st).length * 0.08 + (d.single ? 0.15 : 0), 0.03, 0.65);
+            if (ch(stay)) { p.v = Math.max(10, p.v - (d.single ? 10 : 20)); p.neg += 4; P.mem(st, 'betrayal', 'Vertrauensbruch', 'die Sache mit der Dating-App'); d.img = 'thought'; return { r: 'Du löschst das Profil, während ' + fn(p) + ' zusieht. Lange Stille. Dann: „Gut. Aber so einfach ist das nicht.“', e: { stress: 3 }, next: 'terms' }; }
+            L.breakup(st, 'das geheime Dating-Profil'); lf.suspect = 0; return endI(d, '„Löschen? Das ändert nichts daran, dass du gesucht hast.“ ' + fn(p) + ' packt noch am selben Abend die Sachen.', { stress: 8, well: -8 }, 'farewell'); } },
+          { l: function (c, d) { return d.single ? 'Erklären: „Das ist mein alter Account von früher!“' : 'Ausrede: „Das war nur aus Neugier, ich schwöre.“'; }, fx: function (st, c, d) { var p = P.partner(st), lf = L.life(st);
+            var ok = clamp((d.single ? 0.65 : 0.25) - d.k * 0.2 + (p.v - 50) / 200, 0, 0.8); if (d.how === 'press' && !d.single) ok = 0;
+            if (ch(ok)) { A.appDel(st); p.v = Math.max(10, p.v - 6); lf.suspect = tick(st) + 12; return endI(d, fn(p) + ' mustert dich lange. „Dann lösch ihn. Jetzt.“ Du tust es. Das Misstrauen bleibt.', { stress: 4 }, 'thought'); }
+            p.v = Math.max(5, p.v - 12); return { r: '„Neugier?“ ' + fn(p) + ' greift nach deinem Handy …', e: { stress: 5 }, next: 'escal' }; } },
+          { l: function (c, d) { return d.how === 'friend' ? 'Gegenangriff: „Und was macht deine Freundin in einer Dating-App?!“' : d.how === 'press' ? 'Gegenangriff: „Glaubst du jetzt dem Boulevard mehr als mir?!“' : 'Gegenangriff: „Du schnüffelst in meinem Handy?!“'; },
+            hint: 'Eskaliert den Streit', fx: function (st, c, d) { var p = P.partner(st); p.v = Math.max(5, p.v - 15); p.neg += 6;
+            if (ch(clamp(0.3 + d.k * 0.3 - (p.stage >= 6 ? 0.1 : 0), 0.1, 0.9))) { L.breakup(st, 'der Streit um das Dating-Profil'); return endI(d, 'Es wird laut. Sehr laut. Irgendwann knallt die Tür – und ' + fn(p) + ' kommt nicht zurück.', { stress: 10, well: -10 }, 'farewell'); }
+            return { r: 'Es fliegen Worte, die man nicht zurücknehmen kann. Die Nachbarn klopfen an die Wand.', e: { stress: 8, well: -4 }, next: 'cold' }; } },
+          { l: 'Schluss machen – vielleicht ist es besser so', fx: function (st, c, d) { L.breakup(st, 'du hast nach dem Dating-Profil Schluss gemacht'); return endI(d, 'Ehrlicher als alles andere heute Abend. Trotzdem tut es weh.', { stress: 6, well: -5 }, 'farewell'); } }] },
+      escal: { say: function (c, d) { var p = L.life(c.st).partner, wed = p && p.stage >= 4;
+          return fn(p) + ' scrollt durch deine Chats. ' + (d.mn ? 'Da ist ' + d.mn.split(' ')[0] + ': „Freu mich auf Freitag 😘“. ' : 'Flirts, Herzchen, ein vorgeschlagenes Treffen. ') + '„Nur aus Neugier? Die letzte Nachricht ist von gestern!“ Das Handy fliegt aufs Sofa.' + (wed ? ' „Ich will dich heute nicht in dieser Wohnung haben.“' : ''); },
+        opts: [
+          { l: 'Um Verzeihung bitten: „Ich lösche alles. Bitte.“', fx: function (st, c, d) { var p = P.partner(st); A.appDel(st); L.life(st).cands.filter(function (x) { return x.src === 'app' && !x.aff; }).forEach(function (x) { A.end(st, x.id); });
+            if (ch(clamp((p.v - 20) / 140 - d.k * 0.2 + (p.stage >= 6 ? 0.08 : 0), 0.03, 0.45))) { p.v = Math.max(8, p.v - 15); p.neg += 6; P.mem(st, 'betrayal', 'Vertrauensbruch', 'die Chats aus der Dating-App'); d.img = 'thought'; return { r: 'Tränen, Schweigen, noch mehr Tränen. Gegen Morgen: „Ich bin noch nicht fertig mit dir. Aber wenn, dann gibt es Regeln.“', e: { stress: 5, well: -4 }, next: 'terms' }; }
+            L.breakup(st, 'Lügen um das Dating-Profil'); return endI(d, '„Erst lügst du, dann bettelst du.“ ' + fn(p) + ' geht – endgültig.', { stress: 10, well: -10, conf: -3 }, 'farewell'); } },
+          { l: 'Weiter abstreiten', hint: 'Fast sicher das Ende', fx: function (st, c, d) { var p = L.life(st).partner, home = p && p.stage >= 4; L.breakup(st, 'dreiste Lügen um das Dating-Profil');
+            return endI(d, home ? 'Als du vom Training kommst, stehen deine Sachen in Kartons vor der Tür. Das Schloss ist ausgetauscht.' : fn(p) + ' blockiert deine Nummer. Auf Instagram ist von euch kein Foto mehr übrig.', { stress: 14, well: -12, conf: -4, mates: home ? -1 : 0 }, 'farewell'); } },
+          { l: 'Erst einmal raus – bei einem Teamkollegen schlafen', fx: function (st, c, d) { var p = P.partner(st); p.v = Math.max(5, p.v - 8); L.life(st).suspect = tick(st) + 16;
+            return endI(d, 'Zwei Nächte auf der Couch eines Mitspielers. In der Kabine wird getuschelt, ' + fn(p) + ' antwortet nur einsilbig. Das Thema ist nicht vorbei.', { stress: 7, well: -6, fit: -2, mates: -1 }, 'thought'); } }] },
+      terms: { say: function (c, d) { return '„Wenn wir weitermachen, dann nicht einfach so. Was bist du bereit zu tun?“'; },
+        opts: [
+          { l: 'Handy offenlegen – keine Geheimnisse mehr', hint: 'Heimliche Kontakte fliegen dann schneller auf', fx: function (st, c, d) { var lf = L.life(st); lf.phoneOpen = tick(st) + 26; lf.suspect = tick(st) + 20; A.appDel(st);
+            return endI(d, 'Du gibst ' + fn(lf.partner) + ' deinen Code. Es fühlt sich an wie eine Kontrolle – und wie ein Anfang.', { partner: 6, stress: 2 }, 'reconcile'); } },
+          { l: 'Paartherapie vorschlagen (400 €)', req: function (c) { return !R.pf || R.pf.liquid(c.st) >= 400; }, fx: function (st, c, d) { var p = P.partner(st); if (R.pf) R.pf.book(st, -400, 'Freizeit & Privatleben'); P.open(st, 'trust'); L.life(st).suspect = tick(st) + 12;
+            return endI(d, '„Okay. Wir versuchen es.“ Die erste Sitzung ist unangenehm ehrlich – aber ihr redet wieder miteinander.', { partner: 10, stress: -2, well: 2 }, 'reconcile'); } },
+          { l: '„Ich lasse mich nicht kontrollieren.“', fx: function (st, c, d) { var p = P.partner(st);
+            if (ch(0.45 + d.k * 0.2)) { L.breakup(st, 'kein Einsehen nach dem Dating-Profil'); return endI(d, '„Dann gibt es nichts mehr zu besprechen.“ Die Tür fällt ins Schloss.', { stress: 8, well: -8 }, 'farewell'); }
+            p.v = Math.max(5, p.v - 10); return endI(d, 'Ihr bleibt zusammen – irgendwie. Die Stimmung zu Hause ist eisig.', { stress: 5, partner: -2 }, 'thought'); } }] },
+      cold: { say: function (c, d) { var p = L.life(c.st).partner; return '„Ich brauche Abstand.“ ' + fn(p) + ' packt eine Tasche. „Ich schlafe ein paar Tage woanders. Ruf mich nicht an.“'; },
+        opts: [
+          { l: 'Hinterherlaufen und um Verzeihung bitten', fx: function (st, c, d) { var p = P.partner(st); A.appDel(st);
+            if (ch(clamp((p.v - 15) / 120, 0.05, 0.5))) { d.img = 'thought'; return { r: fn(p) + ' bleibt im Treppenhaus stehen. „Sag mir, warum ich bleiben sollte.“', e: { stress: 2 }, next: 'terms' }; }
+            p.v = Math.max(5, p.v - 5); return endI(d, 'Die Haustür fällt zu. Drei Tage später kommt eine kurze Nachricht: „Wir reden, wenn ich so weit bin.“', { stress: 5, well: -5 }, 'thought'); } },
+          { l: 'Gehen lassen', fx: function (st, c, d) { var p = P.partner(st), lf = L.life(st); p.v = Math.max(5, p.v - 8); lf.suspect = tick(st) + 20;
+            if (P.feed) P.feed(st, '💘 ' + fn(p) + ' wohnt nach dem Streit um die Dating-App ein paar Tage bei Freunden.');
+            if (p.v < 18) { L.breakup(st, 'Funkstille nach dem Streit um das Dating-Profil'); return endI(d, 'Aus ein paar Tagen wird eine Woche. Dann holt ' + fn(p) + ' die restlichen Sachen ab.', { stress: 8, well: -8 }, 'farewell'); }
+            return endI(d, 'Die Wohnung ist still. Zu still. Beim Training bist du mit dem Kopf woanders.', { stress: 6, well: -6, fit: -1 }, 'thought'); } }] }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }]);
+  A.appWeekly = function (st) {
+    var lf = L.life(st), pc = st.pc; if (!lf || pc.retired || !lf.partner || !A.appOn(st) || L.active(st)) return;
+    if (!ch(A.appRisk(st))) return;
+    var fame = pc.fame || 0, r = R.rand(), how = r < Math.min(0.3, fame / 250) ? 'press' : r < 0.55 ? 'phone' : r < 0.8 ? 'friend' : 'notif';
+    L.start(st, 'app_found', { how: how });
+  };
+  C.on.weekly.push(A.appWeekly);
 })(RFM);

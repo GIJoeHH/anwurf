@@ -815,7 +815,10 @@
       } };
   });
   add('life_aff_caught', function (st, c) {
-    var lf = st.mx.life, pt = lf.partner, x = MX.cand(st, c.cid); if (!pt || !x) return null;
+    var lf = st.mx.life, pt = lf.partner, x = MX.cand(st, c.cid);
+    if (pt && x && !c.ps) { c.ps = { name: pt.name, stage: pt.stage || 1, v: pt.v }; c.xs = { id: x.id, name: x.name }; }
+    if (c.ps && (!pt || !x || pt === x)) { pt = c.ps; x = x || c.xs; } // nach Trennung/Entscheidung bleibt die Antwort sichtbar
+    if (!pt || !x) return null;
     return { title: c.press ? 'Boulevard: Doppelleben?' : 'Aufgeflogen', cat: 'privat', imp: 'wichtig', img: 'familie', max: 1, ic: c.press ? '📰' : '💔', who: { n: pt.name, role: MX.LSTAGE[pt.stage || 1], ic: '💔' },
       nodes: { start: { say: (c.press ? 'Die Klatschpresse zeigt Fotos von dir und ' + x.name + '. „Trainer mit Doppelleben?“ – ' : 'Eine Nachricht von ' + fnm(x) + ' leuchtet auf deinem Handy auf, ') + fnm(pt) + ' hat es gesehen: „Wer ist ' + fnm(x) + '? Und sag mir jetzt die Wahrheit.“', opts: [
         O('Alles gestehen und um Verzeihung bitten', function () { MX.candEnd(st, x.id, 'Du hast die Sache mit ' + x.name + ' beendet.'); MX.affs(st).forEach(function (y) { MX.candEnd(st, y.id); }); if (pt.v >= 55 || pt.stage >= 4) return end('Eine lange, schmerzhafte Nacht. ' + fnm(pt) + ' gibt euch noch eine Chance – unter Bedingungen.', fx(st, { partner: -25, stress: 10, media: c.press ? -8 : 0, mrep: c.press ? -2 : 0 })); MX.breakup(st, 'Die Affäre mit ' + x.name + ' ist aufgeflogen.'); return end(fnm(pt) + ' packt noch in der Nacht die Koffer.', fx(st, { stress: 8, media: c.press ? -8 : 0, mrep: c.press ? -2 : 0 })); }, { def: true }),
@@ -850,21 +853,79 @@
   add('life_app', function (st, c) {
     var lf = st.mx.life, pt = lf.partner, cs = c.cands || []; if (!cs.length) return null;
     function like(cd, f) { return hr('app' + cd.id, 9) < clamp(0.35 + (cd.v - 50) / 60 + ((st.manager.reputation || 40) - 40) / 300, 0.1, 0.85) * (f || 1); }
-    function used() { lf.appT = tick(st); if (pt) { lf.suspect = tick(st) + 6; if (hr('appl' + tick(st) + (st.seed || 0), 4) < 0.12 + (st.manager.reputation || 40) / 600) return true; } return false; }
-    function leakEnd(txt) { return end(txt + ' Und dann: Ein Screenshot deines Profils kursiert in einer Fangruppe. ' + fnm(pt) + ' hat ihn auch gesehen.', fx(st, { media: -4, partner: -8, stress: 6 })); }
+    // Nutzung merken (lf.app); in einer Beziehung kann es sofort auffliegen – das Gespräch folgt direkt danach
+    function used(m) { var t = tick(st), a = lf.app && lf.app.on ? lf.app : (lf.app = { on: true, n: 0, m: 0, single: !pt, t0: t }); lf.appT = t; a.t = t; a.n = (a.n || 0) + 1; a.m = (a.m || 0) + (m || 0);
+      if (pt) { a.pt = 1; a.single = false; lf.suspect = Math.max(lf.suspect || 0, t + 6); if (hr('appl' + t + (st.seed || 0), 4) < 0.08 + (st.manager.reputation || 40) / 700 + (pt.stage >= 3 ? 0.04 : 0)) return true; } return false; }
+    function leakEnd(txt) { MX.start(st, 'life_app_found', { how: hr('applh' + tick(st), 5) < 0.5 ? 'fan' : 'notif' }, { prio: 8 }); return end(txt + ' Dann leuchtet dein Handy auf – und ' + fnm(pt) + ' sitzt direkt daneben.', fx(st, { stress: 4 })); }
     var opts = cs.map(function (cd) {
-      return O('💘 ' + fnm(cd) + ' liken', function () { var leak = used(), txt;
-        if (like(cd)) { keepCand(st, cd, 1, 56); txt = 'Match! ' + fnm(cd) + ' schreibt: „Hey! Dein Profil hat mich neugierig gemacht. Kaffee diese Woche?“'; }
+      return O('💘 ' + fnm(cd) + ' liken', function () { var hit = like(cd), leak = used(hit ? 1 : 0), txt;
+        if (hit) { keepCand(st, cd, 1, 56); txt = 'Match! ' + fnm(cd) + ' schreibt: „Hey! Dein Profil hat mich neugierig gemacht. Kaffee diese Woche?“'; }
         else txt = 'Kein Match – ' + fnm(cd) + ' hat weitergewischt.';
         return leak ? leakEnd(txt) : end(txt, fx(st, { stress: -1 })); }, { hint: pt ? 'Heimlich – Entdeckungsrisiko' : '' });
     });
-    opts.push(O('Allen dreien ein Like geben', function () { var leak = used(), hit = cs.filter(function (cd) { return like(cd, 0.6); });
+    opts.push(O('Allen dreien ein Like geben', function () { var hit = cs.filter(function (cd) { return like(cd, 0.6); }), leak = used(hit.length);
       hit.forEach(function (cd) { keepCand(st, cd, 1, 55); });
       var txt = hit.length ? 'Match mit ' + hit.map(fnm).join(' und ') + '! Jetzt heißt es: Nachrichten beantworten.' : 'Kein einziges Match. Vielleicht wirkt das Profil zu sehr nach Pressekonferenz.';
       return leak ? leakEnd(txt) : end(txt, []); }, { hint: pt ? 'Heimlich – Entdeckungsrisiko' : 'Weniger Chancen je Person' }));
+    if (pt && lf.app && lf.app.on) opts.push(O('Profil löschen und die App deinstallieren', function () { lf.app.on = false; lf.appT = tick(st); return end('Weg damit. Das Risiko ist kleiner – ganz verschwunden ist es nicht, solange es Screenshots gibt.', fx(st, { stress: -1 })); }));
     opts.push(O('App wieder schließen', function () { return end('Du legst das Handy weg.', []); }, { def: true }));
     return { title: 'Dating-App', cat: 'privat', imp: 'normal', img: 'date', max: 1, ic: '💘', who: { n: 'Dating-App', role: pt ? 'Profil unter anderem Namen' : 'Dein Profil', ic: '💘' },
-      nodes: { start: { say: (pt ? 'Du hast ein Profil unter anderem Namen angelegt – ' + fnm(pt) + ' darf davon nichts wissen. ' : '') + 'Drei Profile in deiner Nähe: ' + cs.map(function (cd) { return cd.name + ' (' + cd.job + ', mag ' + cd.intr.join(' und ') + ')'; }).join(' · ') + '.', opts: opts } } };
+      nodes: { start: { say: (pt ? (lf.app && lf.app.on && lf.app.pt ? 'Dein geheimes Profil unter anderem Namen ist noch online – ' : lf.app && lf.app.on ? 'Dein altes Profil aus der Single-Zeit ist noch online – ' : 'Du legst dir heimlich ein Profil unter anderem Namen an – ') + fnm(pt) + ' darf davon nichts wissen. ' : '') + 'Drei Profile in deiner Nähe: ' + cs.map(function (cd) { return cd.name + ' (' + cd.job + ', mag ' + cd.intr.join(' und ') + ')'; }).join(' · ') + '.', opts: opts } } };
+  });
+  // Eskalation: Partnerin/Partner entdeckt das Dating-Profil (Benachrichtigung, Freundin, Fangruppe, Handy, Boulevard)
+  MX.appOn = function (st) { var lf = st.mx.life; return lf.app && lf.app.on ? lf.app : null; };
+  MX.appRisk = function (st) {
+    var lf = st.mx.life, a = MX.appOn(st), pt = lf.partner; if (!a || !pt) return 0; var t = tick(st), fresh = t - (a.t || 0);
+    var r = (a.single && !a.pt ? 0.025 : 0.05) + Math.min(5, a.n || 1) * 0.01 + Math.min(3, a.m || 0) * 0.015 + (st.manager.reputation || 40) / 2500 + (pt.stage >= 3 && !pt.ld ? 0.03 : 0) + (lf.suspect > t ? 0.05 : 0) + (lf.phoneOpen > t ? 0.15 : 0) + (fresh <= 2 ? 0.02 : 0);
+    return clamp(fresh > 12 ? r * 0.5 : r, 0, 0.4);
+  };
+  add('life_app_found', function (st, c) {
+    var lf = st.mx.life, pt = lf.partner || c.ps; if (!pt) return null; // nach einer Trennung im Gespräch bleibt die Ansicht (Reaktion) erhalten
+    if (c.k == null) { c.ps = { name: pt.name, stage: pt.stage || 1, v: pt.v, job: pt.job }; var a = lf.app || {}; c.k = lf.appCaught || 0; c.single = a.single && !a.pt ? 1 : 0; c.m = a.m || 0; var mt = (lf.cands || []).filter(function (y) { return (y.src === 'app' || y.where === 'app') && (y.stage || 0) >= 1; })[0]; c.mn = mt ? mt.name : ''; lf.appCaught = c.k + 1;
+      MX.chron(st, '💘', 'Dating-Profil entdeckt', fnm(pt) + ' hat dein Profil in der Dating-App gefunden' + (c.how === 'press' ? ' – über die Boulevardpresse.' : '.'), 2);
+      if (c.how === 'press') fx(st, { media: -8, fans: -2, spons: -3, stress: 8 }); else if (c.how === 'fan') fx(st, { media: -3, stress: 5 }); else fx(st, { stress: 5 }); }
+    var n = fnm(pt), wed = pt.stage >= 5, home = pt.stage >= 3;
+    function brk(why, txt, spec) { MX.breakup(st, why); if (lf.app) lf.app.on = false; return end(txt, fx(st, spec || { stress: 8 }), { img: 'f' }); }
+    function del() { if (lf.app) lf.app.on = false; }
+    var intro = { notif: 'Dein Handy liegt auf dem Tisch, als der Bildschirm aufleuchtet: „💘 Neues Match!“ ' + n + ' hat es gesehen. Ganz leise: „Was. Ist. Das.“',
+      fan: 'Ein Screenshot deines Profils kursiert in einer Fangruppe – „Ist das nicht unser Trainer?“. ' + n + ' hat ihn auch bekommen und hält dir das Handy hin.',
+      friend: n + ' kommt nach Hause und knallt das Handy auf den Tisch: „Meine Freundin hat dich in der Dating-App gefunden. Unter falschem Namen. Erklär mir das.“',
+      phone: n + ' sucht auf deinem Handy ein Foto vom Urlaub – und findet die Dating-App. Dein Profil, ' + (c.m ? c.m + (c.m === 1 ? ' Match' : ' Matches') : 'Likes') + ', offene Chats. „Ernsthaft?!“',
+      press: 'Die Schlagzeile ist überall: „Vergeben – und trotzdem auf der Suche? Trainer mit geheimem Dating-Profil“. ' + n + ' hat es vor dir gelesen.' }[c.how] || (n + ' hat dein Dating-Profil gefunden.');
+    return { title: 'Das Dating-Profil', cat: 'privat', imp: 'wichtig', img: 'familie', max: 3, ic: c.how === 'press' ? '📰' : '💥', who: { n: pt.name, role: MX.LSTAGE[pt.stage || 1], ic: '💔' },
+      nodes: {
+        start: { say: intro + (wed ? ' „Wir sind verheiratet!“' : '') + (c.k ? ' „Und das nicht zum ersten Mal. Du hattest es mir versprochen!“' : ''), opts: [
+          O('Ehrlich zugeben und die App vor den Augen löschen', function () { del(); var stay = clamp((pt.v - 25) / 100 + (wed ? 0.08 : 0) - c.k * 0.25 - (c.how === 'press' ? 0.1 : 0) - MX.affs(st).length * 0.1 + (c.single ? 0.15 : 0), 0.03, 0.65);
+            if (hr('apf1' + tick(st) + (st.seed || 0), 1) < stay) return nx('Du löschst das Profil, während ' + n + ' zusieht. Lange Stille. Dann: „Gut. Aber so einfach ist das nicht.“', fx(st, { partner: c.single ? -10 : -20, stress: 3 }), 'terms', { img: 'e' });
+            return brk('das geheime Dating-Profil', '„Löschen? Das ändert nichts daran, dass du gesucht hast.“ ' + n + ' packt noch am selben Abend die Sachen.', { stress: 10 }); }, { def: true }),
+          O(c.single ? 'Erklären: „Das ist mein alter Account von früher!“' : 'Ausrede: „Das war nur aus Neugier, ich schwöre.“', function () { var ok = clamp((c.single ? 0.65 : 0.25) - c.k * 0.2 + (pt.v - 50) / 200, 0, 0.8); if (c.how === 'press' && !c.single) ok = 0;
+            if (hr('apf2' + tick(st) + (st.seed || 0), 2) < ok) { del(); lf.suspect = tick(st) + 12; return end(n + ' mustert dich lange. „Dann lösch ihn. Jetzt.“ Du tust es. Das Misstrauen bleibt.', fx(st, { partner: -6, stress: 4 })); }
+            return nx('„Neugier?“ ' + n + ' greift nach deinem Handy …', fx(st, { partner: -12, stress: 5 }), 'escal'); }),
+          O(c.how === 'friend' ? 'Gegenangriff: „Und was macht deine Freundin in einer Dating-App?!“' : c.how === 'press' || c.how === 'fan' ? 'Gegenangriff: „Glaubst du jetzt irgendwelchen Screenshots mehr als mir?!“' : 'Gegenangriff: „Du schnüffelst in meinem Handy?!“', function () {
+            if (hr('apf3' + tick(st) + (st.seed || 0), 3) < clamp(0.3 + c.k * 0.3 - (wed ? 0.1 : 0), 0.1, 0.9)) return brk('der Streit um das Dating-Profil', 'Es wird laut. Sehr laut. Irgendwann knallt die Tür – und ' + n + ' kommt nicht zurück.', { stress: 12 });
+            return nx('Es fliegen Worte, die man nicht zurücknehmen kann. Die Nachbarn klopfen an die Wand.', fx(st, { partner: -15, stress: 8 }), 'cold', { img: 'd' }); }, { hint: 'Eskaliert den Streit' }),
+          O('Schluss machen – vielleicht ist es besser so', function () { return brk('du hast nach dem Dating-Profil Schluss gemacht', 'Ehrlicher als alles andere heute Abend. Trotzdem tut es weh.', { stress: 6 }); })
+        ] },
+        escal: { say: n + ' scrollt durch deine Chats. ' + (c.mn ? 'Da ist ' + c.mn.split(' ')[0] + ': „Freu mich auf Freitag 😘“. ' : 'Flirts, Herzchen, ein vorgeschlagenes Treffen. ') + '„Nur aus Neugier? Die letzte Nachricht ist von gestern!“ Das Handy fliegt aufs Sofa.' + (home ? ' „Ich will dich heute nicht in dieser Wohnung haben.“' : ''), opts: [
+          O('Um Verzeihung bitten: „Ich lösche alles. Bitte.“', function () { del(); (lf.cands || []).filter(function (y) { return (y.src === 'app' || y.where === 'app') && !y.aff; }).forEach(function (y) { MX.candEnd(st, y.id); });
+            if (hr('apf4' + tick(st) + (st.seed || 0), 4) < clamp((pt.v - 20) / 140 - c.k * 0.2 + (wed ? 0.08 : 0), 0.03, 0.45)) return nx('Tränen, Schweigen, noch mehr Tränen. Gegen Morgen: „Ich bin noch nicht fertig mit dir. Aber wenn, dann gibt es Regeln.“', fx(st, { partner: -15, stress: 5 }), 'terms', { img: 'e' });
+            return brk('Lügen um das Dating-Profil', '„Erst lügst du, dann bettelst du.“ ' + n + ' geht – endgültig.', { stress: 12 }); }, { def: true }),
+          O('Weiter abstreiten', function () { return brk('dreiste Lügen um das Dating-Profil', home ? 'Als du vom Training kommst, stehen deine Sachen in Kartons vor der Tür. Das Schloss ist ausgetauscht.' : n + ' blockiert deine Nummer. Auf Instagram ist von euch kein Foto mehr übrig.', { stress: 15, kab: home ? -1 : 0 }); }, { hint: 'Fast sicher das Ende' }),
+          O('Erst einmal raus – im Hotel schlafen', function () { lf.suspect = tick(st) + 16; return end('Zwei Nächte im Hotel neben dem Trainingsgelände. Der Zeugwart hat dich gesehen – die Kabine tuschelt. ' + n + ' antwortet nur einsilbig.', fx(st, { partner: -8, stress: 7, kab: -1, cash: [-(D.MONEY ? 30 : 300), 'Privat'] })); })
+        ] },
+        terms: { say: '„Wenn wir weitermachen, dann nicht einfach so. Was bist du bereit zu tun?“', opts: [
+          O('Handy offenlegen – keine Geheimnisse mehr', function () { del(); lf.phoneOpen = tick(st) + 26; lf.suspect = tick(st) + 20; return end('Du gibst ' + n + ' deinen Code. Es fühlt sich an wie eine Kontrolle – und wie ein Anfang.', fx(st, { partner: 6, stress: 2 })); }, { hint: 'Heimliche Kontakte fliegen dann schneller auf', def: true }),
+          O('Paartherapie vorschlagen', function () { lf.suspect = tick(st) + 12; return end('„Okay. Wir versuchen es.“ Die erste Sitzung ist unangenehm ehrlich – aber ihr redet wieder miteinander.', fx(st, { partner: 10, stress: -2, cash: [-(D.MONEY ? 60 : 600), 'Privat'] })); }),
+          O('„Ich lasse mich nicht kontrollieren.“', function () { if (hr('apf5' + tick(st) + (st.seed || 0), 5) < 0.45 + c.k * 0.2) return brk('kein Einsehen nach dem Dating-Profil', '„Dann gibt es nichts mehr zu besprechen.“ Die Tür fällt ins Schloss.', { stress: 8 });
+            return end('Ihr bleibt zusammen – irgendwie. Die Stimmung zu Hause ist eisig.', fx(st, { partner: -12, stress: 5 })); })
+        ] },
+        cold: { say: '„Ich brauche Abstand.“ ' + n + ' packt eine Tasche. „Ich schlafe ein paar Tage woanders. Ruf mich nicht an.“', opts: [
+          O('Hinterherlaufen und um Verzeihung bitten', function () { del(); if (hr('apf6' + tick(st) + (st.seed || 0), 6) < clamp((pt.v - 15) / 120, 0.05, 0.5)) return nx(n + ' bleibt im Treppenhaus stehen. „Sag mir, warum ich bleiben sollte.“', fx(st, { stress: 2 }), 'terms', { img: 'e' });
+            return end('Die Haustür fällt zu. Drei Tage später kommt eine kurze Nachricht: „Wir reden, wenn ich so weit bin.“', fx(st, { partner: -5, stress: 5 })); }, { def: true }),
+          O('Gehen lassen', function () { lf.suspect = tick(st) + 20; if (pt.v < 26) return brk('Funkstille nach dem Streit um das Dating-Profil', 'Aus ein paar Tagen wird eine Woche. Dann holt ' + n + ' die restlichen Sachen ab.', { stress: 8 });
+            return end('Die Wohnung ist still. Zu still. Bei der Videoanalyse bist du mit dem Kopf woanders.', fx(st, { partner: -8, stress: 6, kab: -1 })); })
+        ] }
+      } };
   });
   add('life_partner_talk', function (st, c) {
     var lf = st.mx.life, pt = lf.partner; if (!pt) return null; return { title: 'Gespräch mit ' + pt.name.split(' ')[0], cat: 'privat', imp: 'wichtig', img: 'familie', max: 2, ic: '🏠', who: { n: pt.name, role: MX.LSTAGE[pt.stage] + ' · ' + pt.job, ic: '❤️' },

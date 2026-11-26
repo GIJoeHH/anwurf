@@ -145,7 +145,7 @@
       h += '<p class="small">Du bist ' + (lf.exes.length ? 'wieder ' : '') + 'Single. Neue Menschen lernst du über Freizeit, Freunde und Termine kennen.</p>';
       h += lf.cands.length ? lf.cands.map(function (x) { return '<div class="lf-card"><h3>' + esc(x.name) + ' <span class="muted small">' + esc(L.STAGES[x.stage]) + '</span></h3><div class="muted small">' + esc(x.job) + ' · mag ' + esc(x.intr.join(', ')) + (L.srcTag ? L.srcTag(x) : '') + '</div><table class="t small"><tr><td>Interesse</td><td style="width:50%">' + bar(x.v) + '</td><td class="num">' + Math.round(x.v) + '</td></tr></table>' + (x.stage >= 1 ? btn('Date vorschlagen (1 Termin)', 'date', { cid: x.id, ap: 1 }, 'primary') + ' ' + btn('Schreiben', 'cand_chat', { cid: x.id }) : btn('Ansprechen', 'meet', { cid: x.id })) + '</div>'; }).join('') : '<p class="muted small">Gerade niemand in Sicht.</p>';
       if (U.flingBox) h += U.flingBox(st);
-      if (p.age >= 17) h += '<button class="sm" data-act="lfGoOut">Ausgehen (1 Termin, ' + money(60) + ')</button>';
+      if (p.age >= 17) h += '<button class="sm" data-act="lfGoOut">Ausgehen (1 Termin, ' + money(60) + ')</button>' + (U.appBtn ? U.appBtn(st) : '');
     }
     if (lf.exes.length) h += '<p class="muted small" style="margin-top:8px">Frühere Beziehungen: ' + lf.exes.map(function (e) { return esc(e.name) + ' (' + e.s + ')'; }).join(', ') + '</p>';
     h += '</div></div>';

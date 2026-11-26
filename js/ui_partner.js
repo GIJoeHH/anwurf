@@ -106,7 +106,8 @@
       }).join('');
       if (aff.length || A.dating(st).length) h += '<p class="small ' + (A.risk(st) >= 0.06 ? 'neg' : 'muted') + '">Entdeckungsrisiko: <b>' + A.riskTxt(st) + '</b> · Heimlichkeit kostet Nerven (Stress) und Zeit für ' + esc(fn(pt)) + '. Fliegt es auf, drohen Trennung, Schlagzeilen und Folgen auf dem Platz.</p>';
       h += U.flingBox(st);
-      h += '<button class="sm" data-act="lfGoOut">Ausgehen (1 Termin, ' + money(60) + ')</button></div>';
+      h += U.appBox(st);
+      h += '<button class="sm" data-act="lfGoOut">Ausgehen (1 Termin, ' + money(60) + ')</button>' + U.appBtn(st) + '</div>';
     }
     var mode = lf.ptMode || 'normal';
     h += '<div class="pt-sec pt-mode"><span class="muted">Privatleben:</span><button class="sm ' + (mode === 'normal' ? 'primary' : '') + '" data-act="ptMode" data-m="normal">Normal</button><button class="sm ' + (mode === 'wenig' ? 'primary' : '') + '" data-act="ptMode" data-m="wenig" title="Kleine Alltagsmomente laufen automatisch, nur wichtige Gespräche erscheinen">Nur Wichtiges</button></div>';
@@ -130,6 +131,12 @@
     var st = U.st, r = P.AFF ? P.AFF.goOut(st) : { ok: false }; if (!r.ok) { pop(U.st, r.why || 'Gerade nicht möglich.'); return; }
     U.autosave(); if (r.dlg) { U.showDlg(); U.render(); return; } U.render(); U.showResult('Abend in der Stadt', r.txt, 'freunde');
   };
+  // Dating-App (einmal pro Woche) – in einer Beziehung als geheimes Profil mit Entdeckungsrisiko
+  U.appBtn = function (st) { var A = P.AFF, p = C.player(st); if (!A || !A.openApp || !p || p.age < 18) return ''; return ' <button class="sm" data-act="lfApp"' + (A.appFree(st) ? '' : ' disabled title="Nächste Woche gibt es neue Profile"') + '>💘 Dating-App</button>'; };
+  U.appBox = function (st) { var A = P.AFF; if (!A || !A.appOn || !A.appOn(st) || !L.life(st).partner) return '';
+    return '<p class="small ' + (A.appRisk(st) >= 0.06 ? 'neg' : 'muted') + '">💘 Dein Dating-Profil ist noch online' + (A.appOn(st).single && !A.appOn(st).pt ? ' (alter Account aus der Single-Zeit)' : ' (unter anderem Namen)') + ' · Entdeckungsrisiko: <b>' + A.appRiskTxt(st) + '</b> <button class="sm ghost" data-act="lfAppDel">Profil löschen</button></p>'; };
+  U.acts.lfApp = function () { var st = U.st, r = P.AFF ? P.AFF.openApp(st) : { ok: false }; if (!r.ok) { pop(U.st, r.why || 'Gerade nicht möglich.'); return; } U.autosave(); U.showDlg(); U.render(); };
+  U.acts.lfAppDel = function () { var st = U.st; if (!P.AFF) return; P.AFF.appDel(st); pop(U.st, 'Profil gelöscht. Was schon gesehen wurde, kann trotzdem noch herauskommen.'); U.autosave(); U.render(); };
   // Beziehung jederzeit selbst beenden (Kinder bleiben, Scheidung kostet Geld)
   U.acts.ptBreak = function () {
     var st = U.st, lf = L.life(st), pt = lf.partner; if (!pt) return;

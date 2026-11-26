@@ -99,7 +99,7 @@
       h += '<div class="pt-sec"><h4>Weitere Kontakte</h4>';
       if (sc) h += '<p class="small neg">' + U.lc('triangle-alert', 14) + (sc.press ? ' Skandal in der Presse – das belastet dich noch einige Wochen (Stress, Moral, Form, Trainer).' : ' Der Krach wirkt nach – Stress und Moral leiden noch.') + '</p>';
       h += aff.concat(oth).map(function (x) {
-        return '<div class="cx-row" style="margin-bottom:6px;align-items:center"><div class="pt-por">' + U.ptPortrait(x.look, 34) + '</div><div style="flex:1"><b>' + esc(x.name) + '</b> <span class="muted small">' + (x.aff ? '🤫 heimliche Beziehung' : esc(L.STAGES[x.stage] || 'Bekanntschaft')) + ' · ' + esc(x.job) + '</span>' + U.bar(x.v, 100) + '</div>' +
+        return '<div class="cx-row" style="margin-bottom:6px;align-items:center"><div class="pt-por">' + U.ptPortrait(x.look, 34) + '</div><div style="flex:1"><b>' + esc(x.name) + '</b> <span class="muted small">' + (x.aff ? '🤫 heimliche Beziehung' : esc(L.STAGES[x.stage] || 'Bekanntschaft')) + ' · ' + esc(x.job) + (L.srcTag ? L.srcTag(x) : '') + '</span>' + U.bar(x.v, 100) + '</div>' +
           (x.stage >= 1 ? '<button class="sm" data-act="dlgStart" data-dlg="date" data-cid="' + esc(x.id) + '" data-ap="1">Date (1 Termin)</button><button class="sm" data-act="dlgStart" data-dlg="cand_chat" data-cid="' + esc(x.id) + '">Schreiben</button>' : '<button class="sm" data-act="dlgStart" data-dlg="meet" data-cid="' + esc(x.id) + '">Ansprechen</button>') +
           (x.aff ? '<button class="sm" data-act="ptAffOff" data-id="' + esc(x.id) + '" title="Die Partnerschaft mit ' + esc(fn(pt)) + ' endet">Offiziell machen</button>' : '') +
           '<button class="sm ghost" data-act="ptAffEnd" data-id="' + esc(x.id) + '">Beenden</button></div>';

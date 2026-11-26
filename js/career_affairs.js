@@ -382,4 +382,91 @@
     L.eff(st, { well: 2, stress: -1 }); if (lf.friends[0]) lf.friends[0].v = Math.min(100, lf.friends[0].v + 3);
     return { ok: true, txt: 'Ein netter Abend mit Freunden – heute ohne neue Bekanntschaft. Wohlbefinden +2, Stress −1' };
   };
+
+  // ---------- Spontane Anfragen (Instagram, Dating-App) und Zufallstreffen – im Alltag und auf Auswärtsfahrten ----------
+  var SPOTS = ['Im Supermarkt an der Kasse', 'Beim Bäcker am Sonntagmorgen', 'Im Fitnessstudio', 'Im Wartezimmer beim Arzt', 'Auf einer Vernissage', 'Beim Joggen im Park', 'Im Café um die Ecke', 'Auf der Hochzeit von Freunden', 'Im Zug nach Hause', 'Auf einem Konzert', 'Im Waschsalon, weil die Maschine streikt', 'Beim Italiener, als der Tisch doppelt vergeben ist'];
+  var AWAY = { bar: 'Am Abend vor dem Spiel in der Hotelbar in {city}', lobby: 'In der Lobby des Mannschaftshotels in {city}', fruehst: 'Beim Frühstück im Mannschaftshotel in {city}', flug: 'Auf dem Flug nach {city} sitzt du am Gang – neben dir', zug: 'Auf der Zugfahrt nach {city} im Speisewagen', rast: 'Beim Halt an der Raststätte auf der Fahrt nach {city}' };
+  var CURFEW = { bar: 1, lobby: 1 };
+  var DM_INSTA = ['Starkes Spiel am Wochenende! Darf ich dich mal auf einen Kaffee einladen? ☕', 'Ich glaube, wir haben gemeinsame Freunde … Lust, mal was trinken zu gehen?', 'Sorry für die direkte Nachricht – aber dein Lächeln beim Interview war ansteckend 😊', 'Ich bin neu in der Stadt und kenne kaum jemanden. Zeigst du mir dein Lieblingscafé?', 'Hab dich letzte Woche im Park gesehen und mich nicht getraut, Hallo zu sagen. Also jetzt: Hallo! 👋'];
+  var DM_APP = ['Hey! Dein Profil hat mich neugierig gemacht. Bist du das wirklich? 😄', 'Endlich mal jemand, der früh aufsteht. Sonntag Frühstück?', 'Ich mag deine Bilder vom Wandern. Wohin geht die nächste Tour?', 'Ich gebe zu: Ich hab dich erkannt. Aber ich frage trotzdem ganz normal – Lust auf ein Date?'];
+  function sCand(st, d) { var lf = L.life(st); return lf ? lf.cands.filter(function (x) { return x.id === d.cid; })[0] || null : null; }
+  function drop(st, d) { var lf = L.life(st); lf.cands = lf.cands.filter(function (y) { return y.id !== d.cid; }); }
+  function pickA(a) { return a[Math.floor(R.rand() * a.length)]; }
+  // Herkunft einer Bekanntschaft für die Kontaktlisten
+  L.srcTag = function (x) { var t = { insta: '📸 Instagram', app: '💘 Dating-App', away: '🧳 Auswärtsfahrt', zufall: '🍀 Zufall' }[x && x.src]; return t ? ' · ' + t : ''; };
+  A.awayGame = function (st) { // Auswärtsspiel des eigenen Vereins in dieser Woche → Stadt
+    var p = C.player(st); if (!p || !p.clubId) return null;
+    var r = (st.lastResults || []).filter(function (x) { return x.a === p.clubId && x.comp !== 'friendly'; })[0]; if (!r) return null;
+    var h = st.clubs[r.h] || (R.euro && R.euro.info ? R.euro.info(st, r.h) : null);
+    return { city: (h && (h.city || h.short || h.name)) || 'der Auswärtsstadt', euro: r.comp === 'euro' };
+  };
+  // Wurf ohne den Zufallsgenerator des Spiels zu verbrauchen (sonst verschiebt sich jede spätere Zufallsentscheidung)
+  function hroll(st, k) { var str = (st.seed || 0) + ':' + k + ':' + tick(st) + ':' + (st.season || 0), h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return (h % 100000) / 100000; }
+  A.spontWeekly = function (st) {
+    var lf = L.life(st), pc = st.pc, p = C.player(st); if (!lf || !p || pc.retired || p.age < 17 || L.active(st)) return;
+    var t = tick(st); if (lf.spT != null && t - lf.spT < 3) return; // höchstens alle drei Wochen eine spontane Begegnung
+    var pt = lf.partner, fame = pc.fame || 0, away = A.awayGame(st), x;
+    if (away && hroll(st, 'away') < (pt ? 0.07 : 0.14)) {
+      var keys = Object.keys(AWAY).filter(function (k) { return away.euro || k !== 'flug' || ch(0.4); }), k = pickA(keys);
+      x = L.newCand(st); x.src = 'away'; x.note = 'Kennengelernt auf der Auswärtsfahrt nach ' + away.city + '.';
+      L.start(st, 'sp_away', { cid: x.id, spot: k, city: away.city });
+    } else if (hroll(st, 'dm') < (pt ? 0.035 : 0.07) + fame / 1200) {
+      var app = !pt && ch(0.5);
+      x = L.newCand(st); x.src = app ? 'app' : 'insta'; x.note = app ? 'Match in der Dating-App.' : 'Hat dir auf Instagram geschrieben.';
+      var fake = ch(0.1 + fame / 900) ? pickA(['fan', 'presse', 'fake']) : '';
+      L.start(st, 'sp_dm', { cid: x.id, src: x.src, msg: pickA(app ? DM_APP : DM_INSTA), fake: fake });
+    } else if (hroll(st, 'zufall') < (pt ? 0.02 : 0.045)) {
+      x = L.newCand(st); x.src = 'zufall'; L.start(st, 'meet', { cid: x.id, where: pickA(SPOTS) });
+    } else return;
+    lf.spT = t;
+  };
+  C.on.weekly.push(A.spontWeekly);
+  L.addDlg([{
+    id: 'sp_dm', cat: 'familie', init: function (st, c, d, s) { if (!sCand(st, d)) s.done = true; }, ic: '📱', scene: 'date', max: 3, imp: 1,
+    title: function (c, d) { return d.src === 'app' ? 'Neues Match in der Dating-App' : 'Nachricht auf Instagram'; },
+    who: function (c, d) { var x = sCand(c.st, d); return { n: x ? x.name : '?', role: (d.src === 'app' ? 'Match · ' : 'Instagram · ') + (x ? x.job : ''), ic: '📱', kind: 'partner' }; },
+    nodes: {
+      start: { say: function (c, d) { var x = sCand(c.st, d), pt = L.life(c.st).partner; if (!x) return 'Die Nachricht ist verschwunden.';
+          return (d.src === 'app' ? 'Die Dating-App meldet ein Match: ' + x.name + ' (' + x.job + '), mag ' + x.intr.join(' und ') + '. Die erste Nachricht: „' + d.msg + '“'
+            : 'Eine Direktnachricht auf Instagram von ' + x.name + ' (' + x.job + ', mag ' + x.intr.join(' und ') + '): „' + d.msg + '“') + (pt ? ' ' + fn(pt) + ' sitzt neben dir auf dem Sofa.' : ''); },
+        opts: [
+          { l: 'Zurückschreiben und ein Treffen vorschlagen', hint: function (c) { return L.life(c.st).partner ? 'Heimlicher Kontakt neben der Beziehung – Entdeckungsrisiko' : ''; }, fx: function (st, c, d) {
+            var x = sCand(st, d), lf = L.life(st), pt = lf.partner; if (!x) return endI(d, 'Die Nachricht ist verschwunden.');
+            if (d.fake) { drop(st, d);
+              if (d.fake === 'presse') { if (pt) { P.partner(st).neg += 2; lf.suspect = tick(st) + 6; } return endI(d, 'Beim Treffen sitzt dir ein Reporter gegenüber – das Profil war ein Köder. Am nächsten Tag steht „Was macht der Profi beim Blind Date?“ online.', { media: -4, stress: 3, conf: -1 }); }
+              if (d.fake === 'fan') return endI(d, 'Am Treffpunkt wartet ein Fan mit Trikot und Edding. Kein Date – aber ein freundliches Selfie.', { well: 1 });
+              return endI(d, 'Niemand kommt. Kurz darauf ist das Profil gelöscht – ein Fake-Account. Du kommst dir ziemlich blöd vor.', { conf: -2 }); }
+            if (ch(clamp(0.45 + c.cx.per.conf / 250 + (x.v - 50) / 80, 0.1, 0.9))) { x.stage = 1; x.v = Math.max(x.v, 58); if (pt) { P.partner(st).neg += 1; lf.affOut = tick(st); }
+              return endI(d, fn(x) + ' antwortet sofort: „Sehr gern! Wann hast du Zeit?“' + (pt ? ' Du legst das Handy mit dem Display nach unten.' : ''), { well: 2, conf: 1 }); }
+            x.v -= 6; return endI(d, fn(x) + ' antwortet erst nach Tagen: „Mal schauen … ich melde mich.“', { conf: -1 }); } },
+          { l: 'Locker hin und her schreiben', hint: function (c) { return L.life(c.st).partner ? 'Kann zum heimlichen Kontakt werden – Entdeckungsrisiko' : 'Neue Bekanntschaft'; }, fx: function (st, c, d) { var x = sCand(st, d); if (!x) return endI(d, '');
+            if (d.fake) { drop(st, d); return endI(d, 'Nach ein paar Nachrichten wird es merkwürdig – das Profil fragt nach Interna aus der Kabine. Du blockierst es.', { conf: -1 }); }
+            x.v = clamp(x.v + 5, 0, 100); if (x.v >= 55) x.stage = 1; return endI(d, 'Ihr schreibt ein paar Abende lang hin und her. ' + (x.stage ? fn(x) + ' fragt, ob ihr euch mal seht.' : 'Mal sehen, was daraus wird.'), { well: 1 }); } },
+          { l: function (c) { return L.life(c.st).partner ? 'Freundlich antworten: „Ich bin vergeben.“' : 'Nicht reagieren'; }, fx: function (st, c, d) { var pp = P.partner(st); drop(st, d); if (pp) pp.v = Math.min(100, pp.v + 1); return endI(d, pp ? 'Kurz und klar. ' + fn(pp) + ' bekommt davon nichts mit – und das ist gut so.' : 'Du wischst die Nachricht weg.', {}); } }] }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }, {
+    id: 'sp_away', cat: 'familie', init: function (st, c, d, s) { if (!sCand(st, d)) s.done = true; }, ic: '🧳', scene: 'date', max: 3, imp: 1,
+    title: function (c, d) { return 'Begegnung auf der Auswärtsfahrt'; },
+    who: function (c, d) { var x = sCand(c.st, d); return { n: x ? x.name : '?', role: x ? x.job : '', ic: '🧳', kind: 'partner' }; },
+    nodes: {
+      start: { say: function (c, d) { var x = sCand(c.st, d), pt = L.life(c.st).partner; if (!x) return '';
+          return (AWAY[d.spot] || 'Auf der Auswärtsfahrt nach {city}').replace('{city}', d.city) + ' kommst du mit ' + x.name + ' (' + x.job + ') ins Gespräch. ' + (x.sport >= 55 ? fn(x) + ' erkennt dich sofort.' : fn(x) + ' hat keine Ahnung, wer du bist.') +
+            (CURFEW[d.spot] ? ' Der Trainer hat Zapfenstreich um 23 Uhr angesetzt, es ist kurz vor elf.' : '') + (pt ? ' Zu Hause wartet ' + fn(pt) + '.' : ''); },
+        opts: function (c, d) {
+          var o = [{ l: 'Nummern tauschen', hint: function (c) { return L.life(c.st).partner ? 'Kann zum heimlichen Kontakt werden – Entdeckungsrisiko' : 'Neue Bekanntschaft'; }, fx: function (st, c2, d2) { var x = sCand(st, d2); if (!x) return endI(d2, ''); x.stage = 1; x.v = Math.max(x.v, 56); x.where = 'Auswärtsfahrt'; if (L.life(st).partner) P.partner(st).neg += 0.5; return endI(d2, fn(x) + ' tippt die Nummer in dein Handy: „Melde dich, wenn du wieder in der Stadt bist.“', { well: 2 }); } }];
+          if (CURFEW[d.spot]) {
+            o.push({ l: 'Noch einen Drink – Zapfenstreich hin oder her', hint: 'Ärger mit dem Trainer möglich', fx: function (st, c2, d2) { var x = sCand(st, d2); if (!x) return endI(d2, ''); x.stage = 1; x.v = clamp(x.v + 8, 0, 100); if (L.life(st).partner) P.partner(st).neg += 1;
+              if (ch(0.35)) return endI(d2, 'Um halb eins steht der Co-Trainer an der Bar. Am nächsten Morgen gibt es eine Ansage vor der ganzen Mannschaft.', { coach: -4, disc: -2, stress: 2, fit: -2 });
+              return endI(d2, 'Ihr redet bis nach Mitternacht. Niemand hat es gemerkt – nur der Wecker ist gnadenlos.', { well: 3, fit: -2 }); } });
+            o.push({ l: 'Mit aufs Zimmer nehmen', hint: 'Affäre – Entdeckungs- und Trainerrisiko', fx: function (st, c2, d2) { var x = sCand(st, d2), pt = L.life(st).partner; if (!x) return endI(d2, ''); A.flingAdd(st, x.name); drop(st, d2); if (pt) P.partner(st).neg += 2;
+              X.chron(st, 'familie', '🏨', 'Affäre im Hotel', 'Eine Nacht mit ' + x.name + ' in ' + d2.city + (pt ? ' – ' + fn(pt) + ' darf davon nichts erfahren.' : '.'), 1, 'date');
+              if (ch(0.25)) return endI(d2, 'Auf dem Flur läuft dir der Mannschaftskapitän über den Weg. Er sagt nichts – aber der Trainer erfährt es trotzdem.', { coach: -5, mates: -2, stress: 4, fit: -3 });
+              return endI(d2, 'Am Morgen ist ' + fn(x) + ' schon weg, nur ein Zettel mit Herz liegt da. Beim Abschlusstraining fehlen dir ein paar Prozent.', { well: 3, stress: pt ? 3 : 1, fit: -3 }); } });
+          } else o.push({ l: 'Die ganze Fahrt über quatschen', hint: function (c) { return L.life(c.st).partner ? 'Kann zum heimlichen Kontakt werden – Entdeckungsrisiko' : 'Neue Bekanntschaft'; }, fx: function (st, c2, d2) { var x = sCand(st, d2); if (!x) return endI(d2, ''); x.stage = 1; x.v = clamp(x.v + 10, 0, 100); if (L.life(st).partner) P.partner(st).neg += 1; return endI(d2, 'Die Fahrt vergeht wie im Flug. Beim Aussteigen fragt ' + fn(x) + ': „Sehen wir uns wieder?“', { well: 3 }); } });
+          o.push({ l: 'Höflich bleiben – Fokus auf das Spiel', fx: function (st, c2, d2) { drop(st, d2); var pp = P.partner(st); if (pp) pp.v = Math.min(100, pp.v + 1); return endI(d2, 'Du verabschiedest dich und gehst früh schlafen. Der Kopf ist frei fürs Spiel.', { disc: 1, fit: 1 }); } });
+          return o; } }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }]);
 })(RFM);

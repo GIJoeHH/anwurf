@@ -736,34 +736,135 @@
   // ============================================================================================
   // PRIVATLEBEN DES MANAGERS (Daten & Beziehung)
   // ============================================================================================
+  // Begegnungsorte und spontane Nachrichten (wie im Spielermodus: Kontaktliste, Dates, heimliche Beziehungen)
+  var MEET_TXT = { gala: 'Bei der Sponsorengala sitzt ihr nebeneinander. Ihr lacht über dieselben schlechten Reden.', cafe: 'Im Café um die Ecke vom Trainingsgelände kommt ihr ins Gespräch – über alles außer ' + TM.sport + '.', freunde: 'Beim Abendessen bei Freunden ist auch {n} eingeladen.', charity: 'Beim Charity-Lauf lauft ihr die letzten Kilometer gemeinsam.',
+    super: 'Im Supermarkt greift ihr nach derselben letzten Packung Pasta.', gym: 'Im Fitnessstudio um sechs Uhr morgens seid ihr die Einzigen auf den Laufbändern.', kunst: 'Auf einer Vernissage steht ihr ratlos vor demselben Bild.', hochzeit: 'Auf der Hochzeit eines alten Freundes landet ihr am selben Tisch.', zug: 'Im Zug zurück von einer Tagung ist nur noch der Platz neben {n} frei.', hund: 'Im Park verheddern sich eure Hundeleinen – und dann redet ihr eine halbe Stunde.' };
+  var AWAY_TXT = { bar: 'Am Abend vor dem Spiel in {city} sitzt du noch an der Hotelbar. Neben dir: {n}.', lobby: 'In der Lobby des Mannschaftshotels in {city} wartest du auf den Bus – und kommst mit {n} ins Gespräch.', flug: 'Auf dem Flug nach {city} sitzt du neben {n}.', zug: 'Im Speisewagen auf dem Weg nach {city} teilst du dir den Tisch mit {n}.', fruehst: 'Beim Frühstück im Hotel in {city} gibt es nur noch einen freien Platz – bei {n}.' };
+  var DM = { insta: ['Starke Pressekonferenz! Darf ich dich mal auf einen Kaffee einladen? ☕', 'Wir waren beide auf der Benefizgala, oder? Lust, mal was trinken zu gehen?', 'Sorry für die direkte Nachricht – aber du wirkst an der Seitenlinie viel lockerer als im Fernsehen 😊', 'Ich bin neu in der Stadt. Zeigst du mir, wo man hier gut essen kann?'],
+    app: ['Hey! Bist du das wirklich – der Trainer? 😄', 'Endlich jemand, der auch früh aufsteht. Sonntag Frühstück?', 'Dein Profil sagt „wenig Zeit, viel Humor“. Klingt ehrlich. Kaffee?', 'Ich gebe zu: Ich hab dich erkannt. Ich frage trotzdem ganz normal – Lust auf ein Date?'] };
+  function fnm(x) { return x ? x.name.split(' ')[0] : ''; }
+  function lifeGain(x, v) { x.v = clamp((x.v || 50) + v, 0, 100); return { t: fnm(x) + ' ' + (v >= 0 ? '+' : '−') + Math.abs(v), pos: v > 0, neg: v < 0 }; }
+  function keepCand(st, cd, stage, v) { var c = MX.cand(st, cd.id) || MX.addCand(st, cd); c.stage = Math.max(c.stage || 0, stage); if (v) c.v = Math.max(c.v, v); return c; }
   add('life_meet', function (st, c) {
-    var cd = c.cand; return { title: 'Eine Begegnung', cat: 'privat', imp: 'normal', img: 'date', max: 2, ic: '✨', who: { n: cd.name, role: cd.job, ic: '🙂' },
-      nodes: { start: { say: { gala: 'Bei der Sponsorengala sitzt ihr nebeneinander. Ihr lacht über dieselben schlechten Reden.', cafe: 'Im Café um die Ecke vom Trainingsgelände kommt ihr ins Gespräch – über alles außer ' + TM.sport + '.', freunde: 'Beim Abendessen bei Freunden ist auch ' + cd.name.split(' ')[0] + ' eingeladen.', charity: 'Beim Charity-Lauf läuft ihr die letzten Kilometer gemeinsam.' }[cd.where] || 'Ihr kommt ins Gespräch.', opts: [
-        O('Nummern austauschen', function () { st.mx.life.cands = [cd]; return end('Ein Lächeln. Mal sehen, was daraus wird.', fx(st, { stress: -3 })); }, { def: true }),
-        O('Freundlich bleiben, kein Interesse', function () { return end('Ein netter Abend – mehr nicht.', []); }),
+    var cd = c.cand, lf = st.mx.life, pt = lf.partner; if (!cd) return null;
+    var say = (MEET_TXT[cd.where] || 'Ihr kommt ins Gespräch.').replace('{n}', fnm(cd)) + ' ' + cd.name + ' arbeitet als ' + cd.job + ' und mag ' + (cd.intr || []).join(' und ') + '.' + (pt ? ' Zu Hause wartet ' + fnm(pt) + '.' : '');
+    return { title: 'Eine Begegnung', cat: 'privat', imp: 'normal', img: 'date', max: 2, ic: '✨', who: { n: cd.name, role: cd.job + (MX.CSRC[cd.src || cd.where] ? ' · ' + MX.CSRC[cd.src || cd.where] : ''), ic: '🙂' },
+      nodes: { start: { say: say, opts: [
+        O('Nummern austauschen', function () { keepCand(st, cd, 1, 55); if (pt) { pt.v = clamp(pt.v - 1, 0, 100); } return end('Ein Lächeln. Mal sehen, was daraus wird.', fx(st, { stress: -3 })); }, { def: !pt }),
+        O('Spontan auf einen Drink einladen', function () { if (hr('md' + cd.id, 4) < 0.35 + (cd.v - 50) / 60) { var k = keepCand(st, cd, 1, 62); k.dates = (k.dates || 0) + 1; if (pt) { MX.makePartner(st, k); return end('Aus einem Drink werden drei. Ihr verabredet euch wieder – heimlich.', [lifeGain(k, 4)].concat(fx(st, { stress: 3 }))); } return end(fnm(cd) + ' sagt ja. Ein Abend, der viel zu schnell vorbei ist.', [lifeGain(k, 6)].concat(fx(st, { stress: -4 }))); } return end(fnm(cd) + ' lacht: „Heute nicht – aber schreib mir.“', (keepCand(st, cd, 0), [])); }, { hint: pt ? 'Heimlich – Entdeckungsrisiko' : '' }),
+        O(pt ? 'Abblocken – du bist vergeben' : 'Freundlich bleiben, kein Interesse', function () { if (pt) return end('Kurz und klar. Ein gutes Gefühl.', fx(st, { partner: 2 })); return end('Ein netter Abend – mehr nicht.', []); }, { def: !!pt }),
         O('Keine Zeit – der Job geht vor', function () { return end('Wieder ein Abend mit Videoanalyse.', fx(st, { stress: 2 })); })
       ] } } };
   });
+  add('life_dm', function (st, c) {
+    var cd = c.cand, lf = st.mx.life, pt = lf.partner; if (!cd) return null; var app = c.src === 'app';
+    return { title: app ? 'Neues Match in der Dating-App' : 'Nachricht auf Instagram', cat: 'privat', imp: 'normal', img: 'date', max: 2, ic: '📱', who: { n: cd.name, role: (app ? 'Match · ' : 'Instagram · ') + cd.job, ic: '📱' },
+      nodes: { start: { say: (app ? 'Die Dating-App meldet ein Match: ' + cd.name + ' (' + cd.job + '), mag ' + cd.intr.join(' und ') + '. Erste Nachricht: „' + c.msg + '“' : 'Eine Direktnachricht von ' + cd.name + ' (' + cd.job + '): „' + c.msg + '“') + (pt ? ' ' + fnm(pt) + ' sitzt neben dir.' : ''), opts: [
+        O('Zurückschreiben und ein Treffen vorschlagen', function () {
+          if (c.fake === 'presse') { if (pt) lf.suspect = tick(st) + 6; return end('Am Treffpunkt sitzt ein Boulevardreporter – das Profil war ein Köder. „Trainer beim Blind Date“ steht am nächsten Tag online.', fx(st, { media: -5, stress: 4, partner: pt ? -4 : 0 })); }
+          if (c.fake === 'fake') return end('Niemand kommt. Kurz darauf ist das Profil gelöscht – ein Fake-Account.', fx(st, { stress: 2 }));
+          if (c.fake === 'fan') return end('Am Treffpunkt wartet ein Fan mit Schal und drei Aufstellungsvorschlägen. Kein Date – aber ein ehrliches Gespräch über die Abwehr.', fx(st, { fans: 1 }));
+          if (hr('dm' + cd.id, 5) < 0.5 + (cd.v - 50) / 70) { var k = keepCand(st, cd, 1, 58); if (pt) MX.makePartner(st, k); return end(fnm(cd) + ' antwortet sofort: „Sehr gern! Wann hast du Zeit?“' + (pt ? ' Du legst das Handy mit dem Display nach unten.' : ''), fx(st, { stress: pt ? 2 : -2 })); }
+          keepCand(st, cd, 0); return end(fnm(cd) + ' antwortet erst nach Tagen: „Mal schauen …“', []); }, { def: !pt, hint: pt ? 'Heimlicher Kontakt – Entdeckungsrisiko' : '' }),
+        O('Locker hin und her schreiben', function () { if (c.fake) return end('Nach ein paar Nachrichten fragt das Profil nach der Aufstellung. Du blockierst es.', []); var k = keepCand(st, cd, 0); k.v = clamp(k.v + 5, 0, 100); if (k.v >= 55) k.stage = 1; return end('Ein paar Abende lang schreibt ihr hin und her.' + (k.stage ? ' ' + fnm(k) + ' fragt nach einem Treffen.' : ''), []); }),
+        O(pt ? 'Antworten: „Ich bin vergeben.“' : 'Nicht reagieren', function () { return end(pt ? 'Kurz und klar.' : 'Du wischst die Nachricht weg.', pt ? fx(st, { partner: 1 }) : []); }, { def: !!pt })
+      ] } } };
+  });
+  add('life_away', function (st, c) {
+    var cd = c.cand, lf = st.mx.life, pt = lf.partner; if (!cd) return null; var late = c.spot === 'bar' || c.spot === 'lobby';
+    var opts = [O('Nummern tauschen', function () { keepCand(st, cd, 1, 56); return end(fnm(cd) + ' tippt die Nummer in dein Handy: „Melde dich, wenn du wieder in der Stadt bist.“', fx(st, { stress: -2 })); }, { def: !pt })];
+    if (late) {
+      opts.push(O('Noch einen Drink – trotz Spiel morgen', function () { var k = keepCand(st, cd, 1, 60); lifeGain(k, 6); if (pt) MX.makePartner(st, k); if (hr('aw' + cd.id, 2) < 0.3) return end('Um halb eins kommt der Kapitän an die Bar – und schaut dich lange an. Am nächsten Tag tuschelt die Kabine.', fx(st, { kab: -2, stress: 3, media: pt ? -2 : 0 })); return end('Ihr redet bis nach Mitternacht. Niemand hat es gemerkt.', fx(st, { stress: -3 })); }, { hint: 'Kabine und Presse könnten es mitbekommen' + (pt ? ' · heimlich' : '') }));
+      opts.push(O('Mit aufs Zimmer nehmen', function () { var k = keepCand(st, cd, 1, 64); k.dates = (k.dates || 0) + 1; if (pt) MX.makePartner(st, k); else MX.chron(st, '🏨', 'Eine Nacht in ' + c.city, 'Mit ' + cd.name + '.', 1);
+        if (hr('awz' + cd.id, 3) < 0.25) { lf.suspect = tick(st) + 8; return end('Ein Fotograf vor dem Hotel hat euch erwischt. Noch ist nichts erschienen – aber die Redaktion hat angerufen.', fx(st, { media: -4, stress: 6 })); }
+        return end('Am Morgen ist ' + fnm(cd) + ' schon weg, nur ein Zettel liegt da. Bei der Mannschaftsbesprechung bist du nicht ganz bei der Sache.', fx(st, { stress: pt ? 4 : 1 })); }, { hint: pt ? 'Heimliche Beziehung – Entdeckungsrisiko' : 'Fotografen und Kabine sind nie weit' }));
+    } else opts.push(O('Die ganze Fahrt über reden', function () { var k = keepCand(st, cd, 1, 58); lifeGain(k, 8); return end('Die Fahrt vergeht wie im Flug. Beim Aussteigen: „Sehen wir uns wieder?“', fx(st, { stress: -3 })); }));
+    opts.push(O('Höflich bleiben – Fokus auf das Spiel', function () { return end('Du gehst früh auf dein Zimmer und schaust noch einmal die Gegneranalyse durch.', fx(st, { stress: 1, partner: pt ? 1 : 0 })); }, { def: !!pt }));
+    return { title: 'Begegnung auf der Auswärtsfahrt', cat: 'privat', imp: 'normal', img: 'date', max: 2, ic: '🧳', who: { n: cd.name, role: cd.job + ' · ' + MX.CSRC.away, ic: '🧳' },
+      nodes: { start: { say: (AWAY_TXT[c.spot] || 'Auf der Fahrt nach {city} lernst du {n} kennen.').replace('{city}', c.city).replace('{n}', cd.name) + ' ' + fnm(cd) + ' ist ' + cd.job + (cd.football >= 6 ? ' und erkennt dich sofort.' : ' und hat keine Ahnung, wer du bist.') + (late ? ' Morgen ist Anpfiff.' : '') + (pt ? ' Zu Hause wartet ' + fnm(pt) + '.' : ''), opts: opts } } };
+  });
   add('life_date', function (st, c) {
-    var lf = st.mx.life, pt = lf.partner || lf.cands[0]; if (!pt) return null;
-    function gain(v) { pt.v = clamp((pt.v || 50) + v, 0, 100); return { t: pt.name.split(' ')[0] + ' ' + (v >= 0 ? '+' : '−') + Math.abs(v), pos: v > 0, neg: v < 0 }; }
-    return { title: 'Date mit ' + pt.name.split(' ')[0], cat: 'privat', imp: 'normal', img: 'date', max: 3, ic: '🍷', who: { n: pt.name, role: pt.job + (lf.partner ? ' · ' + MX.LSTAGE[pt.stage || 1] : ''), ic: '🙂' },
+    var lf = st.mx.life, x = (c.cid && MX.cand(st, c.cid)) || lf.partner || (lf.cands || []).filter(function (y) { return (y.stage || 0) >= 1; })[0] || lf.cands[0]; if (!x) return null;
+    var isP = x === lf.partner, gain = function (v) { return lifeGain(x, v); };
+    var role = x.job + (isP ? ' · ' + MX.LSTAGE[x.stage || 1] : x.aff ? ' · heimlich' : ' · Date ' + ((x.dates || 0) + 1));
+    function hit(k) { return (x.intr || []).indexOf(k) >= 0; }
+    var endOpts = [];
+    if (!isP && !lf.partner && (x.dates || 0) >= 1 && x.v >= 58) endOpts.push(O('Eine feste Beziehung vorschlagen', function () { lf.lastDate = tick(st); x.dates = (x.dates || 0) + 1; if (hr('fb' + x.id + x.dates, 6) < 0.45 + (x.v - 58) / 50) { MX.makePartner(st, x); x.stage = 2; lf.status = 'partner'; MX.chron(st, '❤️', 'Feste Beziehung', 'Mit ' + x.name + '.', 2); return end(fnm(x) + ' sagt Ja. Ihr seid jetzt ein Paar.', fx(st, { stress: -6 })); } x.v = clamp(x.v - 4, 0, 100); return end(fnm(x) + ': „Ich brauche noch etwas Zeit.“', []); }, { def: true }));
+    endOpts.push(O('Ein nächstes Treffen vorschlagen', function () {
+      lf.lastDate = tick(st); lf.dates++; x.dates = (x.dates || 0) + 1; x.lastD = tick(st);
+      if (isP) { if (x.stage === 1 && x.v >= 65 && lf.dates >= 3) { x.stage = 2; lf.status = 'partner'; MX.chron(st, '❤️', 'Feste Beziehung', 'Mit ' + x.name + '.', 2); } return end('Ihr seid euch nähergekommen.', fx(st, { stress: -4 })); }
+      x.stage = Math.max(x.stage || 0, 1);
+      if (lf.partner && !x.aff) { MX.makePartner(st, x); return end('Ihr verabredet euch wieder – heimlich.', fx(st, { stress: 2 })); }
+      if (x.aff) return end('Das nächste heimliche Treffen ist ausgemacht.', fx(st, { stress: 1 }));
+      return end(x.v >= 55 ? fnm(x) + ' freut sich schon.' : 'Vielleicht beim nächsten Mal.', fx(st, { stress: -4 })); }, { def: !endOpts.length }));
+    endOpts.push(O('Früh nach Hause – morgen ist Training', function () { lf.lastDate = tick(st); return end('Pflichtbewusst. Ein bisschen schade.', [gain(-2)]); }));
+    return { title: 'Date mit ' + fnm(x), cat: 'privat', imp: 'normal', img: 'date', max: 3, ic: x.aff ? '🤫' : '🍷', who: { n: x.name, role: role, ic: '🙂' },
       nodes: {
-        start: { say: 'Wohin soll es gehen?', opts: [
-          O('Kleines italienisches Restaurant', function () { return nx('Gemütlich, gutes Essen.', [gain(3)], 'talk'); }, { def: true }),
-          O('Spaziergang am Fluss', function () { return nx('Ruhig – endlich mal kein Handy.', [gain(4)].concat(fx(st, { stress: -3 })), 'talk'); }),
-          O('Logenplatz beim eigenen Heimspiel', function () { var fan = (pt.football || 5) >= 6; return nx(fan ? 'Begeisterung! „So nah dran war ich noch nie.“' : 'Höfliches Interesse … der Abend gehört eher dem Verein.', [gain(fan ? 5 : -3)], 'talk'); })
+        start: { say: 'Wohin soll es gehen? ' + fnm(x) + ' mag ' + (x.intr || ['gutes Essen']).join(' und ') + '.' + (x.aff ? ' Hauptsache, niemand erkennt euch.' : ''), opts: [
+          O('Kleines italienisches Restaurant', function () { return nx('Gemütlich, gutes Essen.', [gain(hit('Kochen') ? 6 : 3)], 'talk'); }, { def: true }),
+          O('Spaziergang am Fluss', function () { return nx('Ruhig – endlich mal kein Handy.', [gain(hit('Wandern') || hit('Laufen') ? 7 : 4)].concat(fx(st, { stress: -3 })), 'talk'); }),
+          O('Konzert oder Ausstellung', function () { return nx(hit('Musik') || hit('Kunst') || hit('Tanzen') ? fnm(x) + ' strahlt – genau das Richtige.' : 'Ein schöner Abend.', [gain(hit('Musik') || hit('Kunst') || hit('Tanzen') ? 8 : 3)], 'talk'); }),
+          O('Logenplatz beim eigenen Heimspiel', function () { var fan = (x.football || 5) >= 6; if (x.aff) lf.suspect = tick(st) + 4; return nx(fan ? 'Begeisterung! „So nah dran war ich noch nie.“' : 'Höfliches Interesse … der Abend gehört eher dem Verein.', [gain(fan ? 5 : -3)], 'talk'); }, { hint: x.aff ? 'Viele Kameras im Stadion' : '' })
         ] },
         talk: { say: 'Worüber redet ihr?', opts: [
-          O('Über ' + pt.name.split(' ')[0] + 's Arbeit', function () { return nx('Du hörst zu – das kommt an.', [gain(5)], 'end'); }, { def: true }),
-          O('Über den Verein', function () { return nx((pt.football || 5) >= 6 ? 'Lebhafte Diskussion über Taktik.' : 'Ein Blick auf die Uhr …', [gain((pt.football || 5) >= 6 ? 3 : -4)], 'end'); }),
+          O('Über ' + fnm(x) + 's Arbeit', function () { return nx('Du hörst zu – das kommt an.', [gain(5)], 'end'); }, { def: true }),
+          O('Über den Verein', function () { return nx((x.football || 5) >= 6 ? 'Lebhafte Diskussion über Taktik.' : 'Ein Blick auf die Uhr …', [gain((x.football || 5) >= 6 ? 3 : -4)], 'end'); }),
           O('Über Träume und Pläne', function () { return nx('Ein tiefes Gespräch. Es fühlt sich richtig an.', [gain(6)], 'end'); })
         ] },
-        end: { say: 'Der Abend geht zu Ende.', opts: [
-          O('Ein nächstes Treffen vorschlagen', function () { lf.lastDate = tick(st); lf.dates++; if (!lf.partner && pt.v >= 55) MX.makePartner(st, pt); else if (lf.partner && pt.stage === 1 && pt.v >= 65 && lf.dates >= 3) { pt.stage = 2; lf.status = 'partner'; MX.chron(st, '❤️', 'Feste Beziehung', 'Mit ' + pt.name + '.', 2); } return end(lf.partner ? 'Ihr seid euch nähergekommen.' : 'Vielleicht beim nächsten Mal.', fx(st, { stress: -4 })); }, { def: true }),
-          O('Früh nach Hause – morgen ist Training', function () { lf.lastDate = tick(st); return end('Pflichtbewusst. Ein bisschen schade.', [gain(-2)]); })
-        ] }
+        end: { say: 'Der Abend geht zu Ende. ' + fnm(x) + ' wirkt ' + (x.v >= 65 ? 'sehr glücklich' : x.v >= 50 ? 'zufrieden' : 'nachdenklich') + '.', opts: endOpts }
       } };
+  });
+  add('life_aff_caught', function (st, c) {
+    var lf = st.mx.life, pt = lf.partner, x = MX.cand(st, c.cid); if (!pt || !x) return null;
+    return { title: c.press ? 'Boulevard: Doppelleben?' : 'Aufgeflogen', cat: 'privat', imp: 'wichtig', img: 'familie', max: 1, ic: c.press ? '📰' : '💔', who: { n: pt.name, role: MX.LSTAGE[pt.stage || 1], ic: '💔' },
+      nodes: { start: { say: (c.press ? 'Die Klatschpresse zeigt Fotos von dir und ' + x.name + '. „Trainer mit Doppelleben?“ – ' : 'Eine Nachricht von ' + fnm(x) + ' leuchtet auf deinem Handy auf, ') + fnm(pt) + ' hat es gesehen: „Wer ist ' + fnm(x) + '? Und sag mir jetzt die Wahrheit.“', opts: [
+        O('Alles gestehen und um Verzeihung bitten', function () { MX.candEnd(st, x.id, 'Du hast die Sache mit ' + x.name + ' beendet.'); MX.affs(st).forEach(function (y) { MX.candEnd(st, y.id); }); if (pt.v >= 55 || pt.stage >= 4) return end('Eine lange, schmerzhafte Nacht. ' + fnm(pt) + ' gibt euch noch eine Chance – unter Bedingungen.', fx(st, { partner: -25, stress: 10, media: c.press ? -8 : 0, mrep: c.press ? -2 : 0 })); MX.breakup(st, 'Die Affäre mit ' + x.name + ' ist aufgeflogen.'); return end(fnm(pt) + ' packt noch in der Nacht die Koffer.', fx(st, { stress: 8, media: c.press ? -8 : 0, mrep: c.press ? -2 : 0 })); }, { def: true }),
+        O('Alles abstreiten', function () { if (!c.press && hr('deny' + tick(st), 2) < 0.45) { lf.suspect = tick(st) + 12; return end('„Nur eine Bekannte aus dem Fitnessstudio.“ ' + fnm(pt) + ' glaubt dir – vorerst.', fx(st, { partner: -8, stress: 6 })); } MX.breakup(st, 'Gelogen – und erwischt.'); return end('Die Lüge hält keine fünf Minuten. ' + fnm(pt) + ' geht.', fx(st, { stress: 12, media: c.press ? -10 : 0, mrep: c.press ? -3 : 0 })); }),
+        O('Dich für ' + fnm(x) + ' entscheiden', function () { MX.affOfficial(st, x.id); return end('Es ist vorbei mit ' + fnm(pt) + '. Ab jetzt gehört ' + fnm(x) + ' offiziell zu deinem Leben.', fx(st, { stress: 8, media: c.press ? -6 : 0 })); })
+      ] } } };
+  });
+  // Proaktiv über „Privatleben“: ausgehen oder die Dating-App öffnen (je einmal pro Woche)
+  MEET_TXT.bar = 'An der Bar bestellt {n} denselben Drink wie du – und muss lachen.'; MEET_TXT.wein = 'In der Weinbar teilt ihr euch notgedrungen den letzten freien Tisch.'; MEET_TXT.club = 'Auf der Tanzfläche wirst du angerempelt – {n} entschuldigt sich mit einem Lächeln.';
+  MX.outFree = function (st) { var lf = st.mx.life; return lf.outT == null || tick(st) - lf.outT >= 1; };
+  MX.appFree = function (st) { var lf = st.mx.life; return lf.appT == null || tick(st) - lf.appT >= 1; };
+  add('life_out', function (st, c) {
+    var lf = st.mx.life, pt = lf.partner, l = st.mx.last || {}, bad = (l.streak || 0) <= -2;
+    function out(kind, label) {
+      lf.outT = tick(st); var k = hr('out' + kind + tick(st) + (st.seed || 0), 1), fan = hr('outf' + tick(st) + (st.seed || 0), 2), spec = { stress: kind === 'home' ? -2 : -5 };
+      if (pt && kind !== 'team' && kind !== 'home') spec.partner = -1;
+      if (kind === 'home') return end('Sofa, Tee, eine alte Doku. Auch mal schön.', fx(st, spec));
+      if (kind === 'team') { spec.kab = 1; return end('Ein lockerer Abend mit dem Trainerteam. Gut fürs Klima – geflirtet wird heute nicht.', fx(st, spec)); }
+      if ((bad && fan < 0.4) || (kind === 'club' && fan < 0.15)) { spec.fans = -3; spec.media = -2; return end(bad ? 'Ein Handyvideo macht die Runde: Der Trainer feiert – nach ' + Math.abs(l.streak) + ' Niederlagen in Folge. Die Fans sind nicht amüsiert.' : 'Fotos von dir auf der Tanzfläche landen im Netz. „Hat der Trainer nichts Besseres zu tun?“', fx(st, spec)); }
+      if ((lf.cands || []).length < 4 && k < { bar: 0.5, wein: 0.4, club: 0.6 }[kind] - (pt ? 0.15 : 0)) { var cd = MX.newCand(st, kind); cd.src = 'out'; MX.start(st, 'life_meet', { cand: cd }, { prio: 6 }); return end(label + ' – und dann kommst du mit jemandem ins Gespräch …', fx(st, spec)); }
+      return end(label + '. Heute ohne neue Bekanntschaft, aber der Kopf ist frei.', fx(st, spec));
+    }
+    return { title: 'Ausgehen', cat: 'privat', imp: 'normal', img: 'date', max: 1, ic: '🍸', who: { n: 'Freier Abend', role: pt ? 'ohne ' + fnm(pt) : 'Single', ic: '🍸' },
+      nodes: { start: { say: 'Ein freier Abend. Wohin geht es?' + (pt ? ' ' + fnm(pt) + ' hat heute eigene Pläne.' : '') + (bad ? ' Nach der Niederlagenserie schauen allerdings viele genau hin.' : ''), opts: [
+        O('Mit Freunden in eine Bar', function () { return out('bar', 'Ein langer Abend mit alten Freunden'); }),
+        O('Weinbar in der Altstadt', function () { return out('wein', 'Ruhige Musik, guter Wein'); }),
+        O('In einen Club – mal richtig feiern', function () { return out('club', 'Bis spät in die Nacht auf der Tanzfläche'); }, { hint: 'Fotos und Handyvideos – Fans und Medien könnten es mitbekommen' }),
+        O('Afterwork mit dem Trainerteam', function () { return out('team', ''); }),
+        O('Doch lieber zu Hause bleiben', function () { return out('home', ''); }, { def: true })
+      ] } } };
+  });
+  add('life_app', function (st, c) {
+    var lf = st.mx.life, pt = lf.partner, cs = c.cands || []; if (!cs.length) return null;
+    function like(cd, f) { return hr('app' + cd.id, 9) < clamp(0.35 + (cd.v - 50) / 60 + ((st.manager.reputation || 40) - 40) / 300, 0.1, 0.85) * (f || 1); }
+    function used() { lf.appT = tick(st); if (pt) { lf.suspect = tick(st) + 6; if (hr('appl' + tick(st) + (st.seed || 0), 4) < 0.12 + (st.manager.reputation || 40) / 600) return true; } return false; }
+    function leakEnd(txt) { return end(txt + ' Und dann: Ein Screenshot deines Profils kursiert in einer Fangruppe. ' + fnm(pt) + ' hat ihn auch gesehen.', fx(st, { media: -4, partner: -8, stress: 6 })); }
+    var opts = cs.map(function (cd) {
+      return O('💘 ' + fnm(cd) + ' liken', function () { var leak = used(), txt;
+        if (like(cd)) { keepCand(st, cd, 1, 56); txt = 'Match! ' + fnm(cd) + ' schreibt: „Hey! Dein Profil hat mich neugierig gemacht. Kaffee diese Woche?“'; }
+        else txt = 'Kein Match – ' + fnm(cd) + ' hat weitergewischt.';
+        return leak ? leakEnd(txt) : end(txt, fx(st, { stress: -1 })); }, { hint: pt ? 'Heimlich – Entdeckungsrisiko' : '' });
+    });
+    opts.push(O('Allen dreien ein Like geben', function () { var leak = used(), hit = cs.filter(function (cd) { return like(cd, 0.6); });
+      hit.forEach(function (cd) { keepCand(st, cd, 1, 55); });
+      var txt = hit.length ? 'Match mit ' + hit.map(fnm).join(' und ') + '! Jetzt heißt es: Nachrichten beantworten.' : 'Kein einziges Match. Vielleicht wirkt das Profil zu sehr nach Pressekonferenz.';
+      return leak ? leakEnd(txt) : end(txt, []); }, { hint: pt ? 'Heimlich – Entdeckungsrisiko' : 'Weniger Chancen je Person' }));
+    opts.push(O('App wieder schließen', function () { return end('Du legst das Handy weg.', []); }, { def: true }));
+    return { title: 'Dating-App', cat: 'privat', imp: 'normal', img: 'date', max: 1, ic: '💘', who: { n: 'Dating-App', role: pt ? 'Profil unter anderem Namen' : 'Dein Profil', ic: '💘' },
+      nodes: { start: { say: (pt ? 'Du hast ein Profil unter anderem Namen angelegt – ' + fnm(pt) + ' darf davon nichts wissen. ' : '') + 'Drei Profile in deiner Nähe: ' + cs.map(function (cd) { return cd.name + ' (' + cd.job + ', mag ' + cd.intr.join(' und ') + ')'; }).join(' · ') + '.', opts: opts } } };
   });
   add('life_partner_talk', function (st, c) {
     var lf = st.mx.life, pt = lf.partner; if (!pt) return null; return { title: 'Gespräch mit ' + pt.name.split(' ')[0], cat: 'privat', imp: 'wichtig', img: 'familie', max: 2, ic: '🏠', who: { n: pt.name, role: MX.LSTAGE[pt.stage] + ' · ' + pt.job, ic: '❤️' },
@@ -840,7 +941,13 @@
   ev('build_grant', 'infrastruktur', 60, 0.8, function (st) { return {}; });
   ev('injury_wave', 'stab', 8, 5, function (st) { var n = sq(st).filter(function (p) { return p.inj && p.inj.weeks >= 1; }).length; return n >= 4 ? { n: n, nt: MX.recent(st, 'nt_injury', 2).length > 0 } : null; });
   ev('releg_fight', 'kabine', 8, 3, function (st) { var c = cl(st), n = st.leagues[c.league] ? st.leagues[c.league].clubIds.length : 18, p = pos(st); return st.week >= 18 && p && p >= n - 2 && c.league < 3 ? { pos: p } : null; });
-  ev('life_meet', 'privat', 14, 0.8, function (st) { var lf = st.mx.life; return !lf.partner && !lf.cands.length && lf.stress < 75 ? { cand: MX.newCand(st, R.pick(['gala', 'cafe', 'freunde', 'charity'])) } : null; });
+  ev('life_meet', 'privat', 10, 0.8, function (st) { var lf = st.mx.life; return (lf.cands || []).length < 4 && lf.stress < 80 && (!lf.partner || hr('lm' + tick(st), 1) < 0.3) ? { cand: MX.newCand(st, ['gala', 'cafe', 'freunde', 'charity', 'super', 'gym', 'kunst', 'hochzeit', 'zug', 'hund'][hash('lmw' + tick(st)) % 10]) } : null; });
+  // Spontane Anfragen über Instagram und Dating-App (die App nur ohne feste Beziehung)
+  ev('life_dm', 'privat', 8, 0.7, function (st) { var lf = st.mx.life; if ((lf.cands || []).length >= 4 || lf.stress >= 85 || (lf.partner && hr('ld' + tick(st), 1) > 0.35)) return null; var app = !lf.partner && hr('la' + tick(st), 2) < 0.5, cd = MX.newCand(st, app ? 'app' : 'insta'); cd.src = app ? 'app' : 'insta'; var f = hr('lf' + tick(st), 3), rp = (st.manager.reputation || 40) / 900; return { cand: cd, src: cd.src, msg: DM[cd.src][hash('lmsg' + tick(st)) % DM[cd.src].length], fake: f < 0.05 + rp ? 'presse' : f < 0.09 + rp ? 'fake' : f < 0.13 + rp ? 'fan' : '' }; });
+  // Begegnungen auf Auswärtsfahrten (Hotel, Flug, Zug) – nach einem Auswärtsspiel der Woche
+  ev('life_away', 'privat', 8, 1, function (st) { var lf = st.mx.life, club = cl(st); if (!club || (lf.cands || []).length >= 4) return null; var r = (st.lastResults || []).filter(function (x) { return x.a === club.id && x.comp !== 'friendly'; })[0]; if (!r || hr('aw' + tick(st), 1) > (lf.partner ? 0.25 : 0.5)) return null;
+    var h = st.clubs[r.h] || (R.euro && R.euro.info ? R.euro.info(st, r.h) : null), spots = r.comp === 'euro' ? ['bar', 'lobby', 'flug', 'fruehst'] : ['bar', 'lobby', 'zug', 'fruehst'], cd = MX.newCand(st, 'away'); cd.src = 'away';
+    return { cand: cd, spot: spots[hash('sp' + tick(st)) % spots.length], city: (h && (h.city || h.short || h.name)) || 'der Auswärtsstadt' }; });
   ev('life_partner_talk', 'privat', 10, 2, function (st) { var lf = st.mx.life; return lf.partner && lf.stress >= 65 && lf.partner.v < 55 ? {} : null; });
   ev('life_stage', 'privat', 16, 1.5, function (st) { var pt = st.mx.life.partner; return pt && pt.stage >= 2 && pt.stage < 5 && pt.v >= 72 && tick(st) - (pt.stageT || pt.since) >= 20 ? {} : null; });
 

@@ -57,6 +57,7 @@
     if (club && mx.clubId !== club.id) MX.newClub(st, club);
     if (!mx.agents.length) MX.makeAgents(st);
     if (!mx.life) mx.life = { status: 'single', partner: null, exes: [], kids: [], stress: 30, dates: 0, lastDate: -99, cands: [] };
+    (mx.life.cands || []).forEach(function (c, i) { if (!c.id) c.id = 'mc0_' + i; if (c.stage == null) c.stage = 1; if (!c.intr) c.intr = ['Kochen', 'Reisen']; }); // ältere Spielstände: Kontakte mit Kennung
     return mx;
   };
   // Vereinswechsel: neue Bezugspersonen, Gedächtnis des alten Vereins bleibt in der Historie
@@ -410,13 +411,48 @@
   // ---------- Privatleben des Managers (Daten & Beziehung) ----------
   var PJOBS = ['Ärztin/Arzt', 'Architektin/Architekt', 'Lehrerin/Lehrer', 'Journalistin/Journalist (nicht Sport)', 'Physiotherapeutin/Physiotherapeut', 'Unternehmerin/Unternehmer', 'Grafikdesignerin/Grafikdesigner', 'Juristin/Jurist', 'Köchin/Koch', 'Musikerin/Musiker'];
   MX.LSTAGE = ['Kennenlernen', 'Dating', 'Feste Beziehung', 'Zusammengezogen', 'Verlobt', 'Verheiratet'];
-  MX.newCand = function (st, where) { var s = 'cand' + tick(st) + where + (st.seed || 0); return { name: MX.newName(st, s), job: pk(PJOBS, s + 'j'), where: where, met: tick(st), v: 45 + Math.round(hr(s, 1) * 20), humor: Math.round(hr(s, 2) * 10), football: Math.round(hr(s, 3) * 10) }; };
-  MX.makePartner = function (st, c) { var lf = st.mx.life; c.stage = 1; c.v = Math.max(c.v, 55); c.since = tick(st); lf.partner = c; lf.status = 'dating'; lf.cands = []; MX.chron(st, '💞', 'Erstes Date', 'Mit ' + c.name + ' (' + c.job + ').', 1); };
-  MX.breakup = function (st, why) { var lf = st.mx.life; if (!lf.partner) return; lf.exes.push({ name: lf.partner.name, s: st.season, why: why }); MX.chron(st, '💔', 'Trennung', lf.partner.name + ': ' + why, 2); lf.partner = null; lf.status = 'single'; lf.stress = clamp(lf.stress + 10, 0, 100); };
+  var PINTR = ['Kochen', 'Wandern', 'Musik', 'Kunst', 'Reisen', 'Lesen', 'Tanzen', 'Yoga', 'Filme', 'Laufen'];
+  MX.CSRC = { insta: '📸 Instagram', app: '💘 Dating-App', out: '🍸 Beim Ausgehen', away: '🧳 Auswärtsfahrt', zufall: '🍀 Zufall', gala: '🥂 Gala', cafe: '☕ Café', freunde: '🍝 Freunde', charity: '🏃 Charity' };
+  MX.newCand = function (st, where) {
+    var s = 'cand' + tick(st) + where + (st.seed || 0) + (st.mx && st.mx.life ? st.mx.life.uid || 0 : 0), i1 = hash(s + 'i') % PINTR.length, i2 = (i1 + 1 + hash(s + 'k') % (PINTR.length - 1)) % PINTR.length;
+    return { id: 'mc' + tick(st) + '_' + (hash(s) % 100000), name: MX.newName(st, s), job: pk(PJOBS, s + 'j'), where: where, met: tick(st), v: 45 + Math.round(hr(s, 1) * 20), humor: Math.round(hr(s, 2) * 10), football: Math.round(hr(s, 3) * 10), intr: [PINTR[i1], PINTR[i2]], stage: 0, dates: 0 };
+  };
+  // Kontaktliste wie im Spielermodus: bis zu vier Bekanntschaften; zuerst fallen lose Kontakte, nie heimliche Beziehungen
+  MX.addCand = function (st, c) {
+    var lf = st.mx.life; lf.uid = (lf.uid || 0) + 1; if (!c.id) c.id = 'mc' + tick(st) + '_' + lf.uid;
+    lf.cands = (lf.cands || []).filter(function (y) { return y.id !== c.id; }); lf.cands.push(c);
+    while (lf.cands.length > 4) { var dr = lf.cands.filter(function (y) { return !y.aff && y !== c; }).sort(function (a, b) { return (a.stage || 0) - (b.stage || 0) || a.v - b.v; })[0]; if (!dr) break; lf.cands.splice(lf.cands.indexOf(dr), 1); }
+    return c;
+  };
+  MX.cand = function (st, id) { var lf = st.mx.life; return (lf.cands || []).filter(function (y) { return y.id === id; })[0] || null; };
+  MX.affs = function (st) { return (st.mx.life.cands || []).filter(function (y) { return y.aff; }); };
+  MX.makePartner = function (st, c) {
+    var lf = st.mx.life;
+    if (lf.partner && lf.partner !== c) { // schon vergeben → heimliche Beziehung
+      if (!c.aff) { c.aff = true; c.stage = Math.max(c.stage || 0, 1); c.since = tick(st); c.lastD = tick(st); c.v = Math.max(c.v, 60); if (!MX.cand(st, c.id)) MX.addCand(st, c); MX.chron(st, '🤫', 'Heimliche Beziehung', 'Du triffst dich heimlich mit ' + c.name + ' – obwohl du mit ' + lf.partner.name + ' zusammen bist.', 1); lf.stress = clamp(lf.stress + 3, 0, 100); }
+      return c;
+    }
+    c.aff = false; c.stage = 1; c.v = Math.max(c.v, 55); c.since = tick(st); lf.partner = c; lf.status = 'dating';
+    lf.cands = (lf.cands || []).filter(function (y) { return y.id !== c.id && (y.stage || 0) >= 1; }); // flüchtige Kontakte verblassen, wer schon datet, bleibt
+    MX.chron(st, '💞', 'Erstes Date', 'Mit ' + c.name + ' (' + c.job + ').', 1);
+  };
+  // Heimliche Beziehung offiziell machen: die bisherige Partnerschaft endet
+  MX.affOfficial = function (st, id) { var lf = st.mx.life, c = MX.cand(st, id); if (!c) return null; if (lf.partner) MX.breakup(st, 'Du hast dich für ' + c.name + ' entschieden.'); c.aff = false; MX.makePartner(st, c); return c; };
+  MX.candEnd = function (st, id, why) { var lf = st.mx.life, c = MX.cand(st, id); if (!c) return; lf.cands = lf.cands.filter(function (y) { return y.id !== id; }); if (c.aff) { MX.chron(st, '🚪', 'Heimliche Beziehung beendet', why || 'Du hast die Sache mit ' + c.name + ' beendet.', 1); lf.stress = clamp(lf.stress + 2, 0, 100); } };
+  MX.affRisk = function (st) { var lf = st.mx.life, n = MX.affs(st).length; if (!n || !lf.partner) return 0; return clamp(0.035 * n + (n >= 2 ? 0.03 : 0) + ((st.manager.reputation || 40) / 2500) + (lf.partner.stage >= 3 ? 0.02 : 0) + (lf.suspect > tick(st) ? 0.05 : 0), 0, 0.4); };
+  MX.breakup = function (st, why) { var lf = st.mx.life; if (!lf.partner) return; lf.exes.push({ name: lf.partner.name, s: st.season, why: why }); MX.chron(st, '💔', 'Trennung', lf.partner.name + ': ' + why, 2); lf.partner = null; lf.status = 'single'; lf.stress = clamp(lf.stress + 10, 0, 100); (lf.cands || []).forEach(function (y) { if (y.aff) { y.aff = false; y.stage = Math.max(1, y.stage || 0); } }); };
   MX.lifeWeek = function (st) {
     var lf = st.mx.life, pt = lf.partner, crisis = st.mx.arcs.some(function (a) { return a.k === 'crisis' && a.ph >= 2; });
     lf.stress = clamp(lf.stress + (crisis ? 1.2 : -0.6) + (st.mx.dlg ? 0.2 : 0), 5, 100);
-    if (pt) { pt.v = clamp(pt.v - (lf.stress > 70 ? 0.8 : 0.25) + (tick(st) - lf.lastDate <= 2 ? 0.4 : 0), 0, 100); if (pt.v < 12 && pt.stage < 5) MX.breakup(st, 'Zu wenig gemeinsame Zeit.'); }
+    if (pt) { pt.v = clamp(pt.v - (lf.stress > 70 ? 0.8 : 0.25) + (tick(st) - lf.lastDate <= 2 ? 0.4 : 0) - MX.affs(st).length * 0.3, 0, 100); if (pt.v < 12 && pt.stage < 5) MX.breakup(st, 'Zu wenig gemeinsame Zeit.'); }
+    // Kontakte: lose Bekanntschaften verblassen, heimliche Beziehungen wollen gepflegt werden und belasten
+    var t = tick(st);
+    (lf.cands || []).slice().forEach(function (y) {
+      if (y.aff) { y.v = clamp(y.v - (t - (y.lastD || t) > 3 ? 2.5 : 0.8), 0, 100); lf.stress = clamp(lf.stress + 0.8, 0, 100); if (y.v < 35) MX.candEnd(st, y.id, y.name + ' hat genug vom Versteckspiel und meldet sich nicht mehr.'); }
+      else { y.v = clamp(y.v - ((y.stage || 0) ? 0.4 : 1), 0, 100); if (y.v < 30 || (!(y.stage || 0) && t - (y.met || t) > 14)) lf.cands.splice(lf.cands.indexOf(y), 1); }
+    });
+    // Entdeckungsrisiko heimlicher Beziehungen
+    if (pt && MX.affs(st).length && !st.mx.dlg && hr('aff' + t + (st.seed || 0), 7) < MX.affRisk(st)) { var ax = MX.affs(st)[0], press = hr('affp' + t, 3) < 0.35 + (st.manager.reputation || 40) / 250; MX.start(st, 'life_aff_caught', { cid: ax.id, press: press ? 1 : 0 }, { prio: 7 }); }
     // Stress wirkt: ein angespannter Manager strahlt weniger Ruhe aus (kleiner Einfluss auf die Kabine)
     if (lf.stress > 80) st.mx.kabMod = clamp(st.mx.kabMod - 0.3, -15, 15);
   };

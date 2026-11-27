@@ -1226,7 +1226,8 @@
   // SCHREIBEN MIT EINER BEKANNTSCHAFT (analog Spielerkarriere)
   // ============================================================================================
   add('mx_chat', function (st, c) {
-    var lf = st.mx.life, x = MX.cand(st, c.cid), pt = lf.partner; if (!x) return null;
+    var lf = st.mx.life, x = MX.cand(st, c.cid) || (lf.partner && lf.partner.id === c.cid ? lf.partner : null) || c.snap, pt = lf.partner; if (!x) return null;
+    if (!c.snap && x) c.snap = { id: x.id, name: x.name, job: x.job, v: x.v, dates: x.dates || 0, stage: x.stage || 0, football: x.football }; // bleibt lesbar, auch wenn die Person die Kontaktliste verlässt
     var t = tick(st), opts = [
       O('Flirten', function () { var fresh = x.msgT !== t; x.msgT = t; if (fresh) x.v = clamp(x.v + 4, 0, 100);
         if (fresh && hr('chat' + x.id + t, 1) < 0.3) { x.v = clamp(x.v + 2, 0, 100); return end(fnm(x) + ' antwortet mit drei Emojis – und: „Wann sehen wir uns endlich?“', fx(st, { stress: -2 })); }

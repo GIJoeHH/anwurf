@@ -321,16 +321,16 @@
   }
   MX.active = function (st) { return st.mx && st.mx.dlg; };
   MX.def = function (st) { var d = st.mx && st.mx.dlg; return d ? MX.D[d.id](st, d.ctx) : null; };
-  function optsOf(st, def, d) { var n = def.nodes[d.node]; if (!n) return []; return (typeof n.opts === 'function' ? n.opts(st, d.ctx) : n.opts || []).map(function (o, i) { return { o: o, i: i }; }).filter(function (x) { return !x.o.req || x.o.req(st, d.ctx); }); }
+  function optsOf(st, def, d) { if (!def || !def.nodes) return []; var n = def.nodes[d.node]; if (!n) return []; return (typeof n.opts === 'function' ? n.opts(st, d.ctx) : n.opts || []).map(function (o, i) { return { o: o, i: i }; }).filter(function (x) { return !x.o.req || x.o.req(st, d.ctx); }); }
   MX.view = function (st) {
-    var d = MX.active(st); if (!d) return null; var def = MX.D[d.id](st, d.ctx), n = def.nodes[d.node] || {};
+    var d = MX.active(st); if (!d) return null; var def = MX.D[d.id](st, d.ctx); if (!def || !def.nodes) { if (!d.done) { d.done = true; d.sum = d.sum || (d.log.length ? d.log[d.log.length - 1].r : 'Das Gespräch ist beendet.'); } def = { title: 'Gespräch', who: { n: '', role: '' }, nodes: {} }; } var n = def.nodes[d.node] || {};
     var say = typeof n.say === 'function' ? n.say(st, d.ctx) : n.say;
     var who = typeof def.who === 'function' ? def.who(st, d.ctx) : def.who, ws = n.who ? (typeof n.who === 'function' ? n.who(st, d.ctx) : n.who) : null;
     return { id: d.id, title: def.title, who: ws || who || { n: '', role: '' }, cat: def.cat, imp: d.imp, step: d.step, max: Math.max(def.max || 3, d.step), say: say, img: MX.img(def.img, d.img || n.img || 'a'), react: d.react, done: d.done, sum: d.sum, log: d.log,
       opts: d.done ? [] : optsOf(st, def, d).map(function (x) { return { i: x.i, l: typeof x.o.l === 'function' ? x.o.l(st, d.ctx) : x.o.l, hint: x.o.hint ? (typeof x.o.hint === 'function' ? x.o.hint(st, d.ctx) : x.o.hint) : '' }; }) };
   };
   MX.pick = function (st, i) {
-    var d = MX.active(st); if (!d || d.done) return null; var def = MX.D[d.id](st, d.ctx), x = optsOf(st, def, d).filter(function (y) { return y.i === i; })[0]; if (!x) return null;
+    var d = MX.active(st); if (!d || d.done) return null; var def = MX.D[d.id](st, d.ctx); if (!def || !def.nodes) { d.done = true; return d; } var x = optsOf(st, def, d).filter(function (y) { return y.i === i; })[0]; if (!x) return null;
     var res = (x.o.go ? x.o.go(st, d.ctx) : {}) || {};
     var lbl = typeof x.o.l === 'function' ? x.o.l(st, d.ctx) : x.o.l;
     d.react = { txt: res.r || '', eff: res.e || [] };

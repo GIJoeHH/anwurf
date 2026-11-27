@@ -201,6 +201,26 @@
     geschaeft: { n: 'Geschäftsstelle', ic: '🏛️', acts: [
       { k: 'board', n: 'Termin bei der Vereinsführung', d: 'Zukunft, Vertrag, Infrastruktur', ap: 0, dlg: 'board' }] }
   };
+  // ---------- Spenden an die Fanszene: Choreo oder Auswärtsfahrt (stärkt die Stimmung der Fans) ----------
+  L.DON = {
+    choreo: { n: HB ? 'Choreo im Fanblock mitfinanzieren' : 'Choreo in der Kurve mitfinanzieren', ic: '🎨', cost: HB ? 1000 : 2500, cd: 8, d: 'Fahnen, Folien, Spruchbänder – die aktive Szene merkt sich das.', e: { f_ultras: 8, f_aktiv: 6, f_club: 3, fans: 3, pop: 1 }, txt: 'Am Spieltag zeigt die Kurve eine riesige Choreo – und auf einem Spruchband steht dein Name. Gänsehaut.' },
+    away: { n: 'Auswärtsfahrt der Fans bezuschussen', ic: '🚌', cost: HB ? 1500 : 4000, cd: 8, d: 'Ein Bus für die nächste Auswärtsfahrt. Die Auswärtsfahrer vergessen das nicht.', e: { f_away: 10, f_aktiv: 4, f_club: 3, fans: 3, pop: 1 }, txt: 'Zwei volle Busse fahren mit – im Gästeblock wird dein Name gesungen.' }
+  };
+  L.donBlock = function (st, k) {
+    var a = L.DON[k], lf = L.life(st), t = st.tick || 0, last = (lf.don || {})[k]; if (!a) return 'unbekannt';
+    if (!st.pc.cx || !C.player(st) || !C.player(st).clubId) return 'kein Verein';
+    if (last != null && t - last < a.cd) return 'wieder in ' + (a.cd - (t - last)) + ' Wo.';
+    var cash = R.pf && R.pf.liquid ? R.pf.liquid(st) : (st.pc.cash || 0); if (cash < a.cost) return 'zu wenig Geld';
+    return '';
+  };
+  L.donate = function (st, k) {
+    var a = L.DON[k], why = L.donBlock(st, k); if (why) return { ok: false, why: why };
+    if (R.pf) R.pf.book(st, -a.cost, 'Spenden'); else st.pc.cash -= a.cost;
+    var lf = L.life(st); lf.don = lf.don || {}; lf.don[k] = st.tick || 0;
+    var fx = L.eff(st, a.e);
+    X.chron(st, 'fans', a.ic, 'Spende an die Fans', a.n + ' (' + money(a.cost) + ').', 1);
+    return { ok: true, txt: a.txt + ' ' + fx, cost: a.cost };
+  };
   L.bldAct = function (st, b, k) {
     var B = L.BLD[b], a = B && B.acts.filter(function (x) { return x.k === k; })[0], c = L.ctx(st); if (!a) return { ok: false, why: 'Unbekannt.' };
     if (a.req && !a.req(c)) return { ok: false, why: 'Gerade nicht möglich.' };

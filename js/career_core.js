@@ -89,9 +89,12 @@
     var pc = st.pc, cx = pc.cx, p = C.player(st); if (!cx || !p || !p.clubId) return;
     var sq = W.squad(st, p.clubId).filter(function (x) { return x.id !== p.id; });
     var keep = cx.ppl.filter(function (x) { var q = st.players[x.pid]; return q && q.clubId === p.clubId; });
+    // jede Person nur in einer Rolle (Kapitän vor Mentor, Freund, Rivale) – sonst überdecken sich die Gesprächsdialoge
+    var PRI = { capt: 1, mentor: 2, friend: 3, rival: 4, oldrival: 5 }, seen = {};
+    keep = keep.slice().sort(function (a, b) { return (PRI[a.kind] || 9) - (PRI[b.kind] || 9); }).filter(function (x) { if (seen[x.pid]) return false; seen[x.pid] = 1; return true; });
     function has(k) { return keep.some(function (x) { return x.kind === k; }); }
-    if (!has('capt') && sq.length) { var cap = sq.slice().sort(function (a, b) { return (b.age * 1.5 + b.ovr) - (a.age * 1.5 + a.ovr); })[0]; keep.push({ kind: 'capt', pid: cap.id, name: W.playerName(cap), v: cx.rel.capt, since: st.season }); }
-    if (!has('rival')) { var rv = sq.filter(function (x) { return x.pos === p.pos && Math.abs(x.age - p.age) <= 6; }).sort(function (a, b) { return Math.abs(a.ovr - p.ovr) - Math.abs(b.ovr - p.ovr); })[0]; if (rv) keep.push({ kind: 'rival', pid: rv.id, name: W.playerName(rv), v: 40, since: st.season }); }
+    if (!has('capt') && sq.length) { var cap = sq.filter(function (x) { return !keep.some(function (k) { return k.pid === x.id && k.kind !== 'oldrival'; }); }).sort(function (a, b) { return (b.age * 1.5 + b.ovr) - (a.age * 1.5 + a.ovr); })[0]; keep.push({ kind: 'capt', pid: cap.id, name: W.playerName(cap), v: cx.rel.capt, since: st.season }); }
+    if (!has('rival')) { var rv = sq.filter(function (x) { return !keep.some(function (k) { return k.pid === x.id; }) && x.pos === p.pos && Math.abs(x.age - p.age) <= 6; }).sort(function (a, b) { return Math.abs(a.ovr - p.ovr) - Math.abs(b.ovr - p.ovr); })[0]; if (rv) keep.push({ kind: 'rival', pid: rv.id, name: W.playerName(rv), v: 40, since: st.season }); }
     if (!has('friend')) { var fr = sq.filter(function (x) { return x.pos !== p.pos && Math.abs(x.age - p.age) <= 3 && !keep.some(function (k) { return k.pid === x.id; }); }); if (fr.length) { var f = R.pick(fr); keep.push({ kind: 'friend', pid: f.id, name: W.playerName(f), v: 65, since: st.season }); } }
     if (!has('mentor') && p.age <= 22) { var mt = sq.filter(function (x) { return x.age >= 29 && !keep.some(function (k) { return k.pid === x.id; }); }).sort(function (a, b) { return b.ovr - a.ovr; })[0]; if (mt) keep.push({ kind: 'mentor', pid: mt.id, name: W.playerName(mt), v: 55, since: st.season }); }
     // frühere Rivalen anderer Vereine bleiben als „alte Rivalität“ im Gedächtnis
@@ -144,8 +147,9 @@
     if (a && X.pplCost(st, a) && (st.pc.cash || 0) < X.pplCost(st, a)) return 'zu wenig Geld';
     return '';
   };
-  X.pplDo = function (st, pid, k) {
-    var cx = X.ensure(st), p = C.player(st), x = cx && cx.ppl.filter(function (y) { return String(y.pid) === String(pid); })[0]; if (!x || !p) return { ok: false, why: 'Person nicht gefunden' };
+  X.pplFind = function (st, pid, kind) { var cx = st.pc.cx; return cx ? cx.ppl.filter(function (y) { return String(y.pid) === String(pid) && (!kind || y.kind === kind); })[0] || null : null; };
+  X.pplDo = function (st, pid, k, kind) {
+    var cx = X.ensure(st), p = C.player(st), x = cx && X.pplFind(st, pid, kind); if (!x || !p) return { ok: false, why: 'Person nicht gefunden' };
     var a = (X.PPL_ACTS[x.kind] || []).filter(function (y) { return y.k === k; })[0]; if (!a) return { ok: false, why: 'Unbekannte Aktion' };
     var why = X.pplBlock(st, x, a); if (why) return { ok: false, why: why };
     var cost = X.pplCost(st, a); if (cost) { if (R.pf) R.pf.book(st, -cost, 'Freizeit & Privatleben'); else st.pc.cash -= cost; }

@@ -18,6 +18,7 @@
   var FN_B = ['Jonas', 'Felix', 'Noah', 'Lukas', 'Emil', 'Ben', 'Paul', 'Mats', 'Leon', 'Can', 'Tim', 'Moritz', 'Jannik', 'David', 'Niklas', 'Theo', 'Malik', 'Ole'];
   var LN = ['Albers', 'Brandt', 'Demir', 'Engel', 'Fuchs', 'Graf', 'Hahn', 'Jansen', 'Kaya', 'Lorenz', 'Möller', 'Novak', 'Ott', 'Peters', 'Roth', 'Schulte', 'Thiel', 'Vogt', 'Winter', 'Yilmaz', 'Ziegler', 'Berger', 'Krüger', 'Sommer'];
   L.name = function (g) { return pick(g === 'a' ? FN_A : g === 'b' ? FN_B : (R.rand() < 0.5 ? FN_A : FN_B)) + ' ' + pick(LN); };
+  L.fem = function (name) { return FN_A.indexOf(String(name || '').split(' ')[0]) >= 0; };
   L.first = function (g) { return pick(g === 'a' ? FN_A : FN_B); };
   var JOBS = [['Lehrerin/Lehrer', 'Schule'], ['Ärztin/Arzt', 'Klinik'], ['Architektin/Architekt', 'Büro'], ['Pflegekraft', 'Klinik'], ['Softwareentwicklung', 'Tech'], ['Journalismus', 'Medien'], ['Studium', 'Uni'], ['Eigenes Café', 'Selbstständig'], ['Physiotherapie', 'Praxis'], ['Unternehmensberatung', 'Büro'], ['Polizei', 'Behörde'], ['Mode & Design', 'Kreativ']];
   var INTR = ['Reisen', 'Kochen', 'Musik', 'Wandern', 'Kunst', 'Lesen', 'Yoga', 'Filme', 'Tiere', 'Fotografie', 'Tanzen', 'Gärtnern'];

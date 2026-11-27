@@ -38,6 +38,66 @@
   // Trikotfarben je Nation (neutral erzeugt, keine Verbandslogos)
   var PAL = [['#f8fafc', '#111827'], ['#1d4ed8', '#f8fafc'], ['#dc2626', '#f8fafc'], ['#f97316', '#111827'], ['#16a34a', '#f8fafc'], ['#facc15', '#1e3a8a'], ['#7c3aed', '#f8fafc'], ['#0ea5e9', '#f8fafc'], ['#111827', '#facc15'], ['#b91c1c', '#facc15'], ['#065f46', '#fde68a'], ['#be123c', '#f8fafc']];
   NT.colors = function (code) { return PAL[hash('col' + code) % PAL.length]; };
+  // ---------- Länderflaggen (vereinfachte, selbst gezeichnete Nationalflaggen als SVG – keine Verbandswappen) ----------
+  var FLAG = (function () {
+    var W_ = 30, H_ = 20;
+    function r(x, y, w, h, c) { return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + c + '"/>'; }
+    function Hs(cols, wts) { wts = wts || cols.map(function () { return 1; }); var t = wts.reduce(function (a, b) { return a + b; }, 0), y = 0; return cols.map(function (c, i) { var h = H_ * wts[i] / t, o = r(0, y, W_, h + 0.05, c); y += h; return o; }).join(''); }
+    function Vs(cols, wts) { wts = wts || cols.map(function () { return 1; }); var t = wts.reduce(function (a, b) { return a + b; }, 0), x = 0; return cols.map(function (c, i) { var w = W_ * wts[i] / t, o = r(x, 0, w + 0.05, H_, c); x += w; return o; }).join(''); }
+    function NC(bg, cr, inn) { return r(0, 0, W_, H_, bg) + r(8, 0, 5, H_, cr) + r(0, 7.5, W_, 5, cr) + (inn ? r(9.5, 0, 2, H_, inn) + r(0, 9, W_, 2, inn) : ''); }
+    function star(cx, cy, R, c, rot) { var p = [], i, a; rot = rot || -90; for (i = 0; i < 10; i++) { a = (rot + i * 36) * Math.PI / 180; var rr = i % 2 ? R * 0.42 : R; p.push((cx + rr * Math.cos(a)).toFixed(2) + ',' + (cy + rr * Math.sin(a)).toFixed(2)); } return '<polygon points="' + p.join(' ') + '" fill="' + c + '"/>'; }
+    function circ(cx, cy, R, c) { return '<circle cx="' + cx + '" cy="' + cy + '" r="' + R + '" fill="' + c + '"/>'; }
+    function cres(cx, cy, R, c, bg, dx) { return circ(cx, cy, R, c) + circ(cx + (dx || R * 0.3), cy, R * 0.8, bg); }
+    function stripes(n, a, b) { var h = H_ / n, o = ''; for (var i = 0; i < n; i++) o += r(0, i * h, W_, h + 0.05, i % 2 ? b : a); return o; }
+    function serr(bg, c) { var o = r(0, 0, W_, H_, bg) + r(0, 0, 8, H_, '#fff'), p = ['8,0'], n = 9, h = H_ / n; for (var i = 0; i < n; i++) { p.push('11,' + (i * h + h / 2).toFixed(2)); p.push('8,' + ((i + 1) * h).toFixed(2)); } return o + '<polygon points="' + p.join(' ') + ' 8,20 8,0" fill="#fff"/>'; }
+    var red = '#d52b1e';
+    var D = {
+      DE: Hs(['#000', '#dd0000', '#ffce00']), FR: Vs(['#002395', '#fff', '#ed2939']), ES: Hs(['#aa151b', '#f1bf00', '#aa151b'], [1, 2, 1]),
+      EN: r(0, 0, 30, 20, '#fff') + r(12.5, 0, 5, 20, '#ce1124') + r(0, 7.5, 30, 5, '#ce1124'),
+      PT: Vs(['#006600', '#ff0000'], [2, 3]) + circ(12, 10, 4, '#ffcc00') + circ(12, 10, 2.4, '#ff0000'),
+      NL: Hs(['#ae1c28', '#fff', '#21468b']), IT: Vs(['#009246', '#fff', '#ce2b37']), BE: Vs(['#000', '#fae042', '#ed2939']),
+      HR: Hs(['#ff0000', '#fff', '#171796']) + r(12, 5, 6, 7, '#fff') + r(12, 5, 2, 2, '#ff0000') + r(16, 5, 2, 2, '#ff0000') + r(14, 7, 2, 2, '#ff0000') + r(12, 9, 2, 2, '#ff0000') + r(16, 9, 2, 2, '#ff0000') + r(14, 11, 2, 1, '#ff0000'),
+      DK: NC('#c8102e', '#fff'), CH: r(0, 0, 30, 20, '#da291c') + r(13, 4, 4, 12, '#fff') + r(9, 8, 12, 4, '#fff'),
+      AT: Hs(['#ed2939', '#fff', '#ed2939']), TR: r(0, 0, 30, 20, '#e30a17') + cres(11, 10, 5, '#fff', '#e30a17', 1.3) + star(18, 10, 2.4, '#fff', 0),
+      PL: Hs(['#fff', '#dc143c']), RS: Hs(['#c6363c', '#0c4076', '#fff']), SE: NC('#006aa7', '#fecc00'), NO: NC('#ba0c2f', '#fff', '#00205b'),
+      UA: Hs(['#0057b7', '#ffd700']), CZ: Hs(['#fff', '#d7141a']) + '<polygon points="0,0 15,10 0,20" fill="#11457e"/>', HU: Hs(['#ce2939', '#fff', '#477050']),
+      SC: r(0, 0, 30, 20, '#005eb8') + '<path d="M0,0 L30,20 M30,0 L0,20" stroke="#fff" stroke-width="3.2"/>',
+      GR: stripes(9, '#0d5eaf', '#fff') + r(0, 0, 11.1, 11.1, '#0d5eaf') + r(4.45, 0, 2.2, 11.1, '#fff') + r(0, 4.45, 11.1, 2.2, '#fff'),
+      RO: Vs(['#002b7f', '#fcd116', '#ce1126']), SK: Hs(['#fff', '#0b4ea2', '#ee1c25']) + '<path d="M7,5 h7 v6 q0,4 -3.5,5.5 q-3.5,-1.5 -3.5,-5.5z" fill="#ee1c25" stroke="#fff" stroke-width=".6"/>' + r(10, 7, 1, 6, '#fff') + r(8.5, 8.5, 4, 1, '#fff'),
+      WA: Hs(['#fff', '#00b140']) + '<path d="M8,13 q3,-6 8,-5 l3,-2 l1,2 l3,0 l-2,2 q1,4 -4,5 l2,2 l-3,0 l-2,-2 q-3,1 -6,-2z" fill="#d30731"/>',
+      SI: Hs(['#fff', '#005da4', '#ed1c24']) + '<path d="M6,3.5 h6 v4 q0,3 -3,4 q-3,-1 -3,-4z" fill="#005da4" stroke="#ed1c24" stroke-width=".6"/>',
+      IE: Vs(['#169b62', '#fff', '#ff883e']), AL: r(0, 0, 30, 20, '#e41e20') + '<path d="M15,4 l-6,-1 l3,4 l-4,1 l4,2 l-2,4 l4,-2 l1,4 l1,-4 l4,2 l-2,-4 l4,-2 l-4,-1 l3,-4z" fill="#000"/>',
+      FI: NC('#fff', '#002f6c'), IS: NC('#02529c', '#fff', '#dc1e35'),
+      BR: r(0, 0, 30, 20, '#009c3b') + '<polygon points="15,2.5 27,10 15,17.5 3,10" fill="#ffdf00"/>' + circ(15, 10, 4.2, '#002776') + '<path d="M11,9 q4,-1.5 8,1.2" stroke="#fff" stroke-width=".7" fill="none"/>',
+      AR: Hs(['#74acdf', '#fff', '#74acdf']) + circ(15, 10, 2, '#f6b40e'),
+      UY: stripes(9, '#fff', '#0038a8') + r(0, 0, 11, 11.1, '#fff') + circ(5.5, 5.5, 3, '#fcd116'),
+      CO: Hs(['#fcd116', '#003893', '#ce1126'], [2, 1, 1]), EC: Hs(['#ffdd00', '#034ea2', '#ed1c24'], [2, 1, 1]) + circ(15, 9, 2.4, '#7a5c2e') + circ(15, 9, 1.4, '#6cace4'),
+      US: stripes(13, '#b22234', '#fff') + r(0, 0, 12, 10.8, '#3c3b6e') + [2, 6, 10].map(function (x) { return [2.2, 5.4, 8.6].map(function (y) { return star(x, y, 1, '#fff'); }).join(''); }).join(''),
+      MX: Vs(['#006847', '#fff', '#ce1126']) + circ(15, 10, 2.3, '#8c5a2b'),
+      CA: Vs(['#d52b1e', '#fff', '#d52b1e'], [1, 2, 1]) + '<path d="M15,4 l1,2.5 l1.5,-.8 l-.5,3 l2,-1.5 l.5,1.3 l2,-.3 l-1,2 l1,.6 l-4,2.8 l.3,1.4 h-2.6 v2.5 h-.4 v-2.5 h-2.6 l.3,-1.4 l-4,-2.8 l1,-.6 l-1,-2 l2,.3 l.5,-1.3 l2,1.5 l-.5,-3 l1.5,.8z" fill="#d52b1e"/>',
+      JP: r(0, 0, 30, 20, '#fff') + circ(15, 10, 6, '#bc002d'),
+      KR: r(0, 0, 30, 20, '#fff') + '<path d="M10,10 a5,5 0 0 1 10,0z" fill="#cd2e3a"/><path d="M10,10 a5,5 0 0 0 10,0z" fill="#0047a0"/>' + circ(12.5, 10, 2.5, '#cd2e3a') + circ(17.5, 10, 2.5, '#0047a0') +
+        [[3,3],[3,4.4],[23,15],[23,16.4],[23,3],[3,15]].map(function (q) { return r(q[0], q[1], 4, 0.8, '#000'); }).join(''),
+      IR: Hs(['#239f40', '#fff', '#da0000']) + circ(15, 10, 1.8, '#da0000'),
+      AU: r(0, 0, 30, 20, '#012169') + r(0, 0, 15, 10, '#012169') + '<path d="M0,0 L15,10 M15,0 L0,10" stroke="#fff" stroke-width="2"/><path d="M0,0 L15,10 M15,0 L0,10" stroke="#c8102e" stroke-width=".7"/>' + r(6, 0, 3, 10, '#fff') + r(0, 3.5, 15, 3, '#fff') + r(6.8, 0, 1.4, 10, '#c8102e') + r(0, 4.3, 15, 1.4, '#c8102e') + star(7.5, 15, 2, '#fff') + star(22, 5, 1.1, '#fff') + star(25, 9, 1.1, '#fff') + star(22, 16, 1.1, '#fff') + star(19, 10, 1.1, '#fff'),
+      SA: r(0, 0, 30, 20, '#006c35') + '<path d="M8,8 h14" stroke="#fff" stroke-width="1.2"/><path d="M8,13 h13 l2,-1" stroke="#fff" stroke-width=".9" fill="none"/>',
+      MA: r(0, 0, 30, 20, '#c1272d') + '<polygon points="15,5 16.5,13.5 9.2,8.3 20.8,8.3 13.5,13.5" fill="none" stroke="#006233" stroke-width=".9"/>',
+      SN: Vs(['#00853f', '#fdef42', '#e31b23']) + star(15, 10, 2.6, '#00853f'), CI: Vs(['#f77f00', '#fff', '#009e60']), NG: Vs(['#008751', '#fff', '#008751']),
+      EG: Hs(['#ce1126', '#fff', '#000']) + circ(15, 10, 1.6, '#c09300'),
+      MK: r(0, 0, 30, 20, '#d20000') + '<path d="M0,0 L30,20 M30,0 L0,20 M15,0 V20 M0,10 H30" stroke="#ffe600" stroke-width="2.2"/>' + circ(15, 10, 3.2, '#ffe600') + circ(15, 10, 2.4, '#ffe600'),
+      ME: r(0, 0, 30, 20, '#c40308') + '<rect x="1" y="1" width="28" height="18" fill="none" stroke="#d4af3a" stroke-width="1.2"/>' + '<path d="M15,5 l-4,-1 l2,4 l-3,1 l4,2 l1,4 l1,-4 l4,-2 l-3,-1 l2,-4z" fill="#d4af3a"/>',
+      FO: NC('#fff', '#0065bd', '#ef303e'),
+      BA: r(0, 0, 30, 20, '#002395') + '<polygon points="9,0 23,0 23,14" fill="#fecb00"/>' + [0, 1, 2, 3, 4, 5].map(function (i) { return star(7 + i * 2.6, 1.5 + i * 2.6, 1, '#fff'); }).join(''),
+      LT: Hs(['#fdb913', '#006a44', '#c1272d']),
+      TN: r(0, 0, 30, 20, '#e70013') + circ(15, 10, 5, '#fff') + cres(15, 10, 3.6, '#e70013', '#fff', 1) + star(16.3, 10, 1.7, '#e70013', 0),
+      DZ: Vs(['#006233', '#fff']) + cres(15, 10, 4.2, '#d21034', '#fff', 1.2) + star(16.8, 10, 1.9, '#d21034', 0),
+      CL: Hs(['#fff', '#d52b1e']) + r(0, 0, 10, 10, '#0039a6') + star(5, 5, 2.4, '#fff'),
+      QA: serr('#8a1538'), BH: serr('#ce1126')
+    };
+    return function (code) { return D[code] || null; };
+  })();
+  NT.flagSvg = function (code, w) { var b = FLAG(String(code || '').split(' ')[0]); if (!b) return ''; return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"' + (w ? ' width="' + w + '" height="' + Math.round(w * 2 / 3) + '"' : '') + ' preserveAspectRatio="xMidYMid slice">' + b + '</svg>'; };
+  NT.flagUri = function (code) { var s = NT.flagSvg(code); return s ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s) : null; };
   NT.nat = function (code) { return NT.NATIONS.filter(function (n) { return n.code === code; })[0] || null; };
   NT.byName = function (name) { return NT.NATIONS.filter(function (n) { return n.name === name; })[0] || null; };
   var POOLS = {
@@ -127,7 +187,7 @@
   // Nationalteam (Kader) erzeugen – nicht gespeichert, je Saison/Stufe gleich
   NT.teamId = function (code, lvl) { return 'nt_' + code + '_' + (lvl || 'A'); };
   NT.team = function (st, code, lvl) {
-    lvl = lvl || 'A'; var id = NT.teamId(code, lvl), have = st.clubs[id]; if (have && have.ntSeason === st.season) return have;
+    lvl = lvl || 'A'; var id = NT.teamId(code, lvl), have = st.clubs[id]; if (have && have.ntSeason === st.season) { if (!have.crestImage && NT.flagUri(code)) have.crestImage = NT.flagUri(code); return have; }
     if (have) NT.drop(st, id);
     var nat = NT.nat(code) || { name: code, q: .6, pool: 'de' }, target = NT.target(st, code, lvl);
     var built = isolated(hash(id + ':' + st.season) ^ (st.seed || 1), function () {
@@ -139,7 +199,7 @@
       Object.keys(tmp.players).forEach(function (k) { var p = tmp.players[k]; p.first = pick(fn); p.last = pick(ln); if (lvl !== 'A') p.age = clamp((NT.CFG.youthAge[lvl] || 21) - R.randInt(0, 1), 15, 22); });
       return { club: club, tmp: tmp };
     });
-    var club = built.club, squad = Object.keys(built.tmp.players).map(function (k) { return built.tmp.players[k]; }).filter(function (p) { return !p.youth; });
+    var club = built.club; if (NT.flagUri(code)) club.crestImage = NT.flagUri(code); var squad = Object.keys(built.tmp.players).map(function (k) { return built.tmp.players[k]; }).filter(function (p) { return !p.youth; });
     club.id = id; club.nt = code; club.ntLvl = lvl; club.ntSeason = st.season; club.foreign = true; club.league = 0; club.rivals = []; club.friends = []; club.country = code; club.countryName = nat.name; club.stadiumName = 'Nationalstadion';
     club.squadIds = squad.map(function (p, i) {
       p.id = id + 'p' + (i + 1); p.clubId = id; p.foreignClub = true; p.ntPseudo = true; p.homegrown = false; p.listed = false;

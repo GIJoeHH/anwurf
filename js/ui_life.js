@@ -128,6 +128,8 @@
       '<tr><td>Wohlbefinden</td><td style="width:50%">' + bar(lf.well) + '</td><td class="num">' + Math.round(lf.well) + '</td></tr>' +
       '<tr><td>Zufriedenheit</td><td>' + bar(cx.per.sat) + '</td><td class="num">' + Math.round(cx.per.sat) + '</td></tr>' +
       '<tr><td>Stress</td><td>' + bar(cx.per.stress, cx.per.stress > 60 ? 'var(--red)' : cx.per.stress < 30 ? 'var(--green)' : 'var(--amber)') + '</td><td class="num">' + Math.round(cx.per.stress) + '</td></tr>' +
+      (p ? '<tr><td>Frische</td><td>' + bar(p.fitness, p.fitness < 60 ? 'var(--red)' : p.fitness < 80 ? 'var(--amber)' : 'var(--green)') + '</td><td class="num">' + Math.round(p.fitness) + '</td></tr>' +
+        '<tr><td>Laune</td><td>' + bar(p.morale, p.morale < 35 ? 'var(--red)' : p.morale < 60 ? 'var(--amber)' : 'var(--green)') + '</td><td class="num">' + Math.round(p.morale) + '</td></tr>' : '') +
       '<tr><td>Familie</td><td>' + bar(cx.rel.family) + '</td><td class="num">' + Math.round(cx.rel.family) + '</td></tr></table>' +
       '<p class="small" style="margin-top:8px">Termine diese Woche: ' + apDots(st) + '</p><p class="muted small">Mehr freie Termine gibt es über Freizeit, Partnerschaft, Freunde, Familie oder Fantermine im <a href="#" data-act="nav" data-s="pwoche">Wochenplan</a>. Karriere und Privatleben konkurrieren um dasselbe Zeitbudget.</p></div>';
     // Partnerschaft
@@ -168,11 +170,20 @@
     U.autosave(); U.render(); U.showResult('Abend in der Stadt', 'Ein netter Abend mit Freunden – heute ohne neue Bekanntschaft. Wohlbefinden +2, Stress −1', 'freunde');
   };
 
+  // Extratraining direkt erreichbar (ohne Umweg über das Trainingsgebäude)
+  function trainBtns(st) {
+    var c = C.club(st); if (!c || !L.BLD.training) return '';
+    return '<div class="row" style="gap:6px;flex-wrap:wrap;align-items:center"><span class="small"><b>' + U.lc('dumbbell', 14) + ' Extratraining:</b></span>' + L.BLD.training.acts.filter(function (a) { return a.ap && !a.dlg; }).map(function (a) { return '<button class="sm" data-act="pcBldAct" data-b="training" data-k="' + a.k + '" title="' + esc(a.d) + ' (1 Termin)">' + esc(a.n) + '</button>'; }).join('') + '</div>';
+  }
+  U.trainBtns = trainBtns;
   // ---------- Vereinsgelände (vorhandene Einrichtungen, keine eigene Infrastruktur-Datenbank) ----------
   var BMAP = { training: 'training', jugend: 'jugend', medizin: 'medizin', geschaeft: 'geschaeft' };
   U.screens.pverein = function () {
     var st = U.st, c = C.club(st), p = C.player(st); if (!c) return '<h1>Vereinsgelände</h1><p class="muted">Du bist gerade ohne Verein.</p>';
     var h = '<h1>Vereinsgelände ' + esc(c.short) + '</h1>' + resume(st) + '<p class="small">Termine diese Woche: ' + apDots(st) + ' · Gebäude antippen für Aktivitäten. Ausstattung und Wirkung richten sich nach dem tatsächlichen Ausbau des Vereins.</p>';
+    // Schnellzugang oben – die Gebäudekarten unter der 3D-Ansicht sind sonst nur mit viel Scrollen erreichbar
+    h += '<div class="panel" style="margin-bottom:10px;padding:10px 12px">' + trainBtns(st) + '</div>';
+    h += '<div class="row lf-quick" style="gap:6px;flex-wrap:wrap;margin:0 0 12px">' + Object.keys(L.BLD).map(function (k) { var B = L.BLD[k]; return '<button class="sm' + (k === 'training' ? ' primary' : '') + '" data-act="pcBld" data-k="' + k + '">' + B.ic + ' ' + esc(B.n) + '</button>'; }).join('') + '</div>';
     if (SM && S3 && U.gfx && U.gfx.cityView) {
       var m = SM.build(c), blds = SM.city(c);
       var labels = blds.filter(function (b) { return b.key !== 'strasse'; }).map(function (b) { var act = BMAP[b.key]; return { x: b.x, y: b.y, bld: b.key, html: '<b>' + esc(b.name) + '</b><span>' + (b.level ? (act ? 'Aktivitäten · ' : '') + 'Stufe ' + b.level + '/' + b.max : 'nicht vorhanden') + '</span>', cls: b.level ? (act ? 'main' : '') : 'empty', act: 'pcBld', k: b.key }; });
@@ -200,6 +211,7 @@
     var a = L.BLD[d.b].acts.filter(function (x) { return x.k === d.k; })[0]; U.render(); U.showResult(a.n, a.d + ' – erledigt. ' + (r.txt || ''), d.b === 'stadion' ? 'fans' : d.b === 'medizin' ? 'medizin' : 'training');
   };
 
+  U.acts.lfDonate = function (d) { var st = U.st, r = L.donate(st, d.k); if (!r.ok) { U.showResult('Gerade nicht möglich', r.why); return; } U.autosave(); U.render(); U.showResult('Spende an die Fans', r.txt, 'fans'); };
   // ---------- Fans & Medien ----------
   U.screens.pmedien = function () {
     var st = U.st, cx = L.ensure(st), lf = cx.life, pc = st.pc, c = L.ctx(st);
@@ -207,6 +219,7 @@
     h += '<div class="grid g2"><div class="panel"><h2>' + U.lc('megaphone', 17) + ' Fangruppen</h2><table class="t small">' + Object.keys(L.FANS).map(function (k) { return '<tr><td>' + esc(L.FANS[k]) + '</td><td style="width:50%">' + bar(lf.fans[k]) + '</td><td class="num">' + Math.round(lf.fans[k]) + '</td></tr>'; }).join('') + '</table>' +
       (lf.protest ? '<p class="small neg">' + U.lc('triangle-alert', 14) + ' Teile der Fanszene sind unzufrieden und planen Proteste.</p>' : '') +
       '<p class="muted small">Fangruppen reagieren unterschiedlich: Was Ultras gefällt, kann Familienfans oder die Vereinsführung verärgern.</p>' +
+      '<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:6px">' + Object.keys(L.DON).map(function (k) { var a = L.DON[k], why = L.donBlock(st, k); return '<button class="sm' + (why ? ' ghost' : '') + '" data-act="lfDonate" data-k="' + k + '"' + (why ? ' disabled' : '') + ' title="' + esc(a.d) + '">' + a.ic + ' ' + esc(a.n) + ' (' + money(a.cost) + ')' + (why ? ' – ' + esc(why) : '') + '</button>'; }).join('') + '</div>' +
       '<div class="row" style="gap:6px;flex-wrap:wrap">' + btn('Fanclub-Treffen (1 Termin)', 'fans', { grp: 'club', ap: 1 }) + btn('Familien- & Jugendfans (1 Termin)', 'fans', { grp: 'fam', ap: 1 }) + (c.pro ? btn('Treffen mit den Ultras (1 Termin)', 'fans', { grp: 'ultras', ap: 1 }) : '') + '</div></div>';
     h += '<div class="panel"><h2>' + U.lc('newspaper', 17) + ' Journalisten</h2>' + lf.jrn.map(function (j) { var q = j.quotes[0]; return '<div class="lf-card"><b>' + esc(j.name) + '</b> <span class="muted small">' + esc(j.outlet) + ' · ' + esc(L.JTYPES[j.type]) + '</span>' + bar(j.v) + (q ? '<div class="small" style="margin-top:4px">Zuletzt zitiert: „' + esc(q.txt) + '“ <span class="muted">(Saison ' + q.s + ')</span></div>' : '<div class="muted small">Hat dich noch nicht zitiert.</div>') + '</div>'; }).join('') +
       '<table class="t small"><tr><td>Medienansehen</td><td style="width:50%">' + bar(cx.per.media) + '</td><td class="num">' + Math.round(cx.per.media) + '</td></tr><tr><td>Bekanntheit</td><td>' + bar(pc.fame) + '</td><td class="num">' + Math.round(pc.fame) + '</td></tr></table>' +
@@ -219,13 +232,15 @@
   U.screens.pbez = function () {
     var st = U.st, c = L.ctx(st), h = basePbez();
     var talk = '<div class="panel" style="margin-bottom:14px"><h2>' + U.lc('handshake', 17) + ' Gespräche führen</h2><p class="muted small">Mehrstufige Gespräche mit Reaktionen. Dein Gegenüber merkt sich, was du sagst.</p><div class="row" style="gap:6px;flex-wrap:wrap">' +
-      (c.youth ? btn('Jugendtrainer', 'youthcoach', {}) : btn('Trainer', 'coach', {}, 'primary')) + (AG && AG.current(st) ? btn('Spielerberater', 'agent', {}) : '') + (c.pro ? btn('Vereinsführung', 'board', {}) : '') + btn('Mannschaftsarzt', 'doctor', {}) + btn('Finanzberatung', 'finadv', {}) + btn('Familie', 'family', { i: 0 }) + '</div></div>';
+      (c.youth ? btn('Jugendtrainer', 'youthcoach', {}) : btn('Trainer', 'coach', {}, 'primary')) + (AG && AG.current(st) ? btn('Spielerberater', 'agent', {}) : '') + (c.pro ? btn('Vereinsführung', 'board', {}) : '') + btn('Mannschaftsarzt', 'doctor', {}) + btn('Finanzberatung', 'finadv', {}) + btn('Familie', 'family', { i: 0 }) + '</div>' +
+      ((c.pro || (st.pc.fame || 0) >= 5) && L.life(st).jrn.length ? '<p class="muted small" style="margin:10px 0 4px">' + U.lc('coffee', 14) + ' Hintergrundgespräch mit der Presse (off the record, 1 Termin):</p><div class="row" style="gap:6px;flex-wrap:wrap">' + L.life(st).jrn.map(function (j) { return btn(esc(j.name) + ' <span class="muted">· ' + esc(j.outlet) + '</span>', 'pressbg', { j: j.type, ap: 1 }); }).join('') + '</div>' : '') + '</div>';
     return h.replace('</h1>', '</h1>' + resume(st) + talk);
   };
   // ---------- Verträge: Verhandlung im Gespräch ----------
   var basePber = U.screens.pberater;
   U.screens.pberater = function () {
-    var h = basePber();
+    var h = basePber(), st = U.st;
+    if (AG && AG.current(st)) h = h.replace('</h1>', '</h1><div class="row" style="gap:6px;margin-bottom:12px">' + btn(U.lc('briefcase', 14) + ' Gespräch mit dem Berater', 'agent', {}, 'primary') + '</div>');
     return h.replace(/<button class="sm primary" data-act="pcAccept" data-id="([^"]+)">/g, '<button class="sm" data-act="dlgStart" data-dlg="negotiate" data-oid="$1">' + U.lc('handshake', 14) + ' Im Gespräch verhandeln</button>$&');
   };
   // ---------- Karriere-Zentrale: Leben & Termine kompakt ----------
@@ -235,7 +250,7 @@
     var lf = L.life(st), pt = lf.partner;
     var strip = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h2>' + U.lc('heart-pulse', 17) + ' Leben & Termine</h2><span class="small">' + apDots(st) + '</span></div><div class="row small" style="gap:14px;flex-wrap:wrap">' +
       '<span>Wohlbefinden <b>' + Math.round(lf.well) + '</b></span><span>Zufriedenheit <b>' + Math.round(st.pc.cx.per.sat) + '</b></span><span>' + (pt ? 'Partnerschaft: <b>' + esc(fn(pt)) + '</b> (' + esc(L.STAGES[pt.stage]) + ')' : 'Single') + '</span>' + (lf.kids.length ? '<span>Kinder: <b>' + lf.kids.length + '</b></span>' : '') +
-      '<span>Fans: <b>' + Math.round(st.pc.cx.rel.fans) + '</b></span></div><div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="sm" data-act="nav" data-s="pleben">Mein Leben</button><button class="sm" data-act="nav" data-s="pverein">Vereinsgelände</button><button class="sm" data-act="nav" data-s="pmedien">Fans & Medien</button></div></div>';
+      '<span>Fans: <b>' + Math.round(st.pc.cx.rel.fans) + '</b></span></div><div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="sm" data-act="nav" data-s="pleben">Mein Leben</button><button class="sm" data-act="nav" data-s="pverein">Vereinsgelände</button><button class="sm" data-act="nav" data-s="pmedien">Fans & Medien</button></div>' + (C.club(st) ? '<div style="margin-top:8px">' + trainBtns(st) + '</div>' : '') + '</div>';
     return resume(st) + h.replace(/(<div class="panel" style="margin-top:14px"><h2>[^<]*<svg[^]*?<\/svg> Umfeld<\/h2>)/, strip + '$1') + (h.indexOf(' Umfeld</h2>') < 0 ? strip : '');
   };
 

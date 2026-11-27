@@ -490,4 +490,61 @@
   };
   var baseMark = NT.markAway;
   NT.markAway = function (st) { var r = baseMark(st); try { NT.decisiveCheck(st); } catch (er) { if (typeof console !== 'undefined') console.error(er); } return r; };
+  // =====================================================================================
+  // Gespräche: Nationaltrainer, Verband, Arzt der Nationalmannschaft (Zweitmeinung auch für den Verein)
+  // =====================================================================================
+  if (L && L.addDlg) {
+    var nEnd = function (r, e) { return { r: r, e: e || {}, end: true }; };
+    NT.talkBlock = function (st, k) { var nt = NT.ensure(st); if (!nt) return 'nicht verfügbar'; nt.talkT = nt.talkT || {}; var cd = { ntcoach: 3, ntfed: 4, ntdoc: 3 }[k] || 3, t = nt.talkT[k];
+      if (k !== 'ntcoach' && !nt.caps && nt.status !== 'squad') return 'erst nach der ersten Nominierung';
+      if (t != null && tick(st) - t < cd) return 'wieder in ' + (cd - (tick(st) - t)) + ' Wo.'; return ''; };
+    NT.docName = function (st) { var nt = NT.ensure(st); return nt.docName || (nt.docName = 'Prof. Dr. ' + (L.name ? L.name() : 'Berger')); };
+    var mark = function (st, k) { var nt = NT.ensure(st); nt.talkT = nt.talkT || {}; nt.talkT[k] = tick(st); };
+    var blockInit = function (k) { return function (st, c, d, s) { var why = NT.talkBlock(st, k); if (why) { s.done = true; s.sum = 'Gerade nicht möglich: ' + why + '.'; return; } mark(st, k); }; };
+    L.addDlg([{
+      id: 'ntcoach', cat: 'nati', ic: '🦅', scene: 'trainer', title: 'Gespräch mit dem Nationaltrainer', max: 2,
+      init: blockInit('ntcoach'),
+      who: function (c) { return { n: c.nt.coach.name, role: 'Nationaltrainer · ' + NT.own(c.st).name, ic: '🦅', kind: 'coach' }; },
+      nodes: {
+        start: { say: function (c) { var nt = c.nt; return nt.status === 'squad' ? '„Schön, dass du dich meldest. Worum geht es?“' : '„Ich beobachte dich, keine Sorge. Was möchtest du wissen?“'; },
+          opts: function (c) { var nt = c.nt, o = [];
+            o.push({ l: nt.status === 'squad' ? 'Was erwarten Sie von mir?' : 'Was fehlt mir zur Nominierung?', fx: function (st, c2) { var p = c2.p, f = p.form || 6, tips = [];
+              if (f < 6.6) tips.push('konstant bessere Leistungen im Verein'); if (c2.share != null && c2.share < 0.6) tips.push('mehr Einsatzminuten'); if (nt.trust < 50) tips.push('Vertrauen – zeig dich im Training'); if (!tips.length) tips.push('genau so weitermachen');
+              return nEnd('„Ehrlich gesagt: ' + tips.join(', ') + '. Dann sprechen wir uns wieder.“', { ntc: 3, nt: 1 }); } });
+            if (nt.status === 'squad') o.push({ l: 'Ich will mehr Spielzeit.', hint: 'Riskant, wenn das Vertrauen fehlt', fx: function (st) { if (ch(0.25 + nt.trust / 160)) return nEnd('„Das gefällt mir – Ehrgeiz. Du bekommst deine Minuten, wenn du im Training überzeugst.“', { nt: 4, conf: 2 }); return nEnd('„Spielzeit verdient man sich. Bei mir zählt Leistung, nicht Ansprüche.“ Der Ton wird kühler.', { nt: -4, ntc: -3, stress: 2 }); } });
+            o.push({ l: 'Ich stehe bereit – auch auf ungewohnter Position.', fx: function () { return nEnd('„Solche Spieler brauche ich. Das merke ich mir.“', { nt: 3, ntc: 2, stress: 1 }); } });
+            o.push({ l: 'Wie sehen Sie das Spielsystem?', fx: function () { return nEnd('Er nimmt sich Zeit und erklärt seine Idee. Du verstehst besser, worauf es ankommt.', { ntc: 4, disc: 1 }); } });
+            return o; } }
+      },
+      sum: function (st, c, d, s) { return s.sum || (s.log.length ? s.log[s.log.length - 1].r : ''); }
+    }, {
+      id: 'ntfed', cat: 'nati', ic: '🏛️', scene: 'vorstand', title: 'Termin beim Verband', max: 2,
+      init: blockInit('ntfed'),
+      who: function (c) { var nt = c.nt; return { n: nt.fedName || (nt.fedName = (L.name ? L.name() : 'Sportdirektor')), role: 'Sportdirektor · Verband ' + NT.own(c.st).name, ic: '🏛️', kind: 'board' }; },
+      nodes: {
+        start: { say: function (c) { return '„Danke, dass Sie vorbeikommen. Der Verband legt Wert auf gute Zusammenarbeit mit den Spielern. Was liegt Ihnen am Herzen?“'; },
+          opts: [
+            { l: 'Bei einem Sozialprojekt des Verbands mitmachen', fx: function (st, c) { var nt = c.nt; nt.fed = clamp((nt.fed || 50) + 6, 0, 100); C.addFame(st, 1); return nEnd('Du besuchst mit dem Verband eine Schule und kickst mit den Kindern. Die Bilder gehen durch die Medien.', { pop: 3, media: 2, nt: 1 }); } },
+            { l: 'Prämienregelung ansprechen', fx: function (st, c) { var nt = c.nt; if (ch(0.3 + (nt.fed || 50) / 250)) { nt.fed = clamp((nt.fed || 50) + 1, 0, 100); return nEnd('„Wir prüfen das mit dem Mannschaftsrat.“ Er klingt offen – die Mitspieler danken dir.', { p_capt: 3, lead: 1 }); } nt.fed = clamp((nt.fed || 50) - 4, 0, 100); return nEnd('„Die Prämien sind ausverhandelt.“ Beim Verband gilt man jetzt als schwierig.', { nt: -1, stress: 1 }); } },
+            { l: 'Belastung und Terminplanung kritisieren', fx: function (st, c) { var nt = c.nt; nt.fed = clamp((nt.fed || 50) - 3, 0, 100); return nEnd('Er notiert sich deine Punkte. Dein Vereinstrainer hört später davon – und rechnet es dir an.', { coach: 2, stress: -1, nt: -1 }); } },
+            { l: 'Über die Zukunft im Nationalteam sprechen', fx: function (st, c) { var nt = c.nt; return nEnd(nt.caps >= 30 ? '„Sie sind ein Gesicht dieser Mannschaft. Wann Sie aufhören, entscheiden Sie – wir hätten Sie gern noch lange dabei.“' : '„Der Weg ist offen. Leistung entscheidet – und der Trainer.“', { conf: 1 }); } }] }
+      },
+      sum: function (st, c, d, s) { return s.sum || (s.log.length ? s.log[s.log.length - 1].r : ''); }
+    }, {
+      id: 'ntdoc', cat: 'verletzung', ic: '🩺', scene: 'medizin', title: 'Arzt der Nationalmannschaft', max: 2,
+      init: blockInit('ntdoc'),
+      who: function (c) { return { n: NT.docName(c.st), role: 'Arzt der Nationalmannschaft · Zweitmeinung', ic: '🩺', kind: 'doctor' }; },
+      nodes: {
+        start: { say: function (c) { return c.p.inj ? '„Ich habe mir die Bilder angesehen: ' + c.p.inj.type + ', ' + c.p.inj.weeks + ' Wochen laut Verein. Lassen Sie mich selbst untersuchen.“' : '„Keine Verletzung – gut so. Wir können trotzdem etwas für Ihre Belastbarkeit tun.“'; },
+          opts: function (c) { return c.p.inj ? [
+            { l: 'Zweitmeinung einholen (vom Verband bezahlt)', fx: function (st, c2) { var p = c2.p, r = R.rand(); if (r < 0.45 && p.inj.weeks > 1) { var w = p.inj.weeks > 6 && r < 0.15 ? 2 : 1; p.inj.weeks -= w; return nEnd('Die Diagnose ist günstiger als befürchtet: ' + w + ' Woche' + (w > 1 ? 'n' : '') + ' weniger Pause. Dein Vereinsarzt passt den Reha-Plan an.', { conf: 2, stress: -2 }); } if (r > 0.9) { p.inj.weeks += 1; return nEnd('„Ich würde eher vorsichtiger sein – eine Woche länger.“ Lieber jetzt als ein Rückfall.', { stress: 1 }); } return nEnd('Die Diagnose des Vereins wird bestätigt. Immerhin weißt du jetzt sicher Bescheid.', { stress: -1 }); } },
+            { l: 'Reha-Plan abstimmen lassen', fx: function (st) { if (L.life) L.life(st).relapse = 0; return nEnd('Er telefoniert mit dem Vereinsarzt. Das Rückfallrisiko sinkt.', { stress: -2, coach: 1 }); } }] : [
+            { l: 'Leistungsdiagnostik auf Verbandsniveau', fx: function (st) { if (L.life) L.life(st).med.dx = tick(st) + 8; return nEnd('Laktat, Muskelscans, Schlafanalyse – die Daten gehen an deinen Verein. Das Verletzungsrisiko sinkt in den nächsten Wochen.', { fit: 3, coach: 1 }); } },
+            { l: 'Danke, alles gut', fx: function () { return nEnd('„Melden Sie sich jederzeit.“'); } }]; } }
+      },
+      sum: function (st, c, d, s) { return s.sum || (s.log.length ? s.log[s.log.length - 1].r : ''); }
+    }]);
+    // Zweitmeinung im Verein: in der medizinischen Abteilung, sobald man Nationalspieler ist
+    if (L.BLD && L.BLD.medizin) L.BLD.medizin.acts.push({ k: 'ntdoc', n: 'Zweitmeinung beim Arzt der Nationalmannschaft', d: 'Top-Mediziner des Verbands', ap: 0, dlg: 'ntdoc', req: function (c) { var nt = c.st.pc.nt; return !!(nt && (nt.caps || nt.status === 'squad')); } });
+  }
 })(RFM);

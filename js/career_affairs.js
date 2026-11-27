@@ -84,6 +84,8 @@
     // aufgeflogen
     var pool = aff.length ? aff : A.dating(st), x = pool[Math.floor(R.rand() * pool.length)];
     var byPartner = pt && (ch(0.6) || pool.length < 2), press = ch(Math.min(0.85, pc.fame / 110 + (x.pub >= 65 ? 0.15 : 0) + (aff.length >= 2 ? 0.15 : 0)));
+    // Nur geflirtet / Nummer getauscht, aber nichts passiert: eigene, mildere Szene statt „Affäre aufgeflogen“
+    if (byPartner && !x.aff && !(x.night > 0)) { L.start(st, 'flirt_caught', { cid: x.id, press: press ? 1 : 0 }); if (press) X.eff(st, { media: -3, stress: 3 }); else X.eff(st, { stress: 2 }); return; }
     if (byPartner) L.start(st, 'aff_caught', { cid: x.id, press: press ? 1 : 0, n: pool.length });
     else { var y = pool.filter(function (z) { return z !== x; })[0] || null; L.start(st, 'aff_found', { cid: x.id, oid: y ? y.id : '', press: press ? 1 : 0 }); }
     A.scandal(st, press, byPartner ? 'partner' : 'aff');
@@ -94,6 +96,23 @@
   function endI(d, r, e, img) { if (img) d.img = img; return { r: r, e: e || {}, end: true }; }
   // Die Partnerperson erfährt davon
   L.addDlg([{
+    // Die Partnerperson entdeckt einen Flirt bzw. eine getauschte Nummer – es ist aber nichts passiert
+    id: 'flirt_caught', cat: 'familie', ic: '📱', imp: 2, max: 2, title: 'Wer ist das?',
+    init: function (st, c, d, s) { if (!L.life(st).partner || !A.get(st, d.cid)) s.done = true; },
+    scene: function (c, d) { return 'pt_' + (d.img || 'conflict'); },
+    who: function (c) { var p = L.life(c.st).partner; return { n: p ? p.name : '?', role: p ? 'Partnerperson' : '', ic: '📱', kind: 'partner', look: p ? p.look : null }; },
+    nodes: {
+      start: { say: function (c, d) { var p = L.life(c.st).partner, x = X2(c.st, d); return (d.press ? 'Ein Klatschportal zeigt ein Foto von dir und ' + fn(x) + ' an einer Bar. ' : fn(p) + ' hat auf deinem Handy Nachrichten von ' + fn(x) + ' gesehen. ') + '„Wer ist ' + fn(x) + '? Läuft da was?“ Passiert ist nichts – aber das muss ' + fn(p) + ' dir erst einmal glauben.'; },
+        opts: [
+          { l: 'Ehrlich erklären: „Nur geflirtet, da war nichts.“', fx: function (st, c, d) { var p = P.partner(st), x = X2(st, d);
+            if (ch(clamp(0.75 + (p.v - 50) / 200 - (d.press ? 0.1 : 0), 0.55, 0.95))) { p.v = Math.max(10, p.v - 4); p.neg += 1; return endI(d, fn(p) + ' atmet durch. „Okay. Ich glaube dir. Aber lösch die Nummer.“ Du tust es.', { stress: 2 }, 'thought'); }
+            p.v = Math.max(10, p.v - 10); p.neg += 3; L.life(st).suspect = tick(st) + 8; return endI(d, fn(p) + ' bleibt skeptisch: „Nur geflirtet? Das fühlt sich trotzdem mies an.“ Ein paar Tage ist die Stimmung frostig – aber ihr bleibt zusammen.', { stress: 4 }, 'thought'); } },
+          { l: function (c, d) { return 'Entschuldigen und den Kontakt zu ' + fn(X2(c.st, d)) + ' löschen'; }, fx: function (st, c, d) { var p = P.partner(st), x = X2(st, d); A.end(st, x.id); p.v = Math.max(10, p.v - 2); p.neg = Math.max(0, p.neg - 1);
+            return endI(d, 'Du löschst den Kontakt vor ' + fn(p) + 's Augen und entschuldigst dich. „Danke. Das war mir wichtig.“', { partner: 1, stress: 1 }, 'reconcile'); } },
+          { l: 'Abwiegeln: „Ist doch nichts dabei.“', fx: function (st, c, d) { var p = P.partner(st); p.v = Math.max(10, p.v - 7); p.neg += 3; L.life(st).suspect = tick(st) + 10; return endI(d, '„Für dich vielleicht nicht.“ ' + fn(p) + ' ist gekränkt. Ihr redet heute nicht mehr viel.', { stress: 3 }, 'thought'); } }] }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }, {
     id: 'aff_caught', cat: 'familie', ic: '💥', chron: true, imp: 3, max: 3, title: 'Aufgeflogen',
     init: function (st, c, d, s) { if (!L.life(st).partner || !A.get(st, d.cid)) s.done = true; },
     scene: function (c, d) { return 'pt_' + (d.img || 'conflict'); },
@@ -609,4 +628,57 @@
     L.start(st, 'app_found', { how: how });
   };
   C.on.weekly.push(A.appWeekly);
+
+  // ---------- Hintergrundgespräch mit Journalistinnen und Journalisten (off the record) ----------
+  // Bei Journalistinnen kann geflirtet werden – oder sie flirten selbst: ernst gemeint oder als Masche, um an Interna zu kommen.
+  function jOf(st, d) { return L.jrn(st, 'j_' + d.j) || L.life(st).jrn[0]; }
+  function jCand(st, j) { var lf = L.life(st), x = lf.cands.filter(function (y) { return y.name === j.name; })[0]; if (!x) { x = L.newCand(st); x.name = j.name; x.g = 'a'; x.job = 'Journalismus'; } x.where = 'Hintergrundgespräch (' + j.outlet + ')'; x.stage = Math.max(1, x.stage || 0); x.v = Math.max(x.v, 60); x.t = tick(st); return x; }
+  function badPress(st, j, why) {
+    var pt = L.life(st).partner, nm = C.player(st) ? R.world.playerName(C.player(st)) : 'Profi';
+    X.chron(st, 'medien', '📰', 'Peinliche Schlagzeile', j.outlet + ': ' + why, 3, 'presse');
+    if (S && S.news) S.news(st, j.outlet + ' über ' + nm, why, 'medien');
+    if (pt) { var pp = P.partner(st); pp.neg += 3; lf2(st).suspect = tick(st) + 8; }
+    return pt ? { media: -8, pop: -3, coach: -2, board: -4, f_fam: -5, partner: -8, stress: 6 } : { media: -8, pop: -3, coach: -2, board: -4, f_fam: -5, stress: 4 };
+  }
+  function lf2(st) { return L.life(st); }
+  L.addDlg([{
+    id: 'pressbg', cat: 'medien', ic: '☕', scene: 'presse', title: 'Hintergrundgespräch', max: 4,
+    init: function (st, c, d, s) { var j = jOf(st, d); if (!j) { s.done = true; return; } d.j = j.type; d.fem = L.fem(j.name) ? 1 : 0;
+      // flirtet sie von sich aus? ernst gemeint oder Masche (Boulevard eher Masche)
+      if (d.fem && ch(0.3 + (st.pc.fame || 0) / 300)) { d.her = 1; d.real = ch(j.type === 'boul' ? 0.3 : j.type === 'krit' ? 0.45 : 0.6) ? 1 : 0; s.node = 'her'; } },
+    who: function (c, d) { var j = jOf(c.st, d); return j ? { n: j.name, role: L.JTYPES[j.type] + ' · ' + j.outlet, ic: '☕', kind: 'press' } : { n: 'Presse', role: '' }; },
+    nodes: {
+      start: { say: function (c, d) { var j = jOf(c.st, d); return 'Ein Kaffee abseits der Kameras mit ' + fn(j) + ' (' + j.outlet + '). „Alles off the record – ich will nur verstehen, wie du tickst.“'; },
+        opts: function (c, d) { var o = [
+          { l: 'Offen über Sport und Ziele reden', fx: function (st, c, d) { var j = jOf(st, d); return endI(d, fn(j) + ' schreibt kaum mit, hört aber genau zu. „Danke. So versteht man dich besser.“', { ['j_' + j.type]: 7, media: 2 }); } },
+          { l: 'Freundlich, aber nur Floskeln', fx: function (st, c, d) { var j = jOf(st, d); return endI(d, 'Höflich, ohne Inhalt. ' + fn(j) + ' lächelt etwas gelangweilt.', { ['j_' + j.type]: 1 }); } }];
+          if (d.fem) o.push({ l: 'Mit ihr flirten', hint: 'Kann gut ankommen – oder in der Zeitung landen', fx: function (st, c, d) { var j = jOf(st, d);
+            if (ch(clamp(0.35 + (c.cx.per.conf - 50) / 200 + (j.v - 50) / 150 + (j.type === 'krit' ? -0.1 : 0) + Math.min(0.1, (st.pc.fame || 0) / 400), 0.1, 0.8))) { return { r: fn(j) + ' lacht und hält deinem Blick stand. „Du weißt schon, dass ich das eigentlich nicht darf?“ Sie klappt den Notizblock zu.', e: { conf: 1, ['j_' + j.type]: 4 }, next: 'match' }; }
+            return endI(d, fn(j) + ' zieht die Augenbrauen hoch. „Ernsthaft?“ Zwei Tage später steht es in der Zeitung: plumpe Anmache im Hintergrundgespräch.', Object.assign({ ['j_' + j.type]: -15 }, badPress(st, j, 'Profi baggert Journalistin beim Interview an – im Verein ist man verärgert.')), 'thought'); } });
+          return o; } },
+      her: { say: function (c, d) { var j = jOf(c.st, d); return fn(j) + ' rückt näher, lacht über jeden deiner Witze und berührt wie zufällig deinen Arm. „Wir könnten das ja mal ohne Diktiergerät fortsetzen – bei einem Glas Wein?“'; },
+        opts: [
+          { l: 'Darauf eingehen', fx: function (st, c, d) { return { r: 'Am Abend sitzt ihr in einer kleinen Weinbar. ' + (d.real ? 'Sie erzählt von sich, fragt nach dir – nicht nach dem Verein.' : 'Nach dem zweiten Glas wird sie neugierig: „Sag mal, wie ist das eigentlich wirklich zwischen dem Trainer und der Mannschaft? Und stimmt das mit dem Kapitän?“'), next: d.real ? 'match' : 'leak' }; } },
+          { l: 'Höflich abblocken', fx: function (st, c, d) { var j = jOf(st, d); return endI(d, 'Du bleibst professionell. ' + fn(j) + ' nimmt es sportlich: „Schade. Aber fair.“', { ['j_' + j.type]: d.real ? -2 : 1, partner: 1 }); } },
+          { l: 'Nachfragen: „Ist das ernst gemeint – oder willst du eine Story?“', fx: function (st, c, d) { var j = jOf(st, d);
+            if (d.real) return { r: fn(j) + ' wird rot. „Ganz ehrlich? Ernst gemeint. Die Story ist mir heute egal.“', e: { ['j_' + j.type]: 2 }, next: 'match' };
+            return endI(d, fn(j) + ' lacht ertappt. „Einen Versuch war es wert.“ Masche durchschaut – du gibst nichts preis.', { conf: 2, ['j_' + j.type]: -3 }); } }] },
+      leak: { say: function (c, d) { return '„Komm schon, nur unter uns.“ Sie schenkt nach und wartet.'; },
+        opts: [
+          { l: 'Ein bisschen aus der Kabine plaudern', fx: function (st, c, d) { var j = jOf(st, d), nm = C.player(st) ? R.world.playerName(C.player(st)) : 'Profi';
+            X.chron(st, 'medien', '📰', 'Interna in der Zeitung', j.outlet + ' druckt Interna aus der Kabine – die Quelle bist du.', 3, 'presse');
+            if (S && S.news) S.news(st, 'Interna aus der Kabine', j.outlet + ' berichtet über Streit zwischen Trainer und Mannschaft. Im Verein sucht man die undichte Stelle – und landet bei ' + nm + '.', 'medien');
+            var pt = L.life(st).partner; if (pt) P.partner(st).neg += 2;
+            return endI(d, 'Drei Tage später steht alles in der Zeitung. Die Mitspieler wissen sofort, woher es kommt. ' + fn(j) + ' meldet sich nie wieder privat – es war eine Masche.', { mates: -9, capt: -6, coach: -6, board: -5, media: -2, ['j_' + j.type]: 6, stress: 6, partner: pt ? -4 : 0 }, 'thought'); } },
+          { l: 'Lachen: „Über die Kabine rede ich nicht.“', fx: function (st, c, d) { var j = jOf(st, d); return endI(d, fn(j) + ' verliert schnell das Interesse und bestellt die Rechnung. Da ging es wohl nie um dich.', { conf: 1, ['j_' + j.type]: -4 }); } }] },
+      match: { say: function (c, d) { var pt = L.life(c.st).partner; return 'Zwischen euch knistert es.' + (pt ? ' Zu Hause wartet ' + fn(pt) + '.' : '') + ' Wie geht es weiter?'; },
+        opts: [
+          { l: 'Nummern tauschen und ein Date ausmachen', hint: function (c) { return L.life(c.st).partner ? 'Heimlicher Kontakt neben der Beziehung' : 'Kann eine Beziehung werden'; }, fx: function (st, c, d) { var j = jOf(st, d), x = jCand(st, j); return endI(d, fn(j) + ' tippt ihre Nummer in dein Handy. „Aber nicht in der Kabine rumerzählen.“ Ihr seht euch wieder.', { well: 2 }, 'date'); } },
+          { l: 'Mit zu ihr', hint: 'Affäre – Spaß, aber Entdeckungsrisiko', fx: function (st, c, d) { var j = jOf(st, d), pt = L.life(st).partner; if (!A.flings(st).some(function (f) { return f.on && f.name === j.name; })) A.flingAdd(st, j.name); if (pt) P.partner(st).neg += 2;
+            X.chron(st, 'familie', '🍷', 'Affäre', 'Eine Nacht mit ' + j.name + ' (' + j.outlet + ')' + (pt ? ' – ' + fn(pt) + ' darf davon nichts erfahren.' : '.'), 1, 'date');
+            return endI(d, 'Eine lange Nacht. Am Morgen grinst ' + fn(j) + ': „Das bleibt garantiert off the record.“', pt ? { well: 3, stress: 3, fit: -3 } : { well: 4, stress: 1, fit: -3 }); } },
+          { l: 'Lieber professionell bleiben', fx: function (st, c, d) { var j = jOf(st, d); return endI(d, 'Ihr belasst es bei einem guten Gespräch. ' + fn(j) + ' respektiert das.', { ['j_' + j.type]: 3, partner: 1 }); } }] }
+    },
+    sum: function (st, c, d, s) { return s.log.length ? s.log[s.log.length - 1].r : ''; }
+  }]);
 })(RFM);

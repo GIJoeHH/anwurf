@@ -319,22 +319,22 @@
   // Interaktionen mit Bezugspersonen
   function pplBtn(st, x) {
     if (!(X.PPL_ACTS[x.kind] || []).length || !st.players[x.pid]) return '';
-    var why = X.pplBlock(st, x); return '<button class="sm' + (why ? ' ghost' : '') + '" data-act="pplOpen" data-pid="' + esc(x.pid) + '"' + (why ? ' disabled title="' + esc(why) + '"' : '') + ' style="align-self:center">' + U.lc(why ? 'check' : 'coffee', 14) + ' ' + (x.iw === (st.tick || 0) ? 'Getroffen' : 'Treffen') + '</button>';
+    var why = X.pplBlock(st, x); return '<button class="sm' + (why ? ' ghost' : '') + '" data-act="pplOpen" data-pid="' + esc(x.pid) + '" data-kind="' + x.kind + '"' + (why ? ' disabled title="' + esc(why) + '"' : '') + ' style="align-self:center">' + U.lc(why ? 'check' : 'coffee', 14) + ' ' + (x.iw === (st.tick || 0) ? 'Getroffen' : 'Treffen') + '</button>';
   }
   function pplInfo(st) { var w = X.pplState(st), left = Math.max(0, X.PPL_MAX - w.n); return '<p class="muted small" style="margin-top:4px">' + (left ? 'Diese Woche noch ' + left + ' ' + (left === 1 ? 'Treffen' : 'Treffen') + ' möglich – je Person eines.' : 'Für diese Woche sind alle Treffen verplant.') + ' Gepflegte Beziehungen helfen dir: Freunde heben die Laune, Mentoren bringen dich weiter, der Kapitän stärkt deinen Stand im Team. Wer lange nichts von dir hört, kühlt ab.</p>'; }
   U.acts.pplOpen = function (d) {
-    var st = U.st, cx = X.ensure(st), x = cx.ppl.filter(function (y) { return String(y.pid) === String(d.pid); })[0]; if (!x) return;
+    var st = U.st, cx = X.ensure(st), x = X.pplFind(st, d.pid, d.kind); if (!x) return;
     var q = st.players[x.pid], acts = X.PPL_ACTS[x.kind] || [];
     var body = '<p class="muted small">' + esc(KIND[x.kind] || x.kind) + (q ? ' · ' + q.age + ' J. · ' + esc(D.posNames[q.pos] || q.pos) : '') + ' · Verhältnis ' + Math.round(x.v) + '/100</p>' + U.bar(x.v) +
       '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' + acts.map(function (a) {
         var why = X.pplBlock(st, x, a), cost = X.pplCost(st, a);
-        return '<button class="' + (why ? 'ghost' : '') + '" style="text-align:left;display:flex;gap:10px;align-items:flex-start;padding:10px 12px" data-act="pplDo" data-pid="' + esc(x.pid) + '" data-k="' + a.k + '"' + (why ? ' disabled' : '') + '>' + U.lc(a.ic || 'circle', 18) +
+        return '<button class="' + (why ? 'ghost' : '') + '" style="text-align:left;display:flex;gap:10px;align-items:flex-start;padding:10px 12px" data-act="pplDo" data-pid="' + esc(x.pid) + '" data-kind="' + x.kind + '" data-k="' + a.k + '"' + (why ? ' disabled' : '') + '>' + U.lc(a.ic || 'circle', 18) +
           '<span><b>' + esc(a.l) + '</b>' + (cost ? ' <span class="muted small">(' + money(cost) + ')</span>' : '') + '<br><span class="muted small">' + esc(a.d) + (why ? ' – ' + esc(why) : '') + '</span></span></button>';
       }).join('') + '</div>';
     U.modal('Treffen mit ' + esc(x.name), body);
   };
   U.acts.pplDo = function (d) {
-    var st = U.st, r = X.pplDo(st, d.pid, d.k);
+    var st = U.st, r = X.pplDo(st, d.pid, d.k, d.kind);
     if (!r.ok) { U.toast(r.why || 'Nicht möglich'); return; }
     U.modal('Treffen mit ' + esc(r.name), '<p>' + esc(r.msg) + '</p><p class="small"><b>Verhältnis ' + (r.dv >= 0 ? '+' : '−') + Math.abs(r.dv) + '</b>' + (r.fx ? ' · ' + esc(r.fx) : '') + (r.cost ? ' · −' + money(r.cost) : '') + '</p>', '<button class="primary" data-act="closeModal">OK</button>');
     U.autosave(); U.render();

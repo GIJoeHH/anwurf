@@ -6,6 +6,8 @@
   var esc = R.esc, money = R.fmtMoney, HB = X.HB, SW = X.SW;
   function on(st) { return !!(st && st.pc && st.pc.cx && C.active(st)); }
   function nn(code) { var n = NT.nat(code); return n ? n.name : code; }
+  // kleine Länderflagge vor dem Namen
+  function nf(code) { var sv = NT.flagSvg && NT.flagSvg(code); return (sv ? '<span style="display:inline-block;width:18px;height:12px;vertical-align:-1px;margin-right:5px;border-radius:2px;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.15)">' + sv.replace('<svg ', '<svg style="width:100%;height:100%;display:block" ') + '</span>' : '') + esc(nn(code)); }
   function num(v, d) { return v == null ? '–' : Number(v).toFixed(d || 0).replace('.', ','); }
 
   if (typeof document !== 'undefined' && !document.getElementById('nt-style')) {
@@ -41,7 +43,7 @@
   U.navItems = function () {
     var list = baseNav(), st = U.st; if (!on(st)) return list;
     var i = -1; list.forEach(function (it, k) { if (it[0] === 'pmedien') i = k; });
-    var nt = NT.ensure(st), badge = NT.pending(st) ? 1 : 0, item = ['pnati', 'flag', 'Nationalmannschaft', badge, ''];
+    var nt = NT.ensure(st), badge = NT.pending(st) && !(U.pcm && U.pcm.fx && U.pcm.fx.nt) ? 1 : 0, item = ['pnati', 'flag', 'Nationalmannschaft', badge, ''];
     if (i >= 0) list.splice(i + 1, 0, item); else list.push(item);
     return list;
   };
@@ -57,9 +59,14 @@
     return baseNext.apply(this, arguments);
   };
   U.ntStart = function (st, e) {
+    // läuft das Länderspiel schon? dann zurück ins laufende Spiel statt neu anpfeifen
+    if (U.pcm) { U.go('pspiel'); return; }
+    // nach einem Neuladen mitten im Spiel: nicht neu starten, sondern das Ergebnis simulieren
+    if (e.live) { NT.play(st, e); U.autosave(); U.render(); U.toast('Das Länderspiel wurde zu Ende simuliert.'); return; }
     var m = NT.createMatch(st, e), p = C.player(st), s = m.ntSide;
     if (m.played[p.id] == null && m.bench[s].indexOf(p.id) < 0) { NT.play(st, e); U.autosave(); U.render(); return; }
     NT.swapIn(st, m); CM.plan(m, st);
+    e.live = true; U.autosave();
     U.pcm = { m: m, fx: { key: 'nt_' + e.key, ntKey: e.key, nt: true, h: m.clubs[0], a: m.clubs[1], comp: 'nt', neutral: e.kind === 'tour', label: e.label }, s: s, inst: null, last: null, fast: false };
     U.go('pspiel');
   };
@@ -75,16 +82,16 @@
   U.acts.ntTab = function (d) { U.ntTab = d.t; U.render(); };
 
   // ---------- Bildschirm ----------
-  function flag(code) { var c = NT.colors(code); return '<div class="flag" style="background:' + c[0] + ';color:' + c[1] + '">' + esc(code) + '</div>'; }
+  function flag(code) { var sv = NT.flagSvg && NT.flagSvg(code); if (sv) return '<div class="flag" style="overflow:hidden;padding:0" title="' + esc((NT.nat(code) || {}).name || code) + '">' + sv.replace('<svg ', '<svg style="width:100%;height:100%;display:block" ') + '</div>'; var c = NT.colors(code); return '<div class="flag" style="background:' + c[0] + ';color:' + c[1] + '">' + esc(code) + '</div>'; }
   function calRow(st, e) {
     var sq = e.sq, tag = !sq ? '<span class="nt-tag">offen</span>' : sq.inSq ? '<span class="nt-tag in">' + esc(sq.role || 'nominiert') + '</span>' : '<span class="nt-tag out">' + esc(sq.why || 'nicht dabei') + '</span>';
     var when = e.slot.charAt(0) === 's' ? e.slot.slice(1) + '. Woche' : e.slot.charAt(0) === 'p' ? 'Vorbereitung ' + e.slot.slice(1) : 'Winterpause ' + e.slot.slice(1);
     var res = e.played ? '<b>' + e.res.join(':') + (e.pens ? ' i.E.' : '') + '</b>' : '';
-    return '<tr><td>' + esc(when) + '</td><td>' + esc(e.label) + (e.lvl && e.lvl !== 'A' ? ' (' + esc(e.lvl) + ')' : '') + '</td><td>' + (e.kind === 'tour' ? 'vs. ' : e.home ? 'vs. ' : '@ ') + esc(nn(e.opp)) + '</td><td>' + tag + '</td><td class="num">' + res + '</td></tr>';
+    return '<tr><td>' + esc(when) + '</td><td>' + esc(e.label) + (e.lvl && e.lvl !== 'A' ? ' (' + esc(e.lvl) + ')' : '') + '</td><td>' + (e.kind === 'tour' ? 'vs. ' : e.home ? 'vs. ' : '@ ') + nf(e.opp) + '</td><td>' + tag + '</td><td class="num">' + res + '</td></tr>';
   }
   function table(rows, own, compact) {
     return '<table class="t small"><tr><th>#</th><th>Team</th><th class="num">Sp</th>' + (compact ? '' : '<th class="num">S-U-N</th>') + '<th class="num">Tore</th><th class="num">Pkt</th></tr>' + rows.map(function (r, i) {
-      return '<tr' + (r.code === own ? ' style="font-weight:700"' : '') + '><td>' + (i + 1) + '</td><td>' + esc(nn(r.code)) + '</td><td class="num">' + r.p + '</td>' + (compact ? '' : '<td class="num">' + r.w + '-' + r.d + '-' + r.l + '</td>') + '<td class="num">' + r.gf + ':' + r.ga + '</td><td class="num">' + r.pts + '</td></tr>';
+      return '<tr' + (r.code === own ? ' style="font-weight:700"' : '') + '><td>' + (i + 1) + '</td><td>' + nf(r.code) + '</td><td class="num">' + r.p + '</td>' + (compact ? '' : '<td class="num">' + r.w + '-' + r.d + '-' + r.l + '</td>') + '<td class="num">' + r.gf + ':' + r.ga + '</td><td class="num">' + r.pts + '</td></tr>';
     }).join('') + '</table>';
   }
   function bracket(t, own) {
@@ -93,7 +100,7 @@
     return '<div class="nt-bracket">' + ko.map(function (rd) {
       return '<div class="rd"><div class="sub-h" style="margin-top:0">' + esc(NT.ROUND_N[rd.r]) + '</div>' + rd.fx.map(function (f) {
         var me = f.h === own || f.a === own, r = f.res ? f.res.join(':') + (f.pens ? ' (' + f.pens.join(':') + ' i.E.)' : '') : '–';
-        return '<div class="m' + (me ? ' me' : '') + '"><div class="' + (f.w === f.h ? 'w' : '') + '">' + esc(nn(f.h)) + '</div><div class="' + (f.w === f.a ? 'w' : '') + '">' + esc(nn(f.a)) + '</div><div class="muted">' + r + '</div></div>';
+        return '<div class="m' + (me ? ' me' : '') + '"><div class="' + (f.w === f.h ? 'w' : '') + '">' + nf(f.h) + '</div><div class="' + (f.w === f.a ? 'w' : '') + '">' + nf(f.a) + '</div><div class="muted">' + r + '</div></div>';
       }).join('') + '</div>';
     }).join('') + '</div>';
   }
@@ -104,14 +111,16 @@
     var avg = nt.caps ? nt.rsum / nt.caps : null, pend = NT.pending(st);
     var stat = nt.retired ? 'Zurückgetreten (' + nt.retired.s + ')' : nt.status === 'squad' ? 'Im Kader' : nt.status === 'dropped' ? 'Zuletzt nicht nominiert' : nt.caps ? 'Ehemaliger Nationalspieler' : 'Noch nicht nominiert';
     var h = '<div class="page-h"><div><h1>Nationalmannschaft</h1><div class="page-sub">' + esc(own.name) + ' · ' + esc(nt.coach.name) + ' (' + esc(NT.STYLES[nt.coach.style]) + ')</div></div>' +
-      (pend ? '<div><button class="primary" data-act="ntPlay">' + U.lc('play', 15) + ' Zum Länderspiel</button></div>' : '') + '</div>';
+      (pend ? '<div><button class="primary" data-act="ntPlay">' + U.lc('play', 15) + (U.pcm && U.pcm.fx && U.pcm.fx.nt ? ' Zurück zum laufenden Länderspiel' : ' Zum Länderspiel') + '</button></div>' : '') + '</div>';
     h += '<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:10px">' + [['status', 'Übersicht'], ['termine', 'Termine'], ['wettbewerb', 'Wettbewerbe'], ['statistik', 'Statistik'], ['praemien', 'Prämien'], ['historie', 'Historie']].map(function (x) { return '<button class="' + (tab === x[0] ? 'primary' : '') + '" data-act="ntTab" data-t="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
     if (tab === 'status') {
       h += '<div class="grid g2"><div class="panel"><div class="nt-hero">' + flag(nt.code) + '<div><h2 style="margin:0">' + esc(stat) + '</h2><div class="muted small">' + (nt.role ? 'Rolle: ' + esc(nt.role) : 'Keine Rolle') + (nt.captain ? ' · Kapitän' : '') + '</div></div></div>' +
         '<div class="nt-role">' + NT.ROLES.map(function (r) { return '<i class="' + (r === nt.role ? 'on' : '') + '">' + esc(r) + '</i>'; }).join('') + '</div>' +
         '<div class="nt-kpis"><div><span>Länderspiele</span><b>' + nt.caps + '</b></div><div><span>' + esc(SW.goals) + '</span><b>' + nt.goals + '</b></div><div><span>Vorlagen</span><b>' + nt.assists + '</b></div><div><span>Ø Note</span><b>' + num(avg, 2) + '</b></div><div><span>Startelf</span><b>' + nt.starts + '</b></div><div><span>Titel</span><b>' + nt.titles.length + '</b></div></div>' +
         (nt.retired ? '' : '<p class="muted small" style="margin-top:10px">Die Nominierung hängt von Form, Liga, Einsatzzeit, Verletzungen, der Konkurrenz auf deiner Position (' + esc(p.pos) + '), dem System und Vertrauen des Nationaltrainers sowie deiner Länderspielbilanz ab – nicht allein von der Gesamtstärke.</p>') + '</div>';
-      h += '<div class="panel"><h2>' + U.lc('users', 17) + ' Beziehungen</h2><table class="t small">' +
+      var tb = function (k, l, ic) { var why = NT.talkBlock ? NT.talkBlock(st, k) : ''; return '<button class="sm' + (why ? ' ghost' : '') + '" data-act="dlgStart" data-dlg="' + k + '"' + (why ? ' disabled title="' + esc(why) + '"' : '') + '>' + U.lc(ic, 14) + ' ' + esc(l) + (why ? ' <span class="muted">(' + esc(why) + ')</span>' : '') + '</button>'; };
+      var talks = NT.talkBlock && !nt.retired ? '<div class="panel" style="margin-bottom:12px"><h2>' + U.lc('handshake', 17) + ' Gespräche</h2><div class="row" style="gap:6px;flex-wrap:wrap">' + tb('ntcoach', 'Nationaltrainer ' + nt.coach.name, 'users') + tb('ntfed', 'Verband / Sportdirektor', 'landmark') + tb('ntdoc', 'Arzt der Nationalmannschaft', 'stethoscope') + '</div><p class="muted small" style="margin-top:6px">Der Verbandsarzt steht dir als Zweitmeinung auch bei Verletzungen im Verein zur Verfügung (auch über die medizinische Abteilung im Vereinsgelände).</p></div>' : '';
+      h += talks + '<div class="panel"><h2>' + U.lc('users', 17) + ' Beziehungen</h2><table class="t small">' +
         '<tr><td>Vertrauen ' + esc(nt.coach.name) + '</td><td style="width:45%">' + U.bar(nt.trust, 100) + '</td><td class="num">' + Math.round(nt.trust) + '</td></tr>' +
         '<tr><td>Persönlicher Draht</td><td>' + U.bar(nt.coach.v || 50, 100) + '</td><td class="num">' + Math.round(nt.coach.v || 50) + '</td></tr>' +
         [['capt', 'Kapitän'], ['rival', 'Konkurrent'], ['friend', 'Freund im Team'], ['talent', 'Talent']].map(function (k) { var x = nt.people[k[0]]; return '<tr><td>' + esc(x.name) + ' <span class="muted">(' + k[1] + ')</span></td><td>' + U.bar(x.v, 100) + '</td><td class="num">' + Math.round(x.v) + '</td></tr>'; }).join('') + '</table>' +
@@ -124,10 +133,10 @@
       h += '<div class="panel"><h2>Kalender ' + st.season + '</h2><table class="t small nt-cal"><tr><th>Wann</th><th>Wettbewerb</th><th>Gegner</th><th>Kader</th><th class="num">Ergebnis</th></tr>' + nt.cal.map(function (e) { return calRow(st, e); }).join('') + '</table></div>';
     } else if (tab === 'wettbewerb') {
       var q = nt.qual;
-      if (q) h += '<div class="panel"><h2>' + esc(q.tour ? 'Qualifikation ' + NT.CFG.tours[q.tour].n : NT.CFG.leagueName) + '</h2>' + table(NT.table(q), nt.code) + (q.playoff ? '<p class="small">Play-off gegen ' + esc(nn(q.playoff.opp)) + (q.playoff.res ? ': ' + q.playoff.res.join(':') + (q.playoff.won ? ' – qualifiziert!' : ' – ausgeschieden.') : ' steht noch aus.') + '</p>' : '') + '</div>';
+      if (q) h += '<div class="panel"><h2>' + esc(q.tour ? 'Qualifikation ' + NT.CFG.tours[q.tour].n : NT.CFG.leagueName) + '</h2>' + table(NT.table(q), nt.code) + (q.playoff ? '<p class="small">Play-off gegen ' + nf(q.playoff.opp) + (q.playoff.res ? ': ' + q.playoff.res.join(':') + (q.playoff.won ? ' – qualifiziert!' : ' – ausgeschieden.') : ' steht noch aus.') + '</p>' : '') + '</div>';
       var t = nt.tour;
       if (t) {
-        h += '<div class="panel" style="margin-top:12px"><h2>' + U.lc('trophy', 17) + ' ' + esc(t.name) + (t.done ? ' – Sieger: ' + esc(nn(t.champ)) : '') + '</h2>' + (t.own ? '' : '<p class="muted small">' + esc(own.name) + ' ist nicht qualifiziert.</p>');
+        h += '<div class="panel" style="margin-top:12px"><h2>' + U.lc('trophy', 17) + ' ' + esc(t.name) + (t.done ? ' – Sieger: ' + nf(t.champ) : '') + '</h2>' + (t.own ? '' : '<p class="muted small">' + esc(own.name) + ' ist nicht qualifiziert.</p>');
         h += '<div class="nt-grp">' + t.groups.map(function (g, i) { return '<div><div class="sub-h" style="margin-top:0">Gruppe ' + String.fromCharCode(65 + i) + '</div>' + table(NT.groupTable(t, g), nt.code, true) + '</div>'; }).join('') + '</div>';
         h += '<div class="sub-h">K.-o.-Runde</div>' + bracket(t, nt.code) + '</div>';
       }
@@ -140,7 +149,7 @@
         '<tr><td>Turniere</td><td class="num">' + nt.tours.filter(function (x) { return x.inSq; }).length + '</td></tr></table>' +
         '<p class="muted small">Getrennt von den Vereinsstatistiken.</p></div><div class="panel"><h2>Junioren</h2>' + (ys.length ? '<table class="t small"><tr><th>Team</th><th class="num">Spiele</th><th class="num">' + esc(SW.goals) + '</th></tr>' + ys.map(function (k) { return '<tr><td>' + esc(k) + '</td><td class="num">' + nt.youth[k].caps + '</td><td class="num">' + nt.youth[k].goals + '</td></tr>'; }).join('') + '</table>' : '<p class="muted small">Keine Juniorenländerspiele.</p>') + '</div></div>';
       var rec = nt.hist.filter(function (x) { return x.me; });
-      if (rec.length) { var best = rec.slice().sort(function (a, b) { return (b.r || 0) - (a.r || 0); })[0]; h += '<div class="panel" style="margin-top:12px"><h2>Rekorde</h2><p class="small">Bestes Länderspiel: Note ' + num(best.r, 1) + ' gegen ' + esc(nn(best.opp)) + ' (' + best.res.join(':') + ', ' + best.s + '). Meiste ' + esc(SW.goals) + ' in einem Spiel: ' + Math.max.apply(null, rec.map(function (x) { return x.g || 0; })) + '.</p></div>'; }
+      if (rec.length) { var best = rec.slice().sort(function (a, b) { return (b.r || 0) - (a.r || 0); })[0]; h += '<div class="panel" style="margin-top:12px"><h2>Rekorde</h2><p class="small">Bestes Länderspiel: Note ' + num(best.r, 1) + ' gegen ' + nf(best.opp) + ' (' + best.res.join(':') + ', ' + best.s + '). Meiste ' + esc(SW.goals) + ' in einem Spiel: ' + Math.max.apply(null, rec.map(function (x) { return x.g || 0; })) + '.</p></div>'; }
     } else if (tab === 'praemien') {
       var P = NT.PRIZE, f = NT.fac(st);
       h += '<div class="grid g2"><div class="panel"><h2>Ausgezahlt</h2><p>Gesamt nach Abgaben: <b>' + money(nt.bonus || 0) + '</b></p>' + ((nt.payLog || []).length ? '<table class="t small"><tr><th>Saison</th><th>Anlass</th><th class="num">Brutto</th><th class="num">Netto</th></tr>' + nt.payLog.map(function (x) { return '<tr><td>' + x.s + '</td><td>' + esc(x.txt) + '</td><td class="num">' + money(x.gross) + '</td><td class="num">' + money(x.net) + '</td></tr>'; }).join('') + '</table>' : '<p class="muted small">Noch keine Prämien.</p>') + '</div>' +
@@ -150,7 +159,7 @@
     } else {
       h += '<div class="grid g2"><div class="panel"><h2>Turniere</h2>' + (nt.tours.length ? '<table class="t small"><tr><th>Turnier</th><th>Abschneiden</th><th class="num">Spiele</th><th class="num">' + esc(SW.goals) + '</th></tr>' + nt.tours.map(function (x) { return '<tr><td>' + esc(x.name) + '</td><td>' + esc({ G: 'Vorrunde', R16: 'Achtelfinale', QF: 'Viertelfinale', SF: 'Halbfinale', F: 'Finale', W: 'Titel' }[x.best] || '') + (x.inSq ? '' : ' <span class="muted">(ohne dich)</span>') + '</td><td class="num">' + (x.apps || 0) + '</td><td class="num">' + (x.goals || 0) + '</td></tr>'; }).join('') + '</table>' : '<p class="muted small">Noch keine Turniere.</p>') + '</div>' +
         '<div class="panel"><h2>Meilensteine</h2><ul class="small">' + [nt.ms.youth && 'Erstes Juniorenländerspiel (' + nt.ms.youth.s + ', ' + nt.ms.youth.lvl + ')', nt.ms.call && 'Erste Nominierung (' + nt.ms.call.s + ')', nt.ms.debut && 'Debüt gegen ' + nn(nt.ms.debut.opp) + ' (' + nt.ms.debut.s + ')', nt.ms.goal && 'Erstes Länderspieltor gegen ' + nn(nt.ms.goal.opp) + ' (' + nt.ms.goal.s + ')'].concat(nt.titles.map(function (t) { return '🏆 ' + t.name; })).filter(Boolean).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div></div>';
-      h += '<div class="panel" style="margin-top:12px"><h2>Länderspiele</h2>' + (nt.hist.length ? '<table class="t small"><tr><th>Saison</th><th>Wettbewerb</th><th>Gegner</th><th class="num">Ergebnis</th><th class="num">Note</th><th class="num">' + esc(SW.goals) + '</th></tr>' + nt.hist.slice(0, 40).map(function (x) { return '<tr><td>' + x.s + '</td><td>' + esc(x.label) + '</td><td>' + esc(nn(x.opp)) + '</td><td class="num">' + x.res.join(':') + (x.pens ? ' i.E.' : '') + '</td><td class="num">' + (x.me ? num(x.r, 1) : '–') + '</td><td class="num">' + (x.me ? x.g || 0 : '') + '</td></tr>'; }).join('') + '</table>' : '<p class="muted small">Noch keine Länderspiele.</p>') + '</div>';
+      h += '<div class="panel" style="margin-top:12px"><h2>Länderspiele</h2>' + (nt.hist.length ? '<table class="t small"><tr><th>Saison</th><th>Wettbewerb</th><th>Gegner</th><th class="num">Ergebnis</th><th class="num">Note</th><th class="num">' + esc(SW.goals) + '</th></tr>' + nt.hist.slice(0, 40).map(function (x) { return '<tr><td>' + x.s + '</td><td>' + esc(x.label) + '</td><td>' + nf(x.opp) + '</td><td class="num">' + x.res.join(':') + (x.pens ? ' i.E.' : '') + '</td><td class="num">' + (x.me ? num(x.r, 1) : '–') + '</td><td class="num">' + (x.me ? x.g || 0 : '') + '</td></tr>'; }).join('') + '</table>' : '<p class="muted small">Noch keine Länderspiele.</p>') + '</div>';
       var ch = X.ensure(st).chron.filter(function (x) { return x.cat === 'nati'; }).slice(0, 20);
       if (ch.length) h += '<div class="panel" style="margin-top:12px"><h2>Chronik</h2><table class="t small">' + ch.map(function (x) { return '<tr><td>' + esc(x.ic) + '</td><td>' + x.s + '</td><td><b>' + esc(x.ti) + '</b> ' + esc(x.x || '') + '</td></tr>'; }).join('') + '</table></div>';
     }

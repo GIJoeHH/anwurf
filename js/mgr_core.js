@@ -413,9 +413,15 @@
   MX.LSTAGE = ['Kennenlernen', 'Dating', 'Feste Beziehung', 'Zusammengezogen', 'Verlobt', 'Verheiratet'];
   var PINTR = ['Kochen', 'Wandern', 'Musik', 'Kunst', 'Reisen', 'Lesen', 'Tanzen', 'Yoga', 'Filme', 'Laufen'];
   MX.CSRC = { insta: '📸 Instagram', app: '💘 Dating-App', out: '🍸 Beim Ausgehen', away: '🧳 Auswärtsfahrt', zufall: '🍀 Zufall', gala: '🥂 Gala', cafe: '☕ Café', freunde: '🍝 Freunde', charity: '🏃 Charity' };
+  // Bekanntschaften (Dating): überwiegend Frauen – der Manager ist ein Mann (wie im Spielermodus, ca. 90 %)
+  var CFEM = ['Sabine', 'Claudia', 'Petra', 'Anja', 'Katrin', 'Julia', 'Nicole', 'Sandra', 'Miriam', 'Lena', 'Aylin', 'Ines', 'Carla', 'Vera', 'Sophie', 'Hannah', 'Clara', 'Nora', 'Paula', 'Emma', 'Marie', 'Lara', 'Elif', 'Selin', 'Jana', 'Laura', 'Svenja', 'Melanie', 'Franziska', 'Kim'];
+  MX.CFEM = CFEM;
+  var CMAL = ['Jan', 'Tobias', 'Nils', 'Jonas', 'Luca', 'Henrik'];
+  MX.candName = function (st, s) { var fem = hr(s, 7) < 0.9, n, g = 0, used = (st.mx && st.mx.usedNames) || {};
+    do { n = pk(fem ? CFEM : CMAL, s + 'cf' + g) + ' ' + pk(LAST, s + 'cl' + g); g++; } while (used[n] && g < 40); if (st.mx) { st.mx.usedNames = used; used[n] = 1; } return n; };
   MX.newCand = function (st, where) {
     var s = 'cand' + tick(st) + where + (st.seed || 0) + (st.mx && st.mx.life ? st.mx.life.uid || 0 : 0), i1 = hash(s + 'i') % PINTR.length, i2 = (i1 + 1 + hash(s + 'k') % (PINTR.length - 1)) % PINTR.length;
-    return { id: 'mc' + tick(st) + '_' + (hash(s) % 100000), name: MX.newName(st, s), job: pk(PJOBS, s + 'j'), where: where, met: tick(st), v: 45 + Math.round(hr(s, 1) * 20), humor: Math.round(hr(s, 2) * 10), football: Math.round(hr(s, 3) * 10), intr: [PINTR[i1], PINTR[i2]], stage: 0, dates: 0 };
+    return { id: 'mc' + tick(st) + '_' + (hash(s) % 100000), name: MX.candName(st, s), job: pk(PJOBS, s + 'j'), where: where, met: tick(st), v: 45 + Math.round(hr(s, 1) * 20), humor: Math.round(hr(s, 2) * 10), football: Math.round(hr(s, 3) * 10), intr: [PINTR[i1], PINTR[i2]], stage: 0, dates: 0 };
   };
   // Kontaktliste wie im Spielermodus: bis zu vier Bekanntschaften; zuerst fallen lose Kontakte, nie heimliche Beziehungen
   MX.addCand = function (st, c) {

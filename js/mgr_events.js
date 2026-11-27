@@ -1171,4 +1171,79 @@
   // Vereinswechsel des Managers: Beziehung & Umzug
   var baseAccept = S.acceptJob;
   S.acceptJob = function (st, idx) { var o = st.manager.offers[idx], r = baseAccept.apply(this, arguments); try { if (st.mx && o && st.mx.life && st.mx.life.partner) { MX.ensure(st); MX.start(st, 'life_move', { city: (st.clubs[o.clubId] || {}).city || 'der neuen Stadt' }, { prio: 1 }); } } catch (e) { } return r; };
+  // ============================================================================================
+  // HINTERGRUNDGESPRÄCH MIT DER PRESSE (off the record) – inkl. Flirt mit Journalistinnen oder Masche
+  // ============================================================================================
+  var FEM = { Sabine: 1, Claudia: 1, Petra: 1, Anja: 1, Katrin: 1, Julia: 1, Nicole: 1, Sandra: 1, Miriam: 1, Lena: 1, Aylin: 1, Ines: 1, Carla: 1, Vera: 1 };
+  MX.fem = function (name) { var f = String(name || '').split(' ')[0]; return !!FEM[f] || (MX.CFEM || []).indexOf(f) >= 0; };
+  function jOf(st, id) { return st.mx.people.jrn.filter(function (j) { return j.id === id; })[0] || st.mx.people.jrn[0]; }
+  function jCandM(st, j) { var c = (st.mx.life.cands || []).filter(function (y) { return y.name === j.name; })[0]; if (!c) { c = MX.newCand(st, 'presse'); c.name = j.name; c.job = 'Journalistin (' + j.outlet + ')'; c.src = 'zufall'; } return keepCand(st, c, 1, 58); }
+  add('mx_pressbg', function (st, c) {
+    var j = jOf(st, c.jid), pt = st.mx.life.partner, fem = MX.fem(j.name);
+    if (c.her == null) { c.her = fem && hr('pbgher' + j.id + tick(st), 1) < 0.3 + (st.manager.reputation || 40) / 400 ? 1 : 0; c.real = hr('pbgreal' + j.id + tick(st), 2) < (/Boulevard|provokant/.test(j.type) ? 0.3 : 0.6) ? 1 : 0; }
+    function badPress(why) { MX.chron(st, '📰', 'Peinliche Schlagzeile', j.outlet + ': ' + why, 2); return fx(st, { media: -8, board: -4, fans: -2, mrep: -2, jrn: [j.id, -15], stress: 5, partner: pt ? -8 : 0 }); }
+    var startOpts = [
+      O('Offen über Philosophie und Ziele reden', function () { return end(fnm(j) + ' hört genau zu. „Danke – so versteht man Ihre Arbeit besser.“', fx(st, { jrn: [j.id, 7], media: 2 })); }, { def: true }),
+      O('Freundlich, aber nur Floskeln', function () { return end('Höflich, ohne Inhalt. ' + fnm(j) + ' klappt den Block gelangweilt zu.', fx(st, { jrn: [j.id, 1] })); })];
+    if (fem) startOpts.push(O('Mit ihr flirten', function () { if (hr('pbgfl' + j.id + tick(st), 3) < clamp(0.35 + (j.v - 50) / 150 + ((st.manager.reputation || 40) - 40) / 300, 0.1, 0.75)) return nx(fnm(j) + ' lacht und hält deinem Blick stand. „Das ist jetzt aber wirklich off the record.“', fx(st, { jrn: [j.id, 4] }), 'match');
+      return end(fnm(j) + ' zieht die Augenbrauen hoch. Zwei Tage später: „Trainer baggert Journalistin im Interview an“.', badPress('Trainer baggert Journalistin an – der Vorstand ist verärgert.')); }, { hint: 'Kann gut ankommen – oder in der Zeitung landen' }));
+    return { title: 'Hintergrundgespräch', cat: 'medien', imp: 'normal', img: 'presse', max: 3, ic: '☕', who: { n: j.name, role: j.type + ' · ' + j.outlet, ic: '☕' },
+      nodes: {
+        start: c.her ? { say: fnm(j) + ' rückt näher, lacht über jeden deiner Witze. „Wir könnten das ja mal ohne Diktiergerät fortsetzen – bei einem Glas Wein?“', opts: [
+            O('Darauf eingehen', function () { return nx(c.real ? 'In der Weinbar fragt sie nach dir – nicht nach dem Verein.' : 'Nach dem zweiten Glas wird sie neugierig: „Wie ist das eigentlich mit dem Vorstand? Und wer in der Kabine macht Ärger?“', [], c.real ? 'match' : 'leak'); }),
+            O('Höflich abblocken', function () { return end('Du bleibst professionell. „Schade. Aber fair.“', fx(st, { jrn: [j.id, c.real ? -2 : 1], partner: pt ? 1 : 0 })); }, { def: true }),
+            O('Nachfragen: „Ernst gemeint – oder wollen Sie eine Story?“', function () { if (c.real) return nx(fnm(j) + ' wird rot. „Ernst gemeint.“', fx(st, { jrn: [j.id, 2] }), 'match'); return end(fnm(j) + ' lacht ertappt. „Einen Versuch war es wert.“ Masche durchschaut.', fx(st, { jrn: [j.id, -3], mrep: 1 })); })
+          ] } : { say: 'Ein Kaffee abseits der Kameras mit ' + fnm(j) + ' (' + j.outlet + '). „Alles off the record – ich will verstehen, wie Sie ticken.“', opts: startOpts },
+        leak: { say: '„Komm schon, nur unter uns.“ Sie schenkt nach und wartet.', opts: [
+          O('Ein bisschen aus dem Verein plaudern', function () { MX.chron(st, '📰', 'Interna in der Zeitung', j.outlet + ' druckt Interna aus Kabine und Vorstand – die Quelle bist du.', 3); return end('Drei Tage später steht alles in der Zeitung. Kabine und Vorstand wissen sofort, woher es kommt. Es war eine Masche.', fx(st, { kab: -6, team: -4, board: -8, sd: -6, media: -3, jrn: [j.id, 6], stress: 6, partner: pt ? -4 : 0 })); }),
+          O('Lachen: „Über Interna rede ich nicht.“', function () { return end(fnm(j) + ' verliert schnell das Interesse. Da ging es wohl nie um dich.', fx(st, { jrn: [j.id, -4] })); }, { def: true })] },
+        match: { say: 'Zwischen euch knistert es.' + (pt ? ' Zu Hause wartet ' + fnm(pt) + '.' : '') + ' Wie geht es weiter?', opts: [
+          O('Nummern tauschen und ein Date ausmachen', function () { jCandM(st, j); return end(fnm(j) + ' tippt ihre Nummer in dein Handy. Ihr seht euch wieder.', fx(st, { stress: -1 })); }, { hint: pt ? 'Heimlicher Kontakt neben der Beziehung' : 'Kann eine Beziehung werden' }),
+          O('Mit zu ihr', function () { var cd = jCandM(st, j); if (pt) MX.makePartner(st, cd); else cd.stage = Math.max(cd.stage || 0, 1); return end('Eine lange Nacht. „Das bleibt garantiert off the record.“', fx(st, { stress: pt ? 4 : -2, partner: pt ? -2 : 0 })); }, { hint: pt ? 'Affäre – Entdeckungsrisiko' : '' }),
+          O('Lieber professionell bleiben', function () { return end('Ihr belasst es bei einem guten Gespräch.', fx(st, { jrn: [j.id, 3], partner: pt ? 1 : 0 })); }, { def: true })] }
+      } };
+  });
+  // Spende des Vereins an die Fanszene: Choreo oder Auswärtsfahrt
+  MX.DON = { choreo: { n: HB ? 'Choreo im Fanblock mitfinanzieren' : 'Choreo in der Kurve mitfinanzieren', ic: '🎨', base: 15000, fans: { ultras: 8, active: 6, clubs: 3 }, txt: 'Am Spieltag zeigt die Kurve eine riesige Choreo – auf einem Spruchband wird der Trainer gefeiert.' },
+    away: { n: 'Auswärtsfahrt der Fans bezuschussen', ic: '🚌', base: 20000, fans: { away: 10, active: 4, clubs: 3 }, txt: 'Mehrere volle Busse fahren mit – im Gästeblock hallt dein Name.' } };
+  MX.donCost = function (st, k) { return cash(st, MX.DON[k].base * (HB ? 0.4 : 1)); };
+  MX.donBlock = function (st, k) { var c = cl(st), last = (st.mx.don || {})[k]; if (!c) return 'kein Verein'; if (last != null && tick(st) - last < 8) return 'wieder in ' + (8 - (tick(st) - last)) + ' Wo.'; if (c.cash < MX.donCost(st, k)) return 'zu wenig Geld'; return ''; };
+  MX.donate = function (st, k) { var why = MX.donBlock(st, k), a = MX.DON[k]; if (why) return { ok: false, why: why }; var cost = MX.donCost(st, k); st.mx.don = st.mx.don || {}; st.mx.don[k] = tick(st);
+    var e = fx(st, { cash: [-cost, 'Fanarbeit'], fans: a.fans, fanClubs: 2, ultras: k === 'choreo' ? 3 : 1, mrep: 1 }); MX.chron(st, a.ic, 'Spende an die Fans', a.n + ' (' + money(cost) + ').', 1); return { ok: true, txt: a.txt, fx: e }; };
+  // Nationaltrainer: Gespräch mit dem Verband
+  add('mx_ntfed', function (st, c) {
+    var job = st.mx.ntJob; if (!job) return null; var nat = MN ? MN.natName(job.code) : job.code, sd = job.fedName || (job.fedName = MX.newName(st, 'fed' + job.code));
+    function tr(v) { job.trust = clamp(job.trust + v, 0, 100); return { t: 'Vertrauen Verband ' + (v > 0 ? '+' : '−') + Math.abs(v), pos: v > 0, neg: v < 0 }; }
+    return { title: 'Termin beim Verband', cat: 'medien', imp: 'normal', img: 'vorstand', max: 1, ic: '🏛️', who: { n: sd, role: 'Sportdirektor · Verband ' + nat, ic: '🏛️' },
+      nodes: { start: { say: '„Schön, dass Sie Zeit haben, Trainer. Was können wir für die Nationalmannschaft tun?“', opts: [
+        O('Mehr Lehrgänge und Testspiele fordern', function () { var ok = hr('ntfed1' + tick(st), 1) < 0.35 + job.trust / 200; return end(ok ? '„Wir finden zwei zusätzliche Termine.“' : '„Der Kalender ist voll – die Vereine würden toben.“', [tr(ok ? 3 : -2)]); }),
+        O('Nachwuchsarbeit des Verbands stärken', function () { return end('Ihr vereinbart einen gemeinsamen Sichtungstag. Der Verband ist angetan.', [tr(4)].concat(fx(st, { mrep: 1 }))); }, { def: true }),
+        O('Prämien für das Team verhandeln', function () { var ok = hr('ntfed2' + tick(st), 2) < 0.3 + job.trust / 250; return end(ok ? '„Einverstanden – die Mannschaft wird es Ihnen danken.“' : '„Die Prämien sind ausverhandelt.“ Man hält dich für schwierig.', [tr(ok ? 1 : -4)]); }),
+        O('Über die eigene Zukunft sprechen', function () { return end(job.trust >= 65 ? '„Wir planen langfristig mit Ihnen.“' : '„Entscheidend sind die Ergebnisse beim nächsten Turnier.“', [tr(1)]); })
+      ] } } };
+  });
+  // ============================================================================================
+  // SCHREIBEN MIT EINER BEKANNTSCHAFT (analog Spielerkarriere)
+  // ============================================================================================
+  add('mx_chat', function (st, c) {
+    var lf = st.mx.life, x = MX.cand(st, c.cid), pt = lf.partner; if (!x) return null;
+    var t = tick(st), opts = [
+      O('Flirten', function () { var fresh = x.msgT !== t; x.msgT = t; if (fresh) x.v = clamp(x.v + 4, 0, 100);
+        if (fresh && hr('chat' + x.id + t, 1) < 0.3) { x.v = clamp(x.v + 2, 0, 100); return end(fnm(x) + ' antwortet mit drei Emojis – und: „Wann sehen wir uns endlich?“', fx(st, { stress: -2 })); }
+        return end(fresh ? 'Ihr schreibt bis spät in die Nacht.' : fnm(x) + ' antwortet knapp – ihr habt heute schon viel geschrieben.', fresh ? fx(st, { stress: -1 }) : []); }, { def: true }),
+      O('Zum nächsten Heimspiel einladen', function () { if (x.match === t) return end('Die Einladung steht schon.', []); x.match = t; var fan = (x.football || 5) >= 6; x.v = clamp(x.v + (fan ? 6 : 2), 0, 100); if (x.aff) lf.suspect = t + 4;
+        return end(fan ? fnm(x) + ' ist begeistert: „Ich setz mich direkt hinter die Bank!“' : fnm(x) + ': „Ich hab keine Ahnung von ' + (HB ? 'Handball' : 'Fußball') + ' – aber für dich komm ich.“', []); }, { hint: x.aff ? 'Viele Kameras im Stadion' : '' })
+    ];
+    if ((x.dates || 0) >= 1 && x.v >= 55) opts.push(O('Noch spontan bei ihr vorbeischauen', function () {
+      if (hr('chatv' + x.id + t, 2) < 0.4 + (x.v - 55) / 60) { x.v = clamp(x.v + 7, 0, 100); x.night = (x.night || 0) + 1; x.dates = (x.dates || 0) + 1; lf.lastDate = t;
+        if (pt && !x.aff) MX.makePartner(st, x); // vergeben → daraus wird eine heimliche Beziehung
+        return end('Aus „nur kurz vorbeischauen“ wird eine lange Nacht. ' + fnm(x) + ' schläft noch, als du dich rausschleichst.', fx(st, { stress: pt ? 4 : -2, partner: pt ? -2 : 0 })); }
+      x.v = clamp(x.v - 3, 0, 100); return end(fnm(x) + ' macht nur kurz die Tür auf: „Heute nicht – aber schön, dass du da bist.“', []); }, { hint: pt ? 'Affäre – Entdeckungsrisiko' : 'Kann die Nacht werden – oder zu schnell sein' }));
+    if ((x.dates || 0) >= 2 && !x.aff) opts.push(O('Fragen, was das zwischen euch ist', function () {
+      if (hr('chatq' + x.id + t, 3) < 0.4 + (x.v - 60) / 50 + (x.night ? 0.08 : 0)) { MX.makePartner(st, x); return end(fnm(x) + ' grinst: „Ich dachte schon, du fragst nie.“ ' + (pt ? 'Ab jetzt triffst du dich heimlich mit ' + fnm(x) + '.' : 'Ihr seid jetzt zusammen.'), fx(st, { stress: pt ? 3 : -2 })); }
+      x.v = clamp(x.v - 4, 0, 100); return end(fnm(x) + ' zögert: „Ich mag dich – aber lass uns nichts überstürzen.“', []); }));
+    opts.push(O('Kontakt einschlafen lassen', function () { MX.candEnd(st, x.id, 'Der Kontakt zu ' + x.name + ' ist eingeschlafen.'); return end('Du antwortest nicht mehr. Irgendwann schreibt ' + fnm(x) + ' auch nicht mehr.', []); }));
+    return { title: 'Nachricht an ' + fnm(x), cat: 'privat', imp: 'normal', img: 'date', max: 1, ic: '💬', who: { n: x.name, role: (x.aff ? 'heimliche Beziehung' : (x.stage || 0) >= 1 ? 'Dating' : 'Nummer getauscht') + ' · ' + x.job, ic: '💬' },
+      nodes: { start: { say: 'Du öffnest den Chat mit ' + fnm(x) + '. Interesse: ' + Math.round(x.v) + '/100. ' + (x.dates ? 'Ihr hattet schon ' + x.dates + ' Treffen.' : 'Ihr kennt euch erst kurz.'), opts: opts } } };
+  });
 })(RFM);

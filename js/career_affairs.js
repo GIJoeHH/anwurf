@@ -644,6 +644,11 @@
   L.addDlg([{
     id: 'pressbg', cat: 'medien', ic: '☕', scene: 'presse', title: 'Hintergrundgespräch', max: 4,
     init: function (st, c, d, s) { var j = jOf(st, d); if (!j) { s.done = true; return; } d.j = j.type; d.fem = L.fem(j.name) ? 1 : 0;
+      // schon privat bekannt (Partnerin, Kontakt, Affäre, Ex)? Dann kein Flirt wie mit einer Fremden
+      var lf = L.life(st), pt = lf.partner;
+      if (pt && pt.name === j.name) { d.rel = 'pt'; s.node = 'rel_pt'; return; }
+      if (lf.cands.some(function (y) { return y.name === j.name; }) || A.flings(st).some(function (f) { return f.on && f.name === j.name; })) { d.rel = 'known'; s.node = 'rel_known'; return; }
+      if ((lf.exes || []).some(function (y) { return y.name === j.name; })) { d.rel = 'ex'; s.node = 'rel_ex'; return; }
       // flirtet sie von sich aus? ernst gemeint oder Masche (Boulevard eher Masche)
       if (d.fem && ch(0.3 + (st.pc.fame || 0) / 300)) { d.her = 1; d.real = ch(j.type === 'boul' ? 0.3 : j.type === 'krit' ? 0.45 : 0.6) ? 1 : 0; s.node = 'her'; } },
     who: function (c, d) { var j = jOf(c.st, d); return j ? { n: j.name, role: L.JTYPES[j.type] + ' · ' + j.outlet, ic: '☕', kind: 'press' } : { n: 'Presse', role: '' }; },
@@ -656,6 +661,23 @@
             if (ch(clamp(0.35 + (c.cx.per.conf - 50) / 200 + (j.v - 50) / 150 + (j.type === 'krit' ? -0.1 : 0) + Math.min(0.1, (st.pc.fame || 0) / 400), 0.1, 0.8))) { return { r: fn(j) + ' lacht und hält deinem Blick stand. „Du weißt schon, dass ich das eigentlich nicht darf?“ Sie klappt den Notizblock zu.', e: { conf: 1, ['j_' + j.type]: 4 }, next: 'match' }; }
             return endI(d, fn(j) + ' zieht die Augenbrauen hoch. „Ernsthaft?“ Zwei Tage später steht es in der Zeitung: plumpe Anmache im Hintergrundgespräch.', Object.assign({ ['j_' + j.type]: -15 }, badPress(st, j, 'Profi baggert Journalistin beim Interview an – im Verein ist man verärgert.')), 'thought'); } });
           return o; } },
+      rel_pt: { say: function (c, d) { var j = jOf(c.st, d); return 'Off the record mit der eigenen Partnerin – merkwürdig. ' + fn(j) + ' legt den Block weg. „Soll ich dich jetzt interviewen – oder fragst du, ob ich über dich schreibe?“'; },
+        opts: [
+          { l: 'Ihr eine exklusive Info stecken', hint: 'Mitspieler könnten Bevorzugung wittern', fx: function (st, c, d) { var j = jOf(st, d); if (ch(0.4)) { X.chron(st, 'medien', '📰', 'Vetternwirtschaft?', j.outlet + ' hat die Info zuerst – von der eigenen Partnerin des Profis.', 2, 'presse'); return endI(d, 'Die Story läuft groß. In der Kabine wird gefragt, warum ausgerechnet ' + j.outlet + ' alles zuerst weiß.', { ['j_' + j.type]: 8, mates: -4, coach: -3, media: -2, partner: 2, stress: 3 }); }
+            return endI(d, fn(j) + ' landet einen Scoop. Zu Hause gibt es Sekt – und du hoffst, dass niemand nachfragt.', { ['j_' + j.type]: 8, media: 2, partner: 3 }); } },
+          { l: 'Bitten, die Berichterstattung über deinen Verein abzugeben', fx: function (st, c, d) { var j = jOf(st, d); return ch(0.6) ? endI(d, fn(j) + ': „Ich spreche mit der Ressortleitung. Ist wohl besser so.“', { partner: 3, ['j_' + j.type]: -2 }) : endI(d, fn(j) + ': „Das ist mein Job. Ich lasse mir nicht vorschreiben, worüber ich schreibe.“', { partner: -4 }); } },
+          { l: 'Lieber über etwas anderes reden', fx: function (st, c, d) { return endI(d, 'Ihr redet über alles außer Sport. Ein schöner Abend – aber kein Hintergrundgespräch.', { partner: 4, well: 2, stress: -2 }); } }] },
+      rel_known: { say: function (c, d) { var j = jOf(c.st, d), sec = !!L.life(c.st).partner; return sec ? 'Offiziell ein Hintergrundgespräch, in Wahrheit ein heimliches Wiedersehen. ' + fn(j) + ' flüstert: „Hier kennt uns jeder. Pass auf, wie du mich ansiehst.“' : fn(j) + ' grinst über den Rand der Kaffeetasse. „Heute beruflich – oder darf ich das Diktiergerät gleich ausmachen?“'; },
+        opts: [
+          { l: 'Das Treffen privat fortsetzen', hint: function (c) { return L.life(c.st).partner ? 'Entdeckungsrisiko' : ''; }, fx: function (st, c, d) { var j = jOf(st, d), x = jCand(st, j), pt = L.life(st).partner; x.v = Math.min(100, x.v + 6); A.flings(st).forEach(function (f) { if (f.on && f.name === j.name) { f.last = tick(st); f.meets = (f.meets || 0) + 1; } });
+            if (pt) { lf2(st).suspect = tick(st) + 3; if (ch(0.15)) { X.chron(st, 'familie', '📸', 'Gesehen', 'Ein Fotograf erwischt dich mit ' + j.name + ' (' + j.outlet + ').', 2, 'date'); P.partner(st).neg += 3; return endI(d, 'Vor ihrer Haustür blitzt eine Kamera. Das könnte Ärger geben.', { media: -4, stress: 6, partner: -6 }); } }
+            return endI(d, pt ? 'Ein gestohlener Abend. Niemand hat etwas gemerkt – diesmal.' : 'Aus dem Kaffee wird ein langer Abend. Über den Verein redet ihr kaum.', pt ? { well: 2, stress: 2 } : { well: 4, stress: -2 }, 'date'); } },
+          { l: 'Strikt beruflich bleiben', fx: function (st, c, d) { var j = jOf(st, d); return endI(d, fn(j) + ' spielt mit. „Dann eben Profi und Reporterin.“ Ein sachliches Gespräch.', { ['j_' + j.type]: 4, media: 1 }); } },
+          { l: 'Die Sache beenden', fx: function (st, c, d) { var j = jOf(st, d), lf = L.life(st); lf.cands = lf.cands.filter(function (y) { return y.name !== j.name; }); A.flingEnd(st, j.name); return endI(d, fn(j) + ' klappt den Block zu. „Verstanden.“ Über dich schreibt sie ab jetzt sehr kühl.', { ['j_' + j.type]: -10, stress: 2 }); } }] },
+      rel_ex: { say: function (c, d) { var j = jOf(c.st, d); return 'Ein Kaffee mit der Ex – beruflich. ' + fn(j) + ' bleibt kühl. „Also. Was willst du mir erzählen?“'; },
+        opts: [
+          { l: 'Professionell und fair bleiben', fx: function (st, c, d) { var j = jOf(st, d); return endI(d, 'Es ist seltsam, aber es funktioniert. Ihr seid beide Profis.', { ['j_' + j.type]: 5, stress: 1 }); } },
+          { l: 'Fragen, ob es noch eine Chance gibt', fx: function (st, c, d) { var j = jOf(st, d); if (ch(0.25)) { jCand(st, j); return endI(d, fn(j) + ' schweigt lange. „Vielleicht. Ruf mich an – aber nicht im Dienst.“', { well: 2 }); } return endI(d, '„Das ist vorbei.“ Der Artikel danach ist auffallend spitz.', { ['j_' + j.type]: -6, media: -2, stress: 3 }); } }] },
       her: { say: function (c, d) { var j = jOf(c.st, d); return fn(j) + ' rückt näher, lacht über jeden deiner Witze und berührt wie zufällig deinen Arm. „Wir könnten das ja mal ohne Diktiergerät fortsetzen – bei einem Glas Wein?“'; },
         opts: [
           { l: 'Darauf eingehen', fx: function (st, c, d) { return { r: 'Am Abend sitzt ihr in einer kleinen Weinbar. ' + (d.real ? 'Sie erzählt von sich, fragt nach dir – nicht nach dem Verein.' : 'Nach dem zweiten Glas wird sie neugierig: „Sag mal, wie ist das eigentlich wirklich zwischen dem Trainer und der Mannschaft? Und stimmt das mit dem Kapitän?“'), next: d.real ? 'match' : 'leak' }; } },

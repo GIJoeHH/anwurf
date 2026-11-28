@@ -927,13 +927,40 @@
         ] }
       } };
   });
+  // Mit der Partnerin reden (analog Spielerkarriere): offenes Gespräch mit Themen – die Krise nur, wenn wirklich etwas schiefläuft
+  MX.ptJrn = function (st) { var pt = st.mx.life.partner; if (!pt) return null; return st.mx.people.jrn.filter(function (j) { return j.name === pt.name; })[0] || null; }; // nur über den Namen: nach einem Vereinswechsel bekommen neue Reporter dieselben Kennungen
   add('life_partner_talk', function (st, c) {
-    var lf = st.mx.life, pt = lf.partner; if (!pt) return null; return { title: 'Gespräch mit ' + pt.name.split(' ')[0], cat: 'privat', imp: 'wichtig', img: 'familie', max: 2, ic: '🏠', who: { n: pt.name, role: MX.LSTAGE[pt.stage] + ' · ' + pt.job, ic: '❤️' },
-      nodes: { start: { say: '„Du bist kaum noch da. Und wenn, dann denkst du an den Verein. Ich fühle mich allein.“', opts: [
-        O('Feste freie Abende versprechen', function () { MX.say(st, 'life_promise', 'Freie Abende versprochen'); lf.promiseT = tick(st); return end('„Ich nehme dich beim Wort.“', fx(st, { partner: 8, stress: -2 })); }, { def: true }),
-        O('Erklären, dass es gerade die Krise ist', function () { return end('„Es ist immer irgendeine Krise.“', fx(st, { partner: -3 })); }),
-        O('Kurzurlaub in der Länderspielpause planen', function () { return end('Zwei Tage Ostsee – nur ihr beide.', fx(st, { partner: 10, stress: -8, cash: [-(D.MONEY ? 80 : 800), 'Privat'] })); })
-      ] } } };
+    var lf = st.mx.life, pt = lf.partner; if (!pt) return null; var n = fnm(pt), t = tick(st), j = MX.ptJrn(st), next = pt.stage + 1, stepOk = pt.stage >= 2 && pt.stage < 5 && t - (pt.stageT || pt.since || 0) >= 12;
+    var stepL = { 3: 'Zusammenziehen vorschlagen', 4: 'Einen Heiratsantrag machen', 5: 'Die Hochzeit planen' }[next];
+    function step() { pt.stage = next; pt.stageT = t; lf.status = next >= 5 ? 'verheiratet' : next === 4 ? 'verlobt' : 'partner'; MX.chron(st, next === 5 ? '💒' : next === 4 ? '💍' : '🏡', MX.LSTAGE[next], 'Mit ' + pt.name + '.', next >= 4 ? 3 : 2); }
+    var crisisOpts = [
+      O('Zuhören und feste freie Abende versprechen', function () { MX.say(st, 'life_promise', 'Freie Abende versprochen'); lf.promiseT = t; pt.crisis = 0; return end('Ihr redet bis spät in die Nacht. „Ich nehme dich beim Wort.“', fx(st, { partner: 8, stress: -2 })); }, { def: true }),
+      O('Einen Kurzurlaub vorschlagen', function () { pt.crisis = 0; return end('Zwei Tage ' + (HB ? 'Ostsee' : 'Nordsee') + ' – nur ihr beide, das Diensthandy bleibt im Hotelsafe.', fx(st, { partner: 10, stress: -8, cash: [-(D.MONEY ? 80 : 800), 'Privat'] })); }),
+      O('Eine Paarberatung vorschlagen', function () { pt.crisis = 0; return end('„Okay. Wir versuchen es.“ Die erste Sitzung ist unangenehm ehrlich – aber ihr redet wieder miteinander.', fx(st, { partner: 7, stress: -2, cash: [-(D.MONEY ? 30 : 300), 'Privat'] })); }),
+      O('Den Job verteidigen: „Es ist gerade eine heiße Phase.“', function () { return end('„Es ist immer irgendeine heiße Phase.“ Die Tür fällt ins Schloss.', fx(st, { partner: -5, stress: 3 })); }),
+      O('„Vielleicht sollten wir uns trennen.“', function () { MX.breakup(st, 'Trennung nach einer Krise'); return end('Es ist vorbei. Es tut weh – auf beiden Seiten.', fx(st, { stress: 6 })); })
+    ];
+    var o = [
+      O('Fragen, wie ' + (pt.job ? 'es bei der Arbeit' : 'ihr Tag') + ' war', function () { var fresh = pt.askT !== t; pt.askT = t; return end(fresh ? n + ' erzählt lange – und du hörst wirklich zu. Das tut euch beiden gut.' : n + ' lächelt: „Das hast du mich heute schon gefragt.“', fresh ? fx(st, { partner: 4, stress: -1 }) : []); }, { def: true }),
+      O('Vom Verein erzählen', function () { var fan = (pt.football || 5) >= 6; return end(fan ? n + ' will alles wissen: Aufstellung, Kabine, wer gerade Ärger macht.' : n + ' nickt höflich. Nach zehn Minuten Viererkette schaut sie aufs Handy.', fx(st, { partner: fan ? 3 : -1, stress: fan ? -2 : 0 })); }),
+      O('Über die gemeinsame Zukunft reden', function () { return nx(n + ' lehnt sich zurück. „Wo siehst du uns in ein paar Jahren?“', [], 'future'); }),
+      O('Ein kleines Geschenk mitbringen', function () { var fresh = pt.giftT == null || t - pt.giftT >= 4; pt.giftT = t; return end(fresh ? n + ' freut sich ehrlich über die Aufmerksamkeit.' : '„Schon wieder? Du musst mir nichts kaufen.“', fx(st, { partner: fresh ? 4 : 1, cash: [-(D.MONEY ? 20 : 200), 'Privat'] })); })
+    ];
+    if (j) o.splice(2, 0, O('Über ihre Berichterstattung über den Verein reden', function () { return nx(n + ' seufzt. „Ich wusste, dass das kommt. ' + j.outlet + ' will natürlich, dass ich über euch schreibe.“', [], 'jrn'); }));
+    if (pt.crisis || pt.v < 45) o.unshift(O('Ansprechen, was zwischen euch steht', function () { return nx(n + ' atmet tief durch. „Du bist kaum noch da. Und wenn, dann denkst du an den Verein.“', [], 'crisis'); }));
+    var fut = [O('Sagen, dass du glücklich bist, wie es ist', function () { return end(n + ' nickt. „Ich auch. Aber lass uns nicht stehen bleiben.“', fx(st, { partner: 2 })); }, { def: true })];
+    if (stepOk) fut.unshift(O(stepL, function () { if (hr('ptstep' + t + (st.seed || 0), 4) < clamp(0.35 + (pt.v - 55) / 45, 0.1, 0.95)) { step(); return end(next === 3 ? n + ' fällt dir um den Hals. Ihr sucht eine gemeinsame Wohnung.' : next === 4 ? 'Ja! Unter Tränen und Lachen.' : 'Die Hochzeit wird ein unvergesslicher Tag – die halbe Mannschaft tanzt bis morgens.', fx(st, { partner: 8, stress: -4, kab: next === 5 ? 1 : 0, cash: next >= 4 ? [-(D.MONEY ? (next === 5 ? 250 : 40) : (next === 5 ? 2500 : 400)), 'Privat'] : null })); }
+      return end(n + ': „Ich liebe dich – aber dafür ist es noch zu früh.“', fx(st, { partner: -2 })); }));
+    else if (pt.stage < 5) fut.push(O('Fragen, was ' + n + ' sich wünscht', function () { return end(n + ' wünscht sich ' + (pt.v >= 60 ? 'vor allem mehr gemeinsame Zeit – auch mal ein ganzes Wochenende ohne Verein.' : 'Verlässlichkeit. „Wenn du etwas versprichst, halte es auch.“'), fx(st, { partner: 2 })); }));
+    fut.push(O('Ausweichen: „Lass uns das nach der Saison besprechen.“', function () { return end('„Nach der Saison ist vor der Saison.“ ' + n + ' wirkt enttäuscht.', fx(st, { partner: -3 })); }));
+    var jo = j ? [
+      O('„Beruf und Privat trennen wir strikt.“', function () { pt.jrnDeal = 'strikt'; return end(n + ' ist erleichtert. „Dann schreibt ein Kollege über euch. Gut so.“', fx(st, { partner: 4, jrn: [j.id, -2] })); }, { def: true }),
+      O('„Schreib, was du für richtig hältst.“', function () { pt.jrnDeal = 'frei'; return end('„Danke, dass du mir vertraust.“ ' + n + ' wird fair, aber kritisch berichten.', fx(st, { partner: 6, jrn: [j.id, 4], media: 1 })); }),
+      O('„Du könntest uns ein bisschen helfen …“', function () { pt.jrnDeal = 'hilfe'; if (hr('ptj' + t, 5) < 0.6) return end(n + ' wird kühl. „Ich bin doch nicht eure Pressestelle.“', fx(st, { partner: -7, jrn: [j.id, -3] })); return end(n + ' zögert, dann: „Ein wohlwollender Kommentar – einmal.“ Gut fühlt sich das für keinen von euch an.', fx(st, { partner: -2, media: 3, jrn: [j.id, 3] })); }, { hint: 'Heikel für die Beziehung' })] : [];
+    var start = c.topic === 'crisis' ? { say: n + ': „Wir müssen reden. Du bist kaum noch da – und wenn, dann denkst du an den Verein. Ich fühle mich allein.“', opts: crisisOpts }
+      : { say: n + ': „Schön, dass wir mal Zeit füreinander haben. Worüber willst du reden?“', opts: o };
+    return { title: (c.topic === 'crisis' ? 'Krisengespräch mit ' : 'Gespräch mit ') + n, cat: 'privat', imp: c.topic === 'crisis' ? 'wichtig' : 'normal', img: 'familie', max: 3, ic: c.topic === 'crisis' ? '⛈️' : '💬', who: { n: pt.name, role: MX.LSTAGE[pt.stage] + ' · ' + pt.job, ic: '❤️' },
+      nodes: { start: start, crisis: { say: n + ': „Ich fühle mich allein.“', opts: crisisOpts }, future: { say: '„Wo siehst du uns?“', opts: fut }, jrn: { say: '„Wie sollen wir das handhaben?“', opts: jo.length ? jo : [O('Weiter', function () { return end('', []); })] } } };
   });
   add('life_stage', function (st, c) {
     var lf = st.mx.life, pt = lf.partner; if (!pt) return null; var next = pt.stage + 1, lbl = { 3: 'Zusammenziehen', 4: 'Heiratsantrag', 5: 'Hochzeit' }[next];
@@ -1009,7 +1036,8 @@
   ev('life_away', 'privat', 8, 1, function (st) { var lf = st.mx.life, club = cl(st); if (!club || (lf.cands || []).length >= 4) return null; var r = (st.lastResults || []).filter(function (x) { return x.a === club.id && x.comp !== 'friendly'; })[0]; if (!r || hr('aw' + tick(st), 1) > (lf.partner ? 0.25 : 0.5)) return null;
     var h = st.clubs[r.h] || (R.euro && R.euro.info ? R.euro.info(st, r.h) : null), spots = r.comp === 'euro' ? ['bar', 'lobby', 'flug', 'fruehst'] : ['bar', 'lobby', 'zug', 'fruehst'], cd = MX.newCand(st, 'away'); cd.src = 'away';
     return { cand: cd, spot: spots[hash('sp' + tick(st)) % spots.length], city: (h && (h.city || h.short || h.name)) || 'der Auswärtsstadt' }; });
-  ev('life_partner_talk', 'privat', 10, 2, function (st) { var lf = st.mx.life; return lf.partner && lf.stress >= 65 && lf.partner.v < 55 ? {} : null; });
+  // Krisengespräch nur, wenn die Beziehung wirklich leidet und ihr nicht ohnehin gerade geredet oder etwas unternommen habt
+  ev('life_partner_talk', 'privat', 16, 1.2, function (st) { var lf = st.mx.life, pt = lf.partner, t = tick(st); if (!pt || pt.v >= 42 || lf.stress < 55 || !MX.cool(st, 'lifeTalk', 6) || t - Math.max(lf.lastDate || -99, lf.pactT || -99) <= 3 || t - (pt.since || 0) < 6) return null; pt.crisis = 1; return { topic: 'crisis' }; });
   ev('life_stage', 'privat', 16, 1.5, function (st) { var pt = st.mx.life.partner; return pt && pt.stage >= 2 && pt.stage < 5 && pt.v >= 72 && tick(st) - (pt.stageT || pt.since) >= 20 ? {} : null; });
 
   // Reaktionen auf konkrete Ereignisse (haben Vorrang vor allgemeinen Ereignissen)
@@ -1177,9 +1205,35 @@
   var FEM = { Sabine: 1, Claudia: 1, Petra: 1, Anja: 1, Katrin: 1, Julia: 1, Nicole: 1, Sandra: 1, Miriam: 1, Lena: 1, Aylin: 1, Ines: 1, Carla: 1, Vera: 1 };
   MX.fem = function (name) { var f = String(name || '').split(' ')[0]; return !!FEM[f] || (MX.CFEM || []).indexOf(f) >= 0; };
   function jOf(st, id) { return st.mx.people.jrn.filter(function (j) { return j.id === id; })[0] || st.mx.people.jrn[0]; }
-  function jCandM(st, j) { var c = (st.mx.life.cands || []).filter(function (y) { return y.name === j.name; })[0]; if (!c) { c = MX.newCand(st, 'presse'); c.name = j.name; c.job = 'Journalistin (' + j.outlet + ')'; c.src = 'zufall'; } return keepCand(st, c, 1, 58); }
+  function jCandM(st, j) { var c = (st.mx.life.cands || []).filter(function (y) { return y.name === j.name; })[0]; if (!c) { c = MX.newCand(st, 'presse'); c.name = j.name; c.job = 'Journalistin (' + j.outlet + ')'; c.src = 'zufall'; } c.jid = j.id; return keepCand(st, c, 1, 58); }
   add('mx_pressbg', function (st, c) {
     var j = jOf(st, c.jid), pt = st.mx.life.partner, fem = MX.fem(j.name);
+    // Die Reporterin ist schon privat bekannt: kein Flirt wie mit einer Fremden
+    var known = (st.mx.life.cands || []).filter(function (y) { return y.name === j.name; })[0], ex = !pt || pt.name !== j.name ? (st.mx.life.exes || []).filter(function (y) { return y.name === j.name; })[0] : null;
+    if (known && !(pt && pt.name === j.name)) { var kn = fnm(j), sec = !!known.aff;
+      return { title: 'Hintergrundgespräch mit ' + kn, cat: 'medien', imp: 'normal', img: 'presse', max: 2, ic: sec ? '🤫' : '☕', who: { n: j.name, role: (sec ? 'Heimliche Beziehung' : 'Privat bekannt') + ' · ' + j.outlet, ic: sec ? '🤫' : '☕' },
+        nodes: { start: { say: sec ? 'Offiziell ein Hintergrundgespräch, in Wahrheit ein heimliches Wiedersehen. ' + kn + ' flüstert: „Hier kennt uns jeder. Pass auf, wie du mich ansiehst.“' : kn + ' grinst über den Rand der Kaffeetasse. „Heute beruflich – oder darf ich das Diktiergerät gleich ausmachen?“', opts: [
+          O(sec ? 'Danach heimlich zu ihr' : 'Das Gespräch privat fortsetzen', function () { known.v = clamp(known.v + 6, 0, 100); known.dates = (known.dates || 0) + 1; known.lastD = tick(st); if (sec) { st.mx.life.suspect = Math.max(st.mx.life.suspect || 0, tick(st) + 3); if (hr('pbgsec' + tick(st), 8) < 0.15) { MX.chron(st, '📸', 'Gesehen', 'Ein Fotograf erwischt dich mit ' + j.name + ' (' + j.outlet + ').', 2); return end('Vor ihrer Haustür blitzt eine Kamera. Das könnte Ärger geben.', fx(st, { media: -4, stress: 6, partner: pt ? -6 : 0 })); } }
+            return end(sec ? 'Ein gestohlener Abend. Niemand hat etwas gemerkt – diesmal.' : 'Aus dem Kaffee wird ein langer Abend. Über den Verein redet ihr kaum.', fx(st, { stress: sec ? 2 : -2 })); }, { def: true, hint: sec ? 'Entdeckungsrisiko' : '' }),
+          O('Strikt beruflich bleiben', function () { return end(kn + ' spielt mit. „Dann eben Trainer und Reporterin.“ Ein sachliches Gespräch.', fx(st, { jrn: [j.id, 4], media: 1 })); }),
+          O('Die Sache beenden', function () { MX.candEnd(st, known.id, 'Du hast die Sache mit ' + j.name + ' beendet.'); return end(kn + ' klappt den Block zu. „Verstanden.“ Über dich schreibt sie ab jetzt sehr kühl.', fx(st, { jrn: [j.id, -10], stress: 2 })); })
+        ] } } };
+    }
+    if (ex) { return { title: 'Hintergrundgespräch mit ' + fnm(j), cat: 'medien', imp: 'normal', img: 'presse', max: 1, ic: '💔', who: { n: j.name, role: 'Ex-Partnerin · ' + j.outlet, ic: '💔' },
+        nodes: { start: { say: 'Ein Kaffee mit der Ex – beruflich. ' + fnm(j) + ' bleibt kühl. „Also, Trainer. Was wollen Sie mir erzählen?“', opts: [
+          O('Professionell und fair bleiben', function () { return end('Es ist seltsam, aber es funktioniert. Ihr seid beide Profis.', fx(st, { jrn: [j.id, 5], stress: 1 })); }, { def: true }),
+          O('Fragen, ob es noch eine Chance gibt', function () { if (hr('pbgex' + tick(st), 9) < 0.25) { var c2 = jCandM(st, j); c2.v = Math.max(c2.v, 60); return end(fnm(j) + ' schweigt lange. „Vielleicht. Ruf mich an – aber nicht im Dienst.“', fx(st, { stress: -1 })); } return end('„Das ist vorbei.“ Der Artikel danach ist auffallend spitz.', fx(st, { jrn: [j.id, -6], media: -2, stress: 3 })); })
+        ] } } };
+    }
+    if (pt && MX.ptJrn(st) === j) { var n = fnm(pt), deal = pt.jrnDeal;
+      return { title: 'Hintergrundgespräch mit ' + n, cat: 'medien', imp: 'normal', img: 'presse', max: 2, ic: '❤️', who: { n: j.name, role: 'Deine Partnerin · ' + j.outlet, ic: '❤️' },
+        nodes: { start: { say: 'Off the record mit der eigenen Partnerin – merkwürdig. ' + n + ' legt den Block weg. „Fragt mich die Redaktion, ob ich dich interviewe, oder du mich, ob ich über euch schreibe?“' + (deal === 'strikt' ? ' (Ihr hattet vereinbart, Beruf und Privat zu trennen.)' : ''), opts: [
+          O('Ihr eine exklusive Info stecken', function () { var caught = hr('pbgpt' + tick(st), 6) < 0.4; if (deal === 'strikt') pt.jrnDeal = 'frei'; if (caught) { MX.chron(st, '📰', 'Vetternwirtschaft?', 'Andere Medien wittern Bevorzugung: ' + j.outlet + ' hat die Info zuerst – von der Partnerin des Trainers.', 2); return end('Die Story läuft groß – aber die Konkurrenz und der Vorstand fragen, warum ausgerechnet ' + j.outlet + ' alles zuerst weiß.', fx(st, { jrn: [j.id, 8], media: -5, board: -4, partner: deal === 'strikt' ? -4 : 2, stress: 3 })); }
+            return end(n + ' landet einen Scoop. Zu Hause gibt es Sekt – und du hoffst, dass niemand nachfragt.', fx(st, { jrn: [j.id, 8], media: 2, partner: deal === 'strikt' ? -3 : 3 })); }, { hint: 'Andere Medien könnten Bevorzugung wittern' }),
+          O('Bitten, die Berichterstattung über den Verein abzugeben', function () { pt.jrnDeal = 'strikt'; return end(hr('pbgpt2' + tick(st), 7) < 0.6 ? n + ': „Ich spreche mit der Ressortleitung. Ist wohl besser so.“' : n + ': „Das ist mein Job. Ich lasse mir von dir nicht vorschreiben, worüber ich schreibe.“', fx(st, { partner: hr('pbgpt2' + tick(st), 7) < 0.6 ? 3 : -4, jrn: [j.id, -2] })); }),
+          O('Lieber über etwas anderes reden', function () { return end('Ihr redet über alles außer ' + TM.sport + '. Ein schöner Abend – aber kein Hintergrundgespräch.', fx(st, { partner: 4, stress: -2 })); }, { def: true })
+        ] } } };
+    }
     if (c.her == null) { c.her = fem && hr('pbgher' + j.id + tick(st), 1) < 0.3 + (st.manager.reputation || 40) / 400 ? 1 : 0; c.real = hr('pbgreal' + j.id + tick(st), 2) < (/Boulevard|provokant/.test(j.type) ? 0.3 : 0.6) ? 1 : 0; }
     function badPress(why) { MX.chron(st, '📰', 'Peinliche Schlagzeile', j.outlet + ': ' + why, 2); return fx(st, { media: -8, board: -4, fans: -2, mrep: -2, jrn: [j.id, -15], stress: 5, partner: pt ? -8 : 0 }); }
     var startOpts = [
@@ -1247,4 +1301,56 @@
     return { title: 'Nachricht an ' + fnm(x), cat: 'privat', imp: 'normal', img: 'date', max: 1, ic: '💬', who: { n: x.name, role: (x.aff ? 'heimliche Beziehung' : (x.stage || 0) >= 1 ? 'Dating' : 'Nummer getauscht') + ' · ' + x.job, ic: '💬' },
       nodes: { start: { say: 'Du öffnest den Chat mit ' + fnm(x) + '. Interesse: ' + Math.round(x.v) + '/100. ' + (x.dates ? 'Ihr hattet schon ' + x.dates + ' Treffen.' : 'Ihr kennt euch erst kurz.'), opts: opts } } };
   });
+  // Beziehung selbst beenden (Trennungsgespräch)
+  add('life_breakup', function (st, c) {
+    var lf = st.mx.life, pt = lf.partner || c.snap; if (!pt) return null;
+    if (!c.snap && lf.partner) c.snap = { id: pt.id, name: pt.name, job: pt.job, stage: pt.stage || 1 };
+    var long = (pt.stage || 1) >= 3, nm = fnm(pt);
+    return { title: 'Trennung', cat: 'privat', imp: 'normal', img: 'familie', max: 1, ic: '💔', who: { n: pt.name, role: MX.LSTAGE[pt.stage || 1] || 'Beziehung', ic: '💔' },
+      nodes: { start: { say: 'Du hast lange darüber nachgedacht. Heute willst du mit ' + nm + ' reden.' + (long ? ' Nach so langer Zeit wird das nicht leicht.' : ''), opts: [
+        O('Ehrlich und respektvoll trennen', function () { MX.breakup(st, 'Du hast dich getrennt – im Guten.'); return end(nm + ' ist traurig, aber dankbar für deine Ehrlichkeit. „Pass auf dich auf.“', fx(st, { stress: long ? 4 : 1 })); }, { def: true }),
+        O('Kurz und schmerzlos per Nachricht', function () { MX.breakup(st, 'Schluss per Nachricht.'); var leak = (st.manager.reputation || 40) >= 55 && hr('brk' + tick(st), 1) < 0.35; if (leak) MX.chron(st, '📰', 'Boulevard', 'Trainer macht per Nachricht Schluss – die Klatschpresse berichtet.', 2);
+          return end(leak ? 'Eine Woche später zitiert die Boulevardpresse aus deiner Nachricht. Unschön.' : nm + ' antwortet nicht mehr. Es ist vorbei.', fx(st, { stress: -1, media: leak ? -5 : 0 })); }, { hint: 'Schnell – aber es kann öffentlich werden' }),
+        O('Doch nicht – du willst es noch einmal versuchen', function () { if (lf.partner) lf.partner.v = clamp(lf.partner.v + 3, 0, 100); return end('Du lädst ' + nm + ' stattdessen zum Essen ein. Vielleicht wird es wieder.', fx(st, { stress: 1 })); })
+      ] } } };
+  });
+  // Gemeinsame Unternehmungen mit der Partnerin (analog Spielerkarriere): höchstens zwei pro Woche
+  MX.PACTS = {
+    dinner: { n: 'Essen gehen', ic: '🍽️', mood: 'Ein Abend mit gutem Essen und langen Gesprächen.', intr: 'Kochen' },
+    cinema: { n: 'Kino', ic: '🎬', mood: 'Popcorn, ein Film und die Diskussion danach.', intr: 'Filme' },
+    walk: { n: 'Spaziergang', ic: '🌳', mood: 'Frische Luft, keine Termine, nur ihr beide.', intr: 'Wandern' },
+    concert: { n: 'Konzert', ic: '🎵', mood: 'Laute Musik, volle Halle, heisere Stimmen danach.', intr: 'Musik' },
+    sport: { n: 'Gemeinsam Sport', ic: '🚴', mood: 'Eine lockere Runde zusammen – ganz ohne Taktiktafel.', intr: 'Laufen' },
+    museum: { n: 'Ausstellung besuchen', ic: '🖼️', mood: 'Ein ruhiger Nachmittag zwischen Bildern und Kaffee.', intr: 'Kunst' },
+    dance: { n: 'Tanzen gehen', ic: '💃', mood: 'Ein Abend auf der Tanzfläche – du hast mehr Talent als gedacht.', intr: 'Tanzen' },
+    trip: { n: 'Wochenendausflug', ic: '🧳', mood: 'Zwei Tage raus aus der Stadt.', intr: 'Reisen', big: 1 },
+    vacation: { n: 'Gemeinsamer Urlaub', ic: '🏝️', mood: 'Eine Woche Sonne – das Diensthandy bleibt meistens aus.', intr: 'Reisen', big: 2, onlyBreak: true },
+    friends: { n: 'Freunde besuchen', ic: '🫂', mood: 'Ein Abend bei Freunden, viel Lachen.', intr: '' },
+    family: { n: 'Familienfeier', ic: '🎂', mood: 'Kaffee, Kuchen und neugierige Fragen zur Tabelle.', intr: '' },
+    match: { n: 'Zum Heimspiel einladen', ic: '🏟️', mood: '{n} sitzt auf der Tribüne und fiebert mit.', intr: '', season: true },
+    home: { n: 'Gemütlicher Abend', ic: '🛋️', mood: 'Decke, Serie, Lieferessen – genau richtig.', intr: 'Filme' }
+  };
+  MX.PACT_MAX = 2;
+  MX.pactState = function (st) { var lf = st.mx.life, t = tick(st); if (!lf.pactW || lf.pactW.t !== t) lf.pactW = { t: t, n: 0 }; return lf.pactW; };
+  MX.pactBlock = function (st, k) { var a = MX.PACTS[k], lf = st.mx.life, w = MX.pactState(st); if (!a || !lf.partner) return 'keine Beziehung';
+    if (w.n >= MX.PACT_MAX) return 'diese Woche keine Zeit mehr';
+    if (a.onlyBreak && !(S.isBreak && S.isBreak(st))) return 'nur in der Sommer- oder Winterpause';
+    if (a.season && st.phase !== 'season') return 'gerade keine Heimspiele';
+    if (a.big && (st.mx.life.pactBig || -9) > tick(st) - 4) return 'erst vor Kurzem verreist';
+    return ''; };
+  MX.doPact = function (st, k) {
+    var why = MX.pactBlock(st, k); if (why) return { ok: false, why: why };
+    var a = MX.PACTS[k], lf = st.mx.life, pt = lf.partner, w = MX.pactState(st); w.n++;
+    pt.acts = pt.acts || []; var hit = a.intr && (pt.intr || []).indexOf(a.intr) >= 0, again = pt.acts.slice(0, 3).indexOf(k) >= 0;
+    pt.acts.unshift(k); if (pt.acts.length > 10) pt.acts.length = 10; if (a.big) lf.pactBig = tick(st); lf.pactT = tick(st);
+    var gain = Math.round((hit ? 5 : 3) - (again ? 1.5 : 0) + (k === 'vacation' ? 5 : k === 'trip' ? 2 : 0) + (k === 'match' && (pt.football || 5) >= 6 ? 2 : 0));
+    if (pt.crisis && gain >= 4) pt.crisis = 0;
+    var stress = k === 'vacation' ? -10 : k === 'trip' ? -5 : -2, l = st.mx.last || {}, bad = (l.streak || 0) <= -2;
+    var txt = a.mood.replace('{n}', fnm(pt)) + (hit ? ' ' + fnm(pt) + ' liebt so etwas.' : again ? ' Schön – aber langsam kennt ihr das.' : '');
+    var spec = { partner: gain, stress: stress };
+    if (bad && (k === 'vacation' || k === 'trip' || k === 'dance') && hr('pactbad' + tick(st), 1) < 0.5) { spec.fans = -2; spec.media = -2; txt += ' Allerdings tauchen Fotos auf – nach der Niederlagenserie kommt das bei den Fans nicht gut an.'; }
+    if (k === 'match' && (pt.football || 5) < 4) txt += ' Ehrlich gesagt schaut ' + fnm(pt) + ' mehr aufs Handy als aufs Spielfeld.';
+    var e = fx(st, spec); MX.chron(st, a.ic, a.n, txt, 1);
+    return { ok: true, txt: txt, fx: e, name: a.n };
+  };
 })(RFM);

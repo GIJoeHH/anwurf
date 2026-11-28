@@ -947,6 +947,9 @@
       O('Ein kleines Geschenk mitbringen', function () { var fresh = pt.giftT == null || t - pt.giftT >= 4; pt.giftT = t; return end(fresh ? n + ' freut sich ehrlich über die Aufmerksamkeit.' : '„Schon wieder? Du musst mir nichts kaufen.“', fx(st, { partner: fresh ? 4 : 1, cash: [-(D.MONEY ? 20 : 200), 'Privat'] })); })
     ];
     if (j) o.splice(2, 0, O('Über ihre Berichterstattung über den Verein reden', function () { return nx(n + ' seufzt. „Ich wusste, dass das kommt. ' + j.outlet + ' will natürlich, dass ich über euch schreibe.“', [], 'jrn'); }));
+    if (!lf.open && pt.stage >= 1) o.push(O('Eine offene Beziehung vorschlagen', function () { return nx(n + ' sieht dich lange an. „Du meinst … wir dürfen beide auch andere treffen?“', [], 'open'); }, { hint: 'Heikel – kann gut gehen oder alles beenden' }));
+    if (lf.open) o.push(O('Zur Exklusivität zurückkehren', function () { var ended = (lf.cands || []).filter(function (y) { return y.open; }); ended.forEach(function (y) { MX.candEnd(st, y.id, 'Mit ' + y.name + ' ist Schluss – du und ' + pt.name + ' seid wieder exklusiv.'); }); lf.open = null; MX.chron(st, '🔒', 'Wieder exklusiv', 'Du und ' + pt.name + ' beendet die offene Beziehung.', 1);
+      return end(hr('openback' + t, 6) < 0.75 ? n + ' atmet auf. „Ehrlich gesagt hab ich darauf gehofft.“' : n + ' zögert. „Jetzt, wo ich jemanden kennengelernt habe? … Na gut.“', fx(st, { partner: 6, stress: -2 })); }));
     if (pt.crisis || pt.v < 45) o.unshift(O('Ansprechen, was zwischen euch steht', function () { return nx(n + ' atmet tief durch. „Du bist kaum noch da. Und wenn, dann denkst du an den Verein.“', [], 'crisis'); }));
     var fut = [O('Sagen, dass du glücklich bist, wie es ist', function () { return end(n + ' nickt. „Ich auch. Aber lass uns nicht stehen bleiben.“', fx(st, { partner: 2 })); }, { def: true })];
     if (stepOk) fut.unshift(O(stepL, function () { if (hr('ptstep' + t + (st.seed || 0), 4) < clamp(0.35 + (pt.v - 55) / 45, 0.1, 0.95)) { step(); return end(next === 3 ? n + ' fällt dir um den Hals. Ihr sucht eine gemeinsame Wohnung.' : next === 4 ? 'Ja! Unter Tränen und Lachen.' : 'Die Hochzeit wird ein unvergesslicher Tag – die halbe Mannschaft tanzt bis morgens.', fx(st, { partner: 8, stress: -4, kab: next === 5 ? 1 : 0, cash: next >= 4 ? [-(D.MONEY ? (next === 5 ? 250 : 40) : (next === 5 ? 2500 : 400)), 'Privat'] : null })); }
@@ -960,7 +963,40 @@
     var start = c.topic === 'crisis' ? { say: n + ': „Wir müssen reden. Du bist kaum noch da – und wenn, dann denkst du an den Verein. Ich fühle mich allein.“', opts: crisisOpts }
       : { say: n + ': „Schön, dass wir mal Zeit füreinander haben. Worüber willst du reden?“', opts: o };
     return { title: (c.topic === 'crisis' ? 'Krisengespräch mit ' : 'Gespräch mit ') + n, cat: 'privat', imp: c.topic === 'crisis' ? 'wichtig' : 'normal', img: 'familie', max: 3, ic: c.topic === 'crisis' ? '⛈️' : '💬', who: { n: pt.name, role: MX.LSTAGE[pt.stage] + ' · ' + pt.job, ic: '❤️' },
-      nodes: { start: start, crisis: { say: n + ': „Ich fühle mich allein.“', opts: crisisOpts }, future: { say: '„Wo siehst du uns?“', opts: fut }, jrn: { say: '„Wie sollen wir das handhaben?“', opts: jo.length ? jo : [O('Weiter', function () { return end('', []); })] } } };
+      nodes: { start: start, crisis: { say: n + ': „Ich fühle mich allein.“', opts: crisisOpts }, open: { say: '„Erklär mir, wie du dir das vorstellst.“', opts: MX.openAsk(st, pt) }, future: { say: '„Wo siehst du uns?“', opts: fut }, jrn: { say: '„Wie sollen wir das handhaben?“', opts: jo.length ? jo : [O('Weiter', function () { return end('', []); })] } } };
+  });
+  // ---------- Offene Beziehung ----------
+  // Offenheit der Partnerin (0–100), fest pro Person
+  MX.openness = function (pt) { if (pt.openv == null) pt.openv = Math.round(hash('open' + pt.name) % 100); return pt.openv; };
+  MX.openStart = function (st, by) { var lf = st.mx.life; lf.open = { t: tick(st), by: by }; MX.affs(st).forEach(function (y) { y.aff = false; y.open = true; }); MX.chron(st, '🔓', 'Offene Beziehung', (by === 'her' ? lf.partner.name + ' hat es vorgeschlagen' : 'Du hast es vorgeschlagen') + ' – ihr dürft beide auch andere treffen.', 2); };
+  MX.openAsk = function (st, pt) { var lf = st.mx.life, n = fnm(pt), t = tick(st), op = MX.openness(pt);
+    function react(bonus) { var r = hr('openask' + t + (st.seed || 0), 11), pYes = clamp(0.08 + op / 220 + bonus - (pt.stage >= 4 ? 0.12 : 0), 0.03, 0.75), pBreak = clamp(0.06 + (100 - op) / 600 + (pt.v < 45 ? 0.15 : 0) + (pt.stage >= 4 ? 0.05 : 0), 0.04, 0.4), pAngry = 0.3;
+      if (r < pYes) { MX.openStart(st, 'me'); return end(n + ' denkt lange nach. Dann: „Okay. Aber mit Regeln: keine Lügen, keine Leute aus dem Verein, und ich will nichts in der Zeitung lesen.“', fx(st, { partner: -2, stress: -2 })); }
+      if (r < pYes + pBreak) { MX.breakup(st, 'Du wolltest eine offene Beziehung.'); return end('„Dann such dir doch gleich jemand anderen.“ ' + n + ' packt noch am selben Abend die Sachen.', fx(st, { stress: 10 })); }
+      if (r < pYes + pBreak + pAngry) { lf.suspect = t + 10; return end(n + ' ist empört. „Hast du schon jemanden im Auge? Sag es mir lieber gleich!“ Die Tür knallt, die Nacht verbringst du auf dem Sofa.', fx(st, { partner: -14, stress: 6 })); }
+      return end(n + ' schüttelt ruhig den Kopf. „Nein. Das bin ich nicht. Ich will dich – nur dich.“', fx(st, { partner: -5, stress: 1 })); }
+    return [
+      O('Ehrlich: „Ich liebe dich – aber ich will frei sein.“', function () { return react(0.05); }, { def: true }),
+      O('Vorsichtig: „Lass uns einfach mal darüber reden.“', function () { if (hr('opensoft' + t, 12) < 0.35) return end(n + ': „Ich denke darüber nach.“ Das Thema hängt in der Luft.', fx(st, { partner: -2 })); return react(0); }),
+      O('Rückzieher: „Vergiss es, war nur so eine Idee.“', function () { return end(n + ' mustert dich misstrauisch. „Nur so eine Idee … aha.“', fx(st, { partner: -3 })); })
+    ]; };
+  add('life_open_her', function (st, c) {
+    var lf = st.mx.life, pt = lf.partner; if (!pt || lf.open) return null; var n = fnm(pt);
+    return { title: n + ' will reden', cat: 'privat', imp: 'wichtig', img: 'familie', max: 1, ic: '🔓', who: { n: pt.name, role: MX.LSTAGE[pt.stage] + ' · ' + pt.job, ic: '❤️' },
+      nodes: { start: { say: n + ' druckst herum. „Du bist ständig unterwegs, ich bin oft allein … Was hältst du von einer offenen Beziehung? Wir bleiben zusammen – aber jeder darf auch andere treffen.“', opts: [
+        O('Einverstanden', function () { MX.openStart(st, 'her'); return end(n + ' lächelt erleichtert. „Keine Lügen. Das ist die einzige Regel.“', fx(st, { partner: 4, stress: -2 })); }),
+        O('Ablehnen: „Ich will nur dich.“', function () { if (hr('openher' + tick(st), 13) < 0.25) { MX.breakup(st, n + ' wollte mehr Freiheit.'); return end(n + ' nickt traurig. „Dann passen wir wohl nicht mehr zusammen.“', fx(st, { stress: 8 })); } return end(n + ' nickt. „Okay. Dann versuchen wir es so – aber du musst mehr da sein.“', fx(st, { partner: 2 })); }, { def: true }),
+        O('Nachfragen: „Gibt es schon jemanden?“', function () { var yes = hr('openhw' + tick(st), 14) < 0.5; return end(yes ? n + ' wird rot. „Da ist ein Kollege … es ist noch nichts passiert.“ Das Gespräch wird lang.' : '„Nein. Es geht mir um uns, nicht um jemand anderen.“', fx(st, { partner: yes ? -4 : 1, stress: yes ? 4 : 1 })); })
+      ] } } };
+  });
+  add('life_open_jealous', function (st, c) {
+    var lf = st.mx.life, pt = lf.partner, x = MX.cand(st, c.cid) || c.snap; if (!pt || !lf.open || !x) return null; if (!c.snap) c.snap = { id: x.id, name: x.name }; var n = fnm(pt);
+    return { title: 'Eifersucht', cat: 'privat', imp: 'wichtig', img: 'familie', max: 1, ic: '😣', who: { n: pt.name, role: 'Offene Beziehung', ic: '❤️' },
+      nodes: { start: { say: n + ' hat dich mit ' + fnm(x) + ' gesehen. „Ich dachte, ich komme damit klar. Aber dich so mit ihr zu sehen …“', opts: [
+        O('Den Kontakt zu ' + fnm(x) + ' beenden', function () { MX.candEnd(st, x.id, 'Du hast den Kontakt zu ' + x.name + ' beendet – ' + n + ' zuliebe.'); return end(n + ' drückt deine Hand. „Danke.“', fx(st, { partner: 6 })); }, { def: true }),
+        O('Zur Exklusivität zurückkehren', function () { (lf.cands || []).filter(function (y) { return y.open; }).forEach(function (y) { MX.candEnd(st, y.id); }); lf.open = null; MX.chron(st, '🔒', 'Wieder exklusiv', 'Die offene Beziehung mit ' + pt.name + ' ist vorbei.', 1); return end('Ihr beendet das Experiment. Es fühlt sich richtig an.', fx(st, { partner: 8, stress: -2 })); }),
+        O('„Das war so abgemacht.“', function () { if (pt.v < 40 && hr('jeal' + tick(st), 15) < 0.4) { MX.breakup(st, 'Die offene Beziehung hat euch auseinandergebracht.'); return end('„Dann mach doch mit ihr weiter.“ ' + n + ' geht.', fx(st, { stress: 8 })); } return end(n + ' schluckt. „Stimmt. Ich muss lernen, damit umzugehen.“', fx(st, { partner: -6, stress: 3 })); })
+      ] } } };
   });
   add('life_stage', function (st, c) {
     var lf = st.mx.life, pt = lf.partner; if (!pt) return null; var next = pt.stage + 1, lbl = { 3: 'Zusammenziehen', 4: 'Heiratsantrag', 5: 'Hochzeit' }[next];
@@ -1038,6 +1074,8 @@
     return { cand: cd, spot: spots[hash('sp' + tick(st)) % spots.length], city: (h && (h.city || h.short || h.name)) || 'der Auswärtsstadt' }; });
   // Krisengespräch nur, wenn die Beziehung wirklich leidet und ihr nicht ohnehin gerade geredet oder etwas unternommen habt
   ev('life_partner_talk', 'privat', 16, 1.2, function (st) { var lf = st.mx.life, pt = lf.partner, t = tick(st); if (!pt || pt.v >= 42 || lf.stress < 55 || !MX.cool(st, 'lifeTalk', 6) || t - Math.max(lf.lastDate || -99, lf.pactT || -99) <= 3 || t - (pt.since || 0) < 6) return null; pt.crisis = 1; return { topic: 'crisis' }; });
+  ev('life_open_her', 'privat', 60, 0.25, function (st) { var lf = st.mx.life, pt = lf.partner; return pt && !lf.open && pt.stage >= 2 && pt.v >= 35 && pt.v < 75 && MX.openness(pt) >= 70 && tick(st) - (pt.since || 0) >= 20 ? {} : null; });
+  ev('life_open_jealous', 'privat', 12, 1, function (st) { var lf = st.mx.life, pt = lf.partner; if (!pt || !lf.open || MX.openness(pt) >= 85) return null; var x = (lf.cands || []).filter(function (y) { return y.open && (y.dates || 0) >= 1; })[0]; return x && hr('jl' + tick(st), 16) < 0.5 ? { cid: x.id } : null; });
   ev('life_stage', 'privat', 16, 1.5, function (st) { var pt = st.mx.life.partner; return pt && pt.stage >= 2 && pt.stage < 5 && pt.v >= 72 && tick(st) - (pt.stageT || pt.since) >= 20 ? {} : null; });
 
   // Reaktionen auf konkrete Ereignisse (haben Vorrang vor allgemeinen Ereignissen)
@@ -1234,7 +1272,7 @@
           O('Lieber über etwas anderes reden', function () { return end('Ihr redet über alles außer ' + TM.sport + '. Ein schöner Abend – aber kein Hintergrundgespräch.', fx(st, { partner: 4, stress: -2 })); }, { def: true })
         ] } } };
     }
-    if (c.her == null) { c.her = fem && hr('pbgher' + j.id + tick(st), 1) < 0.3 + (st.manager.reputation || 40) / 400 ? 1 : 0; c.real = hr('pbgreal' + j.id + tick(st), 2) < (/Boulevard|provokant/.test(j.type) ? 0.3 : 0.6) ? 1 : 0; }
+    if (c.her == null) { c.her = fem && MX.cool(st, 'pbgher' + j.id, 26) && hr('pbgher' + j.id + tick(st), 1) < 0.06 + (st.manager.reputation || 40) / 2000 ? 1 : 0; if (c.her) MX.setCool(st, 'pbgher' + j.id); c.real = hr('pbgreal' + j.id + tick(st), 2) < (/Boulevard|provokant/.test(j.type) ? 0.3 : 0.6) ? 1 : 0; }
     function badPress(why) { MX.chron(st, '📰', 'Peinliche Schlagzeile', j.outlet + ': ' + why, 2); return fx(st, { media: -8, board: -4, fans: -2, mrep: -2, jrn: [j.id, -15], stress: 5, partner: pt ? -8 : 0 }); }
     var startOpts = [
       O('Offen über Philosophie und Ziele reden', function () { return end(fnm(j) + ' hört genau zu. „Danke – so versteht man Ihre Arbeit besser.“', fx(st, { jrn: [j.id, 7], media: 2 })); }, { def: true }),
@@ -1297,8 +1335,13 @@
     if ((x.dates || 0) >= 2 && !x.aff) opts.push(O('Fragen, was das zwischen euch ist', function () {
       if (hr('chatq' + x.id + t, 3) < 0.4 + (x.v - 60) / 50 + (x.night ? 0.08 : 0)) { MX.makePartner(st, x); return end(fnm(x) + ' grinst: „Ich dachte schon, du fragst nie.“ ' + (pt ? 'Ab jetzt triffst du dich heimlich mit ' + fnm(x) + '.' : 'Ihr seid jetzt zusammen.'), fx(st, { stress: pt ? 3 : -2 })); }
       x.v = clamp(x.v - 4, 0, 100); return end(fnm(x) + ' zögert: „Ich mag dich – aber lass uns nichts überstürzen.“', []); }));
+    if (x.aff) opts.push(O('Klartext: „Das bleibt eine Affäre – mehr wird es nicht.“', function () { var r = hr('klar' + x.id + t, 17), pOk = clamp(0.45 + (x.night ? 0.1 : 0) - (x.v - 60) / 120, 0.2, 0.7);
+      if (r < pOk) { x.aff = false; x.casual = true; x.stage = 1; MX.chron(st, '🤝', 'Klare Verhältnisse', x.name + ' ist einverstanden: nichts Festes, nur eine lockere Bekanntschaft.', 1); return end(fnm(x) + ' zuckt mit den Schultern. „Kein Problem – ich suche auch nichts Festes.“ Ab jetzt ist es eine lockere Bekanntschaft.', fx(st, { stress: -3 })); }
+      if (r < pOk + 0.25 || !pt) { MX.candEnd(st, x.id, x.name + ' hat die Affäre nach deinem Klartext beendet.'); return end('„Dann war ich also nur Zeitvertreib?“ ' + fnm(x) + ' blockiert deine Nummer.', fx(st, { stress: 2 })); }
+      if (r < pOk + 0.4) { MX.start(st, 'life_aff_caught', { cid: x.id, press: 0 }, { prio: 8 }); return end(fnm(x) + ' antwortet nicht. Zwei Stunden später klingelt dein Handy: ' + fnm(pt) + '. „Eine gewisse ' + fnm(x) + ' hat mir gerade geschrieben …“', fx(st, { stress: 8 })); }
+      MX.chron(st, '📰', 'Affäre in der Zeitung', x.name + ' hat dem Boulevard von eurer Affäre erzählt.', 3); MX.start(st, 'life_aff_caught', { cid: x.id, press: 1 }, { prio: 8 }); return end('„Das wirst du bereuen.“ Am nächsten Morgen steht es in der Zeitung: „Die geheime Geliebte des Trainers packt aus“.', fx(st, { media: -8, board: -4, fans: -3, stress: 10 })); }, { hint: 'Sie kann zustimmen – oder Ärger machen' }));
     opts.push(O('Kontakt einschlafen lassen', function () { MX.candEnd(st, x.id, 'Der Kontakt zu ' + x.name + ' ist eingeschlafen.'); return end('Du antwortest nicht mehr. Irgendwann schreibt ' + fnm(x) + ' auch nicht mehr.', []); }));
-    return { title: 'Nachricht an ' + fnm(x), cat: 'privat', imp: 'normal', img: 'date', max: 1, ic: '💬', who: { n: x.name, role: (x.aff ? 'heimliche Beziehung' : (x.stage || 0) >= 1 ? 'Dating' : 'Nummer getauscht') + ' · ' + x.job, ic: '💬' },
+    return { title: 'Nachricht an ' + fnm(x), cat: 'privat', imp: 'normal', img: 'date', max: 1, ic: '💬', who: { n: x.name, role: (x.aff ? 'heimliche Beziehung' : x.open ? 'offene Beziehung' : x.casual ? 'lockere Bekanntschaft' : (x.stage || 0) >= 1 ? 'Dating' : 'Nummer getauscht') + ' · ' + x.job, ic: '💬' },
       nodes: { start: { say: 'Du öffnest den Chat mit ' + fnm(x) + '. Interesse: ' + Math.round(x.v) + '/100. ' + (x.dates ? 'Ihr hattet schon ' + x.dates + ' Treffen.' : 'Ihr kennt euch erst kurz.'), opts: opts } } };
   });
   // Beziehung selbst beenden (Trennungsgespräch)

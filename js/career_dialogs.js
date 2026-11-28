@@ -12,6 +12,7 @@
   function coachName(c) { return c.c && c.c.coach ? c.c.coach.name || 'Der Trainer' : 'Der Trainer'; }
   function weakest(p) { var k = Object.keys(X.TRAITS).filter(function (x) { return p.attr && p.attr[x] != null; }).sort(function (a, b) { return p.attr[a] - p.attr[b]; }); return k[0] || 'tec'; }
   function strongest(p) { var k = Object.keys(X.TRAITS).filter(function (x) { return p.attr && p.attr[x] != null; }).sort(function (a, b) { return p.attr[b] - p.attr[a]; }); return k[0] || 'tec'; }
+  function c0(st) { return L.life(st).partner; }
   function end(r, e, x) { var o = { r: r, e: e, end: true }; if (x) for (var k in x) o[k] = x[k]; return o; }
   function go(next, r, e, x) { var o = { r: r, e: e, next: next }; if (x) for (var k in x) o[k] = x[k]; return o; }
   function chance(p) { return R.rand() < clamp(p, 0.03, 0.97); }
@@ -394,9 +395,17 @@
           o.push({ l: 'Einen gemeinsamen Urlaub planen (2 Termine, 2.500 €)', fx: function (st) { var r = L.spend(st, 1, 2500); if (!r.ok) return end(r.why); return end('Ihr bucht eine Woche Sonne. Erholung pur.', { partner: 9, stress: -6, well: 6, fit: 4 }); } });
           o.push({ l: 'Ein Geschenk machen (200 €)', fx: function (st) { if (R.pf) R.pf.book(st, -200, 'Freizeit & Privatleben'); return end(fn(p) + ' freut sich über die Aufmerksamkeit.', { partner: 4 }); } });
           o.push({ l: 'Über die gemeinsame Zukunft reden', fx: function (st) { return end(fn(p) + ' wünscht sich ' + (p.time >= 60 ? 'mehr gemeinsame Zeit.' : 'vor allem Verlässlichkeit.'), { partner: 2 }); } });
+          var AF = L.pt && L.pt.AFF;
+          if (AF && !c.life.open) o.push({ l: 'Eine offene Beziehung vorschlagen', hint: 'Heikel – kann gut gehen oder alles beenden', fx: function (st) { return { r: fn(p) + ' sieht dich lange an. „Du meinst … wir dürfen beide auch andere treffen?“', e: {}, next: 'open_ask' }; } });
+          if (AF && c.life.open) o.push({ l: 'Zur Exklusivität zurückkehren', fx: function (st) { AF.openEnd(st); return end(chance(0.75) ? fn(p) + ' atmet auf. „Ehrlich gesagt hab ich darauf gehofft.“' : fn(p) + ' zögert. „Jetzt, wo ich jemanden kennengelernt habe? … Na gut.“', { partner: 6, stress: -2 }); } });
           o.push({ l: 'Die Beziehung beenden', fx: function (st) { L.breakup(st, 'Du hast die Beziehung beendet'); return end('Ein schwerer Abend. Danach ist es still.', { well: -8, stress: 4 }); } });
           return o;
-        } }
+        } },
+      open_ask: { say: function (c) { return '„Erklär mir, wie du dir das vorstellst.“'; },
+        opts: [
+          { l: 'Ehrlich: „Ich liebe dich – aber ich will frei sein.“', fx: function (st) { var a = L.pt.AFF.openAsk(st, 0.05); return end(a.r, a.e); } },
+          { l: 'Vorsichtig: „Lass uns einfach mal darüber reden.“', fx: function (st) { var p = c0(st); if (chance(0.35)) return end(fn(p) + ': „Ich denke darüber nach.“ Das Thema hängt in der Luft.', { partner: -2 }); var a = L.pt.AFF.openAsk(st, 0); return end(a.r, a.e); } },
+          { l: 'Rückzieher: „Vergiss es, war nur so eine Idee.“', fx: function (st) { var p = c0(st); return end(fn(p) + ' mustert dich misstrauisch. „Nur so eine Idee … aha.“', { partner: -3 }); } }] }
     }
   }]);
 
